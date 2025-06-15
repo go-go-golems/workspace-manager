@@ -1,0 +1,47 @@
+on:
+  workflow_dispatch:
+
+  push:
+    # run only against tags
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+  # packages: write
+  # issues: write
+
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git fetch --force --tags
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '>=1.19.5'
+          cache: true
+
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GO_GO_GOLEMS_SIGN_KEY }}
+          passphrase: ${{ secrets.GO_GO_GOLEMS_SIGN_PASSPHRASE }}
+          fingerprint: "6EBE1DF0BDF48A1BBA381B5B79983EF218C6ED7E"
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COSIGN_PWD: ${{ secrets.COSIGN_PWD }}
+          TAP_GITHUB_TOKEN: ${{ secrets.RELEASE_ACTION_PAT }}
+          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+          FURY_TOKEN: ${{ secrets.FURY_TOKEN }}
