@@ -1,9 +1,9 @@
 package cmds
 
 import (
-	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"context"
 	"fmt"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"os"
 	"path/filepath"
 	"strings"

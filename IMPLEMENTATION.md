@@ -25,8 +25,8 @@ The Workspace Manager is a command-line tool designed to manage multi-repository
 - **Workspace Creation**: Creates workspaces with synchronized branches across multiple repositories
 - **Git Worktree Management**: Uses git worktrees to avoid repository cloning overhead
 - **Go Workspace Integration**: Automatically creates `go.work` files for Go projects
-- **Status Tracking**: Monitors git status across all repositories in a workspace
-- **Interactive TUI**: Provides a terminal-based user interface for easier management
+- **Status Tracking**: Monitors git status across all repositories in a workspace (logic in `pkg/wsm/status.go`)
+- **Interactive TUI**: Provides a terminal-based user interface for easier management (located in `cmd/cmds/tui.go`)
 
 ## Architecture
 
@@ -34,15 +34,24 @@ The workspace manager follows a modular architecture with clear separation of co
 
 ```
 workspace-manager/
-├── main.go                 # Entry point
-├── cmd/                    # Command implementations
-│   ├── root.go            # Root command and CLI setup
-│   ├── cmd_*.go           # Individual command implementations
-│   ├── types.go           # Data structures and types
-│   ├── workspace.go       # Core workspace management logic
-│   ├── discovery.go       # Repository discovery logic
-│   ├── git_operations.go  # Git operation utilities
-│   └── tui.go            # Terminal UI implementation
+├── cmd/
+│   ├── workspace-manager/
+│   │   └── main.go           # Entry point
+│   ├── cmds/                 # Command implementations
+│   │   ├── cmd_*.go          # Individual command implementations
+│   │   ├── tui.go           # Terminal UI implementation
+│   │   └── tui_models.go    # TUI models
+│   └── root.go              # Root command and CLI setup
+├── pkg/
+│   └── wsm/                 # Core workspace management package
+│       ├── types.go         # Data structures and types
+│       ├── workspace.go     # Core workspace management logic
+│       ├── discovery.go     # Repository discovery logic
+│       ├── status.go        # Status checking operations
+│       ├── git_operations.go # Git operation utilities
+│       ├── git_utils.go     # Additional git utilities
+│       ├── sync_operations.go # Synchronization operations
+│       └── utils.go         # General utilities
 ```
 
 ### Design Principles
@@ -52,8 +61,23 @@ workspace-manager/
 3. **Error Propagation**: Errors are wrapped with context for better debugging
 4. **Logging**: Structured logging using zerolog for observability
 5. **CLI Conventions**: Uses Cobra for consistent command-line interface
+6. **Package Separation**: Clear separation between CLI commands (`cmd/`) and business logic (`pkg/wsm/`)
+
+### Architecture Benefits
+
+The reorganized structure provides several advantages:
+- **Reusability**: Core workspace management logic in `pkg/wsm/` can be imported by other tools
+- **Testing**: Business logic can be unit tested independently from CLI commands
+- **Maintainability**: Clear boundaries between user interface and core functionality
+- **Go Conventions**: Follows standard Go project layout with `cmd/` for binaries and `pkg/` for libraries
 
 ## Core Components
+
+All core workspace management functionality is now organized in the `pkg/wsm` package, providing clean separation between command-line interface (in `cmd/`) and business logic. Commands import the workspace manager functionality using:
+
+```go
+import "github.com/go-go-golems/workspace-manager/pkg/wsm"
+```
 
 ### WorkspaceManager
 
@@ -163,7 +187,7 @@ All commands follow a consistent pattern using Cobra:
 
 ### Example Command Implementation
 
-Here's the structure of the `add` command in [`cmd_add.go`](file:///home/manuel/workspaces/2025-06-15/add-remove-repo/go-go-labs/cmd/apps/workspace-manager/cmd/cmd_add.go):
+Here's the structure of the `add` command in [`cmd_add.go`](file:///home/manuel/code/wesen/corporate-headquarters/workspace-manager/cmd/cmds/cmd_add.go):
 
 ```go
 func NewAddCommand() *cobra.Command {
@@ -179,7 +203,7 @@ func NewAddCommand() *cobra.Command {
             workspaceName := args[0]
             repoName := args[1]
 
-            wm, err := NewWorkspaceManager()
+            wm, err := wsm.NewWorkspaceManager()
             if err != nil {
                 return errors.Wrap(err, "failed to create workspace manager")
             }
@@ -197,7 +221,7 @@ func NewAddCommand() *cobra.Command {
 
 ### Remove Command Implementation
 
-The newly implemented `remove` command in [`cmd_remove.go`](file:///home/manuel/workspaces/2025-06-15/add-remove-repo/go-go-labs/cmd/apps/workspace-manager/cmd/cmd_remove.go) follows the same pattern:
+The newly implemented `remove` command in [`cmd_remove.go`](file:///home/manuel/code/wesen/corporate-headquarters/workspace-manager/cmd/cmds/cmd_remove.go) follows the same pattern:
 
 ```go
 func (wm *WorkspaceManager) RemoveRepositoryFromWorkspace(ctx context.Context, workspaceName, repoName string, force, removeFiles bool) error {
@@ -247,7 +271,7 @@ Git worktrees are the core technology enabling efficient multi-repository workfl
 
 #### Creating Worktrees
 
-The `createWorktree()` function in [`workspace.go`](file:///home/manuel/workspaces/2025-06-15/add-remove-repo/go-go-labs/cmd/apps/workspace-manager/cmd/workspace.go#L199-L268) handles various scenarios:
+The `createWorktree()` function in [`workspace.go`](file:///home/manuel/code/wesen/corporate-headquarters/workspace-manager/pkg/wsm/workspace.go) handles various scenarios:
 
 1. **No Branch Specified**: Creates worktree from current branch
 2. **Branch Exists Locally**: Prompts user to overwrite or use existing
@@ -360,7 +384,7 @@ Configuration files are stored in standard locations:
 
 ### Configuration Loading
 
-The `loadConfig()` function in [`workspace.go`](file:///home/manuel/workspaces/2025-06-15/add-remove-repo/go-go-labs/cmd/apps/workspace-manager/cmd/workspace.go#L401-L420) establishes default configuration:
+The `loadConfig()` function in [`workspace.go`](file:///home/manuel/code/wesen/corporate-headquarters/workspace-manager/pkg/wsm/workspace.go) establishes default configuration:
 
 ```go
 func loadConfig() (*WorkspaceConfig, error) {
@@ -427,7 +451,7 @@ When operations fail, the workspace manager implements rollback mechanisms:
 
 #### Worktree Rollback
 
-The `rollbackWorktrees()` function in [`workspace.go`](file:///home/manuel/workspaces/2025-06-15/add-remove-repo/go-go-labs/cmd/apps/workspace-manager/cmd/workspace.go#L720-L769) cleans up partially created workspaces:
+The `rollbackWorktrees()` function in [`workspace.go`](file:///home/manuel/code/wesen/corporate-headquarters/workspace-manager/pkg/wsm/workspace.go) cleans up partially created workspaces:
 
 ```go
 func (wm *WorkspaceManager) rollbackWorktrees(ctx context.Context, worktrees []WorktreeInfo) {
@@ -464,17 +488,17 @@ log.Info().
 
 1. **Clone Repository**: `git clone <repository-url>`
 2. **Install Dependencies**: `go mod download`
-3. **Build Tool**: `go build ./cmd/apps/workspace-manager`
+3. **Build Tool**: `go build ./cmd/workspace-manager`
 4. **Run Tests**: `go test ./...`
 
 ### Adding New Commands
 
 To add a new command:
 
-1. **Create Command File**: `cmd/cmd_<name>.go`
+1. **Create Command File**: `cmd/cmds/cmd_<name>.go`
 2. **Implement Command Function**: `func New<Name>Command() *cobra.Command`
-3. **Add to Root Command**: Add to `rootCmd.AddCommand()` in `root.go`
-4. **Implement Business Logic**: Add methods to `WorkspaceManager` if needed
+3. **Add to Root Command**: Add to `rootCmd.AddCommand()` in `cmd/root.go`
+4. **Implement Business Logic**: Add methods to `WorkspaceManager` in `pkg/wsm/` if needed
 
 ### Testing Strategy
 
@@ -482,7 +506,7 @@ The codebase uses Go's built-in testing framework:
 
 ```go
 func TestWorkspaceCreation(t *testing.T) {
-    wm, err := NewWorkspaceManager()
+    wm, err := wsm.NewWorkspaceManager()
     require.NoError(t, err)
     
     workspace, err := wm.CreateWorkspace(context.Background(), "test-workspace", []string{"repo1"}, "main", "", true)

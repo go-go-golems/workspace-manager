@@ -2,8 +2,8 @@ package cmds
 
 import (
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
-	"github.com/spf13/cobra"
 	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 )
 
 // NewRemoveCommand creates the remove command

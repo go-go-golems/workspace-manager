@@ -913,7 +913,7 @@ func (wm *WorkspaceManager) AddRepositoryToWorkspace(ctx context.Context, worksp
 	return nil
 }
 
-// CreateWorktreeForAdd creates a worktree for adding a repository to an existing workspace  
+// CreateWorktreeForAdd creates a worktree for adding a repository to an existing workspace
 func (wm *WorkspaceManager) CreateWorktreeForAdd(ctx context.Context, workspace *Workspace, repo Repository, branch string, forceOverwrite bool) error {
 	targetPath := filepath.Join(workspace.Path, repo.Name)
 

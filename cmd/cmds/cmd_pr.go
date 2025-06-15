@@ -1,10 +1,10 @@
 package cmds
 
 import (
-	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"os"
 	"os/exec"
 	"path/filepath"

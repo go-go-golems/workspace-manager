@@ -1,9 +1,9 @@
 package cmds
 
 import (
-	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"context"
 	"fmt"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"

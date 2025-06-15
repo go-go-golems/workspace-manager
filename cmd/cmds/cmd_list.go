@@ -1,8 +1,8 @@
 package cmds
 
 import (
-	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"fmt"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"os"
 	"sort"
 	"strings"
