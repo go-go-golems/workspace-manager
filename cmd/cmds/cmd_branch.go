@@ -1,6 +1,7 @@
-package cmd
+package cmds
 
 import (
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"context"
 	"fmt"
 	"os"
@@ -78,7 +79,7 @@ func runBranchCreate(ctx context.Context, branchName string, track bool) error {
 		return errors.Wrap(err, "failed to detect current workspace")
 	}
 
-	syncOps := NewSyncOperations(workspace)
+	syncOps := wsm.NewSyncOperations(workspace)
 
 	fmt.Printf("🌿 Creating branch '%s' across workspace: %s\n", branchName, workspace.Name)
 
@@ -96,7 +97,7 @@ func runBranchSwitch(ctx context.Context, branchName string) error {
 		return errors.Wrap(err, "failed to detect current workspace")
 	}
 
-	syncOps := NewSyncOperations(workspace)
+	syncOps := wsm.NewSyncOperations(workspace)
 
 	fmt.Printf("🔄 Switching to branch '%s' across workspace: %s\n", branchName, workspace.Name)
 
@@ -122,12 +123,12 @@ func runBranchList(ctx context.Context) error {
 	fmt.Fprintln(w, "\nREPOSITORY\tCURRENT BRANCH\tSTATUS")
 	fmt.Fprintln(w, "----------\t--------------\t------")
 
-	checker := NewStatusChecker()
+	checker := wsm.NewStatusChecker()
 	for _, repo := range workspace.Repositories {
 		// Get current workspace status for this repo
-		status, err := checker.GetWorkspaceStatus(ctx, &Workspace{
+		status, err := checker.GetWorkspaceStatus(ctx, &wsm.Workspace{
 			Path:         workspace.Path,
-			Repositories: []Repository{repo},
+			Repositories: []wsm.Repository{repo},
 		})
 		if err != nil {
 			fmt.Fprintf(w, "%s\t%s\t%s\n", repo.Name, "unknown", "❌")
@@ -156,7 +157,7 @@ func runBranchList(ctx context.Context) error {
 	return nil
 }
 
-func printBranchResults(results []SyncResult, operation string) error {
+func printBranchResults(results []wsm.SyncResult, operation string) error {
 	if len(results) == 0 {
 		fmt.Println("No repositories found.")
 		return nil

@@ -1,6 +1,7 @@
-package cmd
+package cmds
 
 import (
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"context"
 	"fmt"
 
@@ -36,7 +37,7 @@ func runDiff(ctx context.Context, staged bool, repoFilter string) error {
 		return errors.Wrap(err, "failed to detect current workspace")
 	}
 
-	gitOps := NewGitOperations(workspace)
+	gitOps := wsm.NewGitOperations(workspace)
 
 	fmt.Printf("📄 Showing diff for workspace: %s\n", workspace.Name)
 	if staged {
@@ -91,7 +92,7 @@ func runLog(ctx context.Context, since string, oneline bool, limit int) error {
 		return errors.Wrap(err, "failed to detect current workspace")
 	}
 
-	syncOps := NewSyncOperations(workspace)
+	syncOps := wsm.NewSyncOperations(workspace)
 
 	fmt.Printf("📜 Commit history for workspace: %s\n", workspace.Name)
 	if since != "" {

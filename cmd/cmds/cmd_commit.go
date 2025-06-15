@@ -1,6 +1,7 @@
-package cmd
+package cmds
 
 import (
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"context"
 	"fmt"
 	"os"
@@ -48,7 +49,7 @@ func runCommit(ctx context.Context, message string, interactive, addAll, push, d
 	}
 
 	// Initialize git operations
-	gitOps := NewGitOperations(workspace)
+	gitOps := wsm.NewGitOperations(workspace)
 
 	// Get all changes in workspace
 	allChanges, err := gitOps.GetWorkspaceChanges(ctx)
@@ -71,7 +72,7 @@ func runCommit(ctx context.Context, message string, interactive, addAll, push, d
 	}
 
 	// Handle interactive mode
-	var selectedChanges map[string][]FileChange
+	var selectedChanges map[string][]wsm.FileChange
 	if interactive {
 		selectedChanges, message, err = selectChangesInteractively(allChanges, message)
 		if err != nil {
@@ -87,7 +88,7 @@ func runCommit(ctx context.Context, message string, interactive, addAll, push, d
 	}
 
 	// Create commit operation
-	operation := &CommitOperation{
+	operation := &wsm.CommitOperation{
 		Message: message,
 		Files:   selectedChanges,
 		DryRun:  dryRun,
@@ -111,14 +112,14 @@ func runCommit(ctx context.Context, message string, interactive, addAll, push, d
 }
 
 // detectCurrentWorkspace detects the current workspace
-func detectCurrentWorkspace() (*Workspace, error) {
+func detectCurrentWorkspace() (*wsm.Workspace, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get current directory")
 	}
 
 	// Try to find workspace by checking if we're in a workspace directory
-	workspaces, err := loadWorkspaces()
+	workspaces, err := wsm.LoadWorkspaces()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load workspaces")
 	}
@@ -133,7 +134,7 @@ func detectCurrentWorkspace() (*Workspace, error) {
 }
 
 // selectChangesInteractively allows user to select files interactively
-func selectChangesInteractively(allChanges map[string][]FileChange, initialMessage string) (map[string][]FileChange, string, error) {
+func selectChangesInteractively(allChanges map[string][]wsm.FileChange, initialMessage string) (map[string][]wsm.FileChange, string, error) {
 	fmt.Println("=== Interactive Commit ===")
 	fmt.Println()
 
@@ -147,7 +148,7 @@ func selectChangesInteractively(allChanges map[string][]FileChange, initialMessa
 		fmt.Printf("\n%d. Repository: %s (%d files)\n", repoIndex+1, repoName, len(changes))
 
 		for i, change := range changes {
-			status := getStatusSymbol(change.Status)
+			status := wsm.GetStatusSymbol(change.Status)
 			staged := ""
 			if change.Staged {
 				staged = " (staged)"

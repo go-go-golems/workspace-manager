@@ -1,6 +1,7 @@
-package cmd
+package cmds
 
 import (
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"context"
 	"fmt"
 	"os"
@@ -64,7 +65,7 @@ func runStatus(ctx context.Context, workspaceName string, short, untracked bool)
 	}
 
 	// Get status
-	checker := NewStatusChecker()
+	checker := wsm.NewStatusChecker()
 	status, err := checker.GetWorkspaceStatus(ctx, workspace)
 	if err != nil {
 		return errors.Wrap(err, "failed to get workspace status")
@@ -82,7 +83,7 @@ func detectWorkspace(cwd string) (string, error) {
 	log.Debug().Str("cwd", cwd).Msg("Starting workspace detection")
 
 	// First, try to find a workspace that contains this directory
-	workspaces, err := loadWorkspaces()
+	workspaces, err := wsm.LoadWorkspaces()
 	if err != nil {
 		log.Debug().Err(err).Msg("Failed to load workspaces")
 		return "", errors.Wrap(err, "failed to load workspaces")
@@ -194,8 +195,8 @@ func detectWorkspace(cwd string) (string, error) {
 	return "", errors.New("not in a workspace directory")
 }
 
-func loadWorkspace(name string) (*Workspace, error) {
-	workspaces, err := loadWorkspaces()
+func loadWorkspace(name string) (*wsm.Workspace, error) {
+	workspaces, err := wsm.LoadWorkspaces()
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +210,7 @@ func loadWorkspace(name string) (*Workspace, error) {
 	return nil, errors.Errorf("workspace not found: %s", name)
 }
 
-func printStatusShort(status *WorkspaceStatus, includeUntracked bool) error {
+func printStatusShort(status *wsm.WorkspaceStatus, includeUntracked bool) error {
 	fmt.Printf("Workspace: %s (%s)\n", status.Workspace.Name, status.Overall)
 
 	for _, repoStatus := range status.Repositories {
@@ -245,7 +246,7 @@ func printStatusShort(status *WorkspaceStatus, includeUntracked bool) error {
 	return nil
 }
 
-func printStatusDetailed(status *WorkspaceStatus, includeUntracked bool) error {
+func printStatusDetailed(status *wsm.WorkspaceStatus, includeUntracked bool) error {
 	fmt.Printf("Workspace: %s\n", status.Workspace.Name)
 	fmt.Printf("Path: %s\n", status.Workspace.Path)
 	fmt.Printf("Overall Status: %s\n\n", status.Overall)
@@ -306,7 +307,7 @@ func printStatusDetailed(status *WorkspaceStatus, includeUntracked bool) error {
 	return nil
 }
 
-func getRepositoryStatusSymbol(status RepositoryStatus) string {
+func getRepositoryStatusSymbol(status wsm.RepositoryStatus) string {
 	if status.HasConflicts {
 		return "⚠️ "
 	}
@@ -319,7 +320,7 @@ func getRepositoryStatusSymbol(status RepositoryStatus) string {
 	return "✅"
 }
 
-func getStatusString(status RepositoryStatus) string {
+func getStatusString(status wsm.RepositoryStatus) string {
 	if status.HasConflicts {
 		return "conflict"
 	}
@@ -329,7 +330,7 @@ func getStatusString(status RepositoryStatus) string {
 	return "clean"
 }
 
-func getChangesString(status RepositoryStatus, includeUntracked bool) string {
+func getChangesString(status wsm.RepositoryStatus, includeUntracked bool) string {
 	parts := []string{}
 
 	if len(status.StagedFiles) > 0 {
@@ -349,21 +350,21 @@ func getChangesString(status RepositoryStatus, includeUntracked bool) string {
 	return strings.Join(parts, " ")
 }
 
-func getSyncString(status RepositoryStatus) string {
+func getSyncString(status wsm.RepositoryStatus) string {
 	if status.Ahead == 0 && status.Behind == 0 {
 		return "✓"
 	}
 	return fmt.Sprintf("↑%d ↓%d", status.Ahead, status.Behind)
 }
 
-func getMergedString(status RepositoryStatus) string {
+func getMergedString(status wsm.RepositoryStatus) string {
 	if status.IsMerged {
 		return "✓"
 	}
 	return "-"
 }
 
-func getRebaseString(status RepositoryStatus) string {
+func getRebaseString(status wsm.RepositoryStatus) string {
 	if status.NeedsRebase {
 		return "⚠️"
 	}

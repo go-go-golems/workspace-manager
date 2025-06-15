@@ -1,6 +1,7 @@
-package cmd
+package cmds
 
 import (
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"context"
 	"fmt"
 	"strings"
@@ -54,7 +55,7 @@ Examples:
 }
 
 func runCreate(ctx context.Context, name string, repos []string, branch, branchPrefix, agentSource string, interactive, dryRun bool) error {
-	wm, err := NewWorkspaceManager()
+	wm, err := wsm.NewWorkspaceManager()
 	if err != nil {
 		return errors.Wrap(err, "failed to create workspace manager")
 	}
@@ -110,8 +111,8 @@ func runCreate(ctx context.Context, name string, repos []string, branch, branchP
 	return nil
 }
 
-func selectRepositoriesInteractively(wm *WorkspaceManager) ([]string, error) {
-	repos := wm.discoverer.GetRepositories()
+func selectRepositoriesInteractively(wm *wsm.WorkspaceManager) ([]string, error) {
+	repos := wm.Discoverer.GetRepositories()
 
 	if len(repos) == 0 {
 		return nil, errors.New("no repositories found. Run 'workspace-manager discover' first")
@@ -164,7 +165,7 @@ func selectRepositoriesInteractively(wm *WorkspaceManager) ([]string, error) {
 	return selected, nil
 }
 
-func showWorkspacePreview(workspace *Workspace) error {
+func showWorkspacePreview(workspace *wsm.Workspace) error {
 	fmt.Printf("📋 Workspace Preview: %s\n\n", workspace.Name)
 
 	fmt.Printf("Actions to be performed:\n")
@@ -195,7 +196,7 @@ func showWorkspacePreview(workspace *Workspace) error {
 	return nil
 }
 
-func getRepositoryNames(repos []Repository) []string {
+func getRepositoryNames(repos []wsm.Repository) []string {
 	names := make([]string, len(repos))
 	for i, repo := range repos {
 		names[i] = repo.Name

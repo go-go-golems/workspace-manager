@@ -1,4 +1,4 @@
-package cmd
+package wsm
 
 import (
 	"context"
@@ -17,8 +17,16 @@ import (
 // WorkspaceManager handles workspace creation and management
 type WorkspaceManager struct {
 	config       *WorkspaceConfig
-	discoverer   *RepositoryDiscoverer
+	Discoverer   *RepositoryDiscoverer
 	workspaceDir string
+}
+
+func getRegistryPath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(configDir, "workspace-manager", "registry.json"), nil
 }
 
 // NewWorkspaceManager creates a new workspace manager
@@ -40,7 +48,7 @@ func NewWorkspaceManager() (*WorkspaceManager, error) {
 
 	return &WorkspaceManager{
 		config:       config,
-		discoverer:   discoverer,
+		Discoverer:   discoverer,
 		workspaceDir: config.WorkspaceDir,
 	}, nil
 }
@@ -53,7 +61,7 @@ func (wm *WorkspaceManager) CreateWorkspace(ctx context.Context, name string, re
 	}
 
 	// Find repositories
-	repos, err := wm.findRepositories(repoNames)
+	repos, err := wm.FindRepositories(repoNames)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find repositories")
 	}
@@ -81,7 +89,7 @@ func (wm *WorkspaceManager) CreateWorkspace(ctx context.Context, name string, re
 	}
 
 	// Save workspace configuration
-	if err := wm.saveWorkspace(workspace); err != nil {
+	if err := wm.SaveWorkspace(workspace); err != nil {
 		return nil, errors.Wrap(err, "failed to save workspace configuration")
 	}
 
@@ -89,8 +97,8 @@ func (wm *WorkspaceManager) CreateWorkspace(ctx context.Context, name string, re
 }
 
 // findRepositories finds repositories by name
-func (wm *WorkspaceManager) findRepositories(repoNames []string) ([]Repository, error) {
-	allRepos := wm.discoverer.GetRepositories()
+func (wm *WorkspaceManager) FindRepositories(repoNames []string) ([]Repository, error) {
+	allRepos := wm.Discoverer.GetRepositories()
 	repoMap := make(map[string]Repository)
 
 	for _, repo := range allRepos {
@@ -170,7 +178,7 @@ func (wm *WorkspaceManager) createWorkspaceStructure(ctx context.Context, worksp
 
 	// Create go.work file if needed
 	if workspace.GoWorkspace {
-		if err := wm.createGoWorkspace(workspace); err != nil {
+		if err := wm.CreateGoWorkspace(workspace); err != nil {
 			log.Error().Err(err).Msg("Failed to create go.work file, rolling back worktrees")
 			wm.rollbackWorktrees(ctx, createdWorktrees)
 			wm.cleanupWorkspaceDirectory(workspace.Path)
@@ -208,17 +216,17 @@ func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Works
 
 	if workspace.Branch == "" {
 		// No specific branch, create worktree from current branch
-		return wm.executeWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", targetPath)
+		return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", targetPath)
 	}
 
 	// Check if branch exists locally
-	branchExists, err := wm.checkBranchExists(ctx, repo.Path, workspace.Branch)
+	branchExists, err := wm.CheckBranchExists(ctx, repo.Path, workspace.Branch)
 	if err != nil {
 		return errors.Wrapf(err, "failed to check if branch %s exists", workspace.Branch)
 	}
 
 	// Check if branch exists remotely
-	remoteBranchExists, err := wm.checkRemoteBranchExists(ctx, repo.Path, workspace.Branch)
+	remoteBranchExists, err := wm.CheckRemoteBranchExists(ctx, repo.Path, workspace.Branch)
 	if err != nil {
 		log.Warn().Err(err).Str("branch", workspace.Branch).Msg("Could not check remote branch existence")
 	}
@@ -237,19 +245,19 @@ func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Works
 		fmt.Printf("Choice [o/u/c]: ")
 
 		var choice string
-		fmt.Scanln(&choice)
+		_, _ = fmt.Scanln(&choice)
 
 		switch strings.ToLower(choice) {
 		case "o", "overwrite":
 			fmt.Printf("Overwriting branch '%s'...\n", workspace.Branch)
 			if remoteBranchExists {
-				return wm.executeWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", workspace.Branch, targetPath, "origin/"+workspace.Branch)
+				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", workspace.Branch, targetPath, "origin/"+workspace.Branch)
 			} else {
-				return wm.executeWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", workspace.Branch, targetPath)
+				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", workspace.Branch, targetPath)
 			}
 		case "u", "use":
 			fmt.Printf("Using existing branch '%s'...\n", workspace.Branch)
-			return wm.executeWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", targetPath, workspace.Branch)
+			return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", targetPath, workspace.Branch)
 		case "c", "cancel":
 			return errors.New("workspace creation cancelled by user")
 		default:
@@ -259,16 +267,16 @@ func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Works
 		// Branch doesn't exist locally
 		if remoteBranchExists {
 			fmt.Printf("Creating worktree from remote branch origin/%s...\n", workspace.Branch)
-			return wm.executeWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", workspace.Branch, targetPath, "origin/"+workspace.Branch)
+			return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", workspace.Branch, targetPath, "origin/"+workspace.Branch)
 		} else {
 			fmt.Printf("Creating new branch '%s' and worktree...\n", workspace.Branch)
-			return wm.executeWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", workspace.Branch, targetPath)
+			return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", workspace.Branch, targetPath)
 		}
 	}
 }
 
 // checkBranchExists checks if a local branch exists
-func (wm *WorkspaceManager) checkBranchExists(ctx context.Context, repoPath, branch string) (bool, error) {
+func (wm *WorkspaceManager) CheckBranchExists(ctx context.Context, repoPath, branch string) (bool, error) {
 	cmd := exec.CommandContext(ctx, "git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
 	cmd.Dir = repoPath
 	err := cmd.Run()
@@ -276,7 +284,7 @@ func (wm *WorkspaceManager) checkBranchExists(ctx context.Context, repoPath, bra
 }
 
 // checkRemoteBranchExists checks if a remote branch exists
-func (wm *WorkspaceManager) checkRemoteBranchExists(ctx context.Context, repoPath, branch string) (bool, error) {
+func (wm *WorkspaceManager) CheckRemoteBranchExists(ctx context.Context, repoPath, branch string) (bool, error) {
 	cmd := exec.CommandContext(ctx, "git", "show-ref", "--verify", "--quiet", "refs/remotes/origin/"+branch)
 	cmd.Dir = repoPath
 	err := cmd.Run()
@@ -284,7 +292,7 @@ func (wm *WorkspaceManager) checkRemoteBranchExists(ctx context.Context, repoPat
 }
 
 // executeWorktreeCommand executes a git worktree command with proper logging and error handling
-func (wm *WorkspaceManager) executeWorktreeCommand(ctx context.Context, repoPath string, args ...string) error {
+func (wm *WorkspaceManager) ExecuteWorktreeCommand(ctx context.Context, repoPath string, args ...string) error {
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Dir = repoPath
 
@@ -325,7 +333,7 @@ func (wm *WorkspaceManager) executeWorktreeCommand(ctx context.Context, repoPath
 }
 
 // createGoWorkspace creates a go.work file
-func (wm *WorkspaceManager) createGoWorkspace(workspace *Workspace) error {
+func (wm *WorkspaceManager) CreateGoWorkspace(workspace *Workspace) error {
 	goWorkPath := filepath.Join(workspace.Path, "go.work")
 
 	log.Info().Str("path", goWorkPath).Msg("Creating go.work file")
@@ -378,7 +386,7 @@ func (wm *WorkspaceManager) copyAgentMD(workspace *Workspace) error {
 }
 
 // saveWorkspace saves workspace configuration
-func (wm *WorkspaceManager) saveWorkspace(workspace *Workspace) error {
+func (wm *WorkspaceManager) SaveWorkspace(workspace *Workspace) error {
 	workspacesDir := filepath.Join(filepath.Dir(wm.config.RegistryPath), "workspaces")
 	if err := os.MkdirAll(workspacesDir, 0755); err != nil {
 		return errors.Wrap(err, "failed to create workspaces directory")
@@ -419,8 +427,8 @@ func loadConfig() (*WorkspaceConfig, error) {
 	return config, nil
 }
 
-// loadWorkspaces loads all workspace configurations
-func loadWorkspaces() ([]Workspace, error) {
+// LoadWorkspaces loads all workspace configurations
+func LoadWorkspaces() ([]Workspace, error) {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		return nil, err
@@ -829,4 +837,329 @@ func (wm *WorkspaceManager) cleanupWorkspaceDirectory(workspacePath string) {
 			}
 		}
 	}
+}
+
+// AddRepositoryToWorkspace adds a repository to an existing workspace
+func (wm *WorkspaceManager) AddRepositoryToWorkspace(ctx context.Context, workspaceName, repoName, branchName string, forceOverwrite bool) error {
+	log.Info().
+		Str("workspace", workspaceName).
+		Str("repo", repoName).
+		Str("branch", branchName).
+		Bool("force", forceOverwrite).
+		Msg("Adding repository to workspace")
+
+	// Load existing workspace
+	workspace, err := wm.LoadWorkspace(workspaceName)
+	if err != nil {
+		return errors.Wrapf(err, "failed to load workspace '%s'", workspaceName)
+	}
+
+	// Check if repository is already in workspace
+	for _, repo := range workspace.Repositories {
+		if repo.Name == repoName {
+			return errors.Errorf("repository '%s' is already in workspace '%s'", repoName, workspaceName)
+		}
+	}
+
+	// Find the repository in the registry
+	repos, err := wm.FindRepositories([]string{repoName})
+	if err != nil {
+		return errors.Wrapf(err, "failed to find repository '%s'", repoName)
+	}
+
+	if len(repos) == 0 {
+		return errors.Errorf("repository '%s' not found in registry", repoName)
+	}
+
+	repo := repos[0]
+
+	// Use the workspace's branch if no specific branch provided
+	targetBranch := branchName
+	if targetBranch == "" {
+		targetBranch = workspace.Branch
+	}
+
+	// Create a temporary workspace with the new repository for worktree creation
+	tempWorkspace := *workspace
+	tempWorkspace.Branch = targetBranch
+	tempWorkspace.Repositories = []Repository{repo}
+
+	fmt.Printf("Adding repository '%s' to workspace '%s'\n", repoName, workspaceName)
+	fmt.Printf("Target branch: %s\n", targetBranch)
+	fmt.Printf("Workspace path: %s\n", workspace.Path)
+
+	// Create worktree for the new repository
+	if err := wm.CreateWorktreeForAdd(ctx, workspace, repo, targetBranch, forceOverwrite); err != nil {
+		return errors.Wrapf(err, "failed to create worktree for repository '%s'", repoName)
+	}
+
+	// Add repository to workspace configuration
+	workspace.Repositories = append(workspace.Repositories, repo)
+
+	// Update go.work file if this is a Go workspace and the new repo has go.mod
+	if workspace.GoWorkspace {
+		if err := wm.CreateGoWorkspace(workspace); err != nil {
+			log.Warn().Err(err).Msg("Failed to update go.work file, but continuing")
+			fmt.Printf("⚠️  Warning: Failed to update go.work file: %v\n", err)
+		}
+	}
+
+	// Save updated workspace configuration
+	if err := wm.SaveWorkspace(workspace); err != nil {
+		return errors.Wrap(err, "failed to save updated workspace configuration")
+	}
+
+	fmt.Printf("✓ Successfully added repository '%s' to workspace '%s'\n", repoName, workspaceName)
+	return nil
+}
+
+// CreateWorktreeForAdd creates a worktree for adding a repository to an existing workspace  
+func (wm *WorkspaceManager) CreateWorktreeForAdd(ctx context.Context, workspace *Workspace, repo Repository, branch string, forceOverwrite bool) error {
+	targetPath := filepath.Join(workspace.Path, repo.Name)
+
+	log.Info().
+		Str("repo", repo.Name).
+		Str("branch", branch).
+		Str("target", targetPath).
+		Bool("force", forceOverwrite).
+		Msg("Creating worktree for add operation")
+
+	// Check if target path already exists
+	if _, err := os.Stat(targetPath); err == nil {
+		return errors.Errorf("target path '%s' already exists", targetPath)
+	}
+
+	if branch == "" {
+		// No specific branch, create worktree from current branch
+		return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", targetPath)
+	}
+
+	// Check if branch exists locally
+	branchExists, err := wm.CheckBranchExists(ctx, repo.Path, branch)
+	if err != nil {
+		return errors.Wrapf(err, "failed to check if branch %s exists", branch)
+	}
+
+	// Check if branch exists remotely
+	remoteBranchExists, err := wm.CheckRemoteBranchExists(ctx, repo.Path, branch)
+	if err != nil {
+		log.Warn().Err(err).Str("branch", branch).Msg("Could not check remote branch existence")
+	}
+
+	fmt.Printf("\nBranch status for %s:\n", repo.Name)
+	fmt.Printf("  Local branch '%s' exists: %v\n", branch, branchExists)
+	fmt.Printf("  Remote branch 'origin/%s' exists: %v\n", branch, remoteBranchExists)
+
+	if branchExists {
+		if forceOverwrite {
+			fmt.Printf("Force overwriting branch '%s'...\n", branch)
+			if remoteBranchExists {
+				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", branch, targetPath, "origin/"+branch)
+			} else {
+				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", branch, targetPath)
+			}
+		} else {
+			// Branch exists locally - ask user what to do unless force is specified
+			fmt.Printf("\n⚠️  Branch '%s' already exists in repository '%s'\n", branch, repo.Name)
+			fmt.Printf("What would you like to do?\n")
+			fmt.Printf("  [o] Overwrite the existing branch (git worktree add -B)\n")
+			fmt.Printf("  [u] Use the existing branch as-is (git worktree add)\n")
+			fmt.Printf("  [c] Cancel operation\n")
+			fmt.Printf("Choice [o/u/c]: ")
+
+			var choice string
+			fmt.Scanln(&choice)
+
+			switch strings.ToLower(choice) {
+			case "o", "overwrite":
+				fmt.Printf("Overwriting branch '%s'...\n", branch)
+				if remoteBranchExists {
+					return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", branch, targetPath, "origin/"+branch)
+				} else {
+					return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", branch, targetPath)
+				}
+			case "u", "use":
+				fmt.Printf("Using existing branch '%s'...\n", branch)
+				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", targetPath, branch)
+			case "c", "cancel":
+				return errors.New("operation cancelled by user")
+			default:
+				return errors.New("invalid choice, operation cancelled")
+			}
+		}
+	} else {
+		// Branch doesn't exist locally
+		if remoteBranchExists {
+			fmt.Printf("Creating worktree from remote branch origin/%s...\n", branch)
+			return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", branch, targetPath, "origin/"+branch)
+		} else {
+			fmt.Printf("Creating new branch '%s' and worktree...\n", branch)
+			return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", branch, targetPath)
+		}
+	}
+}
+
+// RemoveRepositoryFromWorkspace removes a repository from an existing workspace
+func (wm *WorkspaceManager) RemoveRepositoryFromWorkspace(ctx context.Context, workspaceName, repoName string, force, removeFiles bool) error {
+	log.Info().
+		Str("workspace", workspaceName).
+		Str("repo", repoName).
+		Bool("force", force).
+		Bool("removeFiles", removeFiles).
+		Msg("Removing repository from workspace")
+
+	// Load existing workspace
+	workspace, err := wm.LoadWorkspace(workspaceName)
+	if err != nil {
+		return errors.Wrapf(err, "failed to load workspace '%s'", workspaceName)
+	}
+
+	// Find the repository in the workspace
+	var repoIndex = -1
+	var targetRepo Repository
+	for i, repo := range workspace.Repositories {
+		if repo.Name == repoName {
+			repoIndex = i
+			targetRepo = repo
+			break
+		}
+	}
+
+	if repoIndex == -1 {
+		return errors.Errorf("repository '%s' not found in workspace '%s'", repoName, workspaceName)
+	}
+
+	fmt.Printf("Removing repository '%s' from workspace '%s'\n", repoName, workspaceName)
+	fmt.Printf("Repository path: %s\n", targetRepo.Path)
+	fmt.Printf("Workspace path: %s\n", workspace.Path)
+
+	// Remove the worktree
+	worktreePath := filepath.Join(workspace.Path, repoName)
+	if err := wm.removeWorktreeForRepo(ctx, targetRepo, worktreePath, force); err != nil {
+		return errors.Wrapf(err, "failed to remove worktree for repository '%s'", repoName)
+	}
+
+	// Remove repository directory if requested
+	if removeFiles {
+		if _, err := os.Stat(worktreePath); err == nil {
+			fmt.Printf("Removing repository directory: %s\n", worktreePath)
+			if err := os.RemoveAll(worktreePath); err != nil {
+				return errors.Wrapf(err, "failed to remove repository directory: %s", worktreePath)
+			}
+			fmt.Printf("✓ Successfully removed repository directory\n")
+		}
+	}
+
+	// Remove repository from workspace configuration
+	workspace.Repositories = append(workspace.Repositories[:repoIndex], workspace.Repositories[repoIndex+1:]...)
+
+	// Update go.work file if this is a Go workspace
+	if workspace.GoWorkspace {
+		if err := wm.CreateGoWorkspace(workspace); err != nil {
+			log.Warn().Err(err).Msg("Failed to update go.work file, but continuing")
+			fmt.Printf("⚠️  Warning: Failed to update go.work file: %v\n", err)
+		}
+	}
+
+	// Save updated workspace configuration
+	if err := wm.SaveWorkspace(workspace); err != nil {
+		return errors.Wrap(err, "failed to save updated workspace configuration")
+	}
+
+	fmt.Printf("✓ Successfully removed repository '%s' from workspace '%s'\n", repoName, workspaceName)
+	return nil
+}
+
+// removeWorktreeForRepo removes a worktree for a specific repository
+func (wm *WorkspaceManager) removeWorktreeForRepo(ctx context.Context, repo Repository, worktreePath string, force bool) error {
+	log.Info().
+		Str("repo", repo.Name).
+		Str("worktree", worktreePath).
+		Bool("force", force).
+		Msg("Removing worktree for repository")
+
+	fmt.Printf("\n--- Removing worktree for %s ---\n", repo.Name)
+	fmt.Printf("Worktree path: %s\n", worktreePath)
+
+	// Check if worktree path exists
+	if stat, err := os.Stat(worktreePath); os.IsNotExist(err) {
+		fmt.Printf("⚠️  Worktree directory does not exist, skipping worktree removal\n")
+		return nil
+	} else if err != nil {
+		return errors.Wrapf(err, "error checking worktree path: %s", worktreePath)
+	} else {
+		fmt.Printf("✓ Worktree directory exists (type: %s)\n", map[bool]string{true: "directory", false: "file"}[stat.IsDir()])
+	}
+
+	// First, list current worktrees for debugging
+	fmt.Printf("\nCurrent worktrees for %s:\n", repo.Name)
+	listCmd := exec.CommandContext(ctx, "git", "worktree", "list")
+	listCmd.Dir = repo.Path
+	if output, err := listCmd.CombinedOutput(); err != nil {
+		fmt.Printf("⚠️  Failed to list worktrees: %v\n", err)
+	} else {
+		fmt.Printf("%s", string(output))
+	}
+
+	// Remove worktree using git command
+	var cmd *exec.Cmd
+	var cmdStr string
+	if force {
+		cmd = exec.CommandContext(ctx, "git", "worktree", "remove", "--force", worktreePath)
+		cmdStr = fmt.Sprintf("git worktree remove --force %s", worktreePath)
+	} else {
+		cmd = exec.CommandContext(ctx, "git", "worktree", "remove", worktreePath)
+		cmdStr = fmt.Sprintf("git worktree remove %s", worktreePath)
+	}
+	cmd.Dir = repo.Path
+
+	log.Info().
+		Str("repo", repo.Name).
+		Str("repoPath", repo.Path).
+		Str("worktreePath", worktreePath).
+		Str("command", cmdStr).
+		Msg("Executing git worktree remove command")
+
+	fmt.Printf("Executing: %s (in %s)\n", cmdStr, repo.Path)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Error().
+			Err(err).
+			Str("output", string(output)).
+			Str("repo", repo.Name).
+			Str("repoPath", repo.Path).
+			Str("worktree", worktreePath).
+			Str("command", cmdStr).
+			Msg("Failed to remove worktree with git command")
+
+		fmt.Printf("❌ Command failed: %s\n", cmdStr)
+		fmt.Printf("   Error: %v\n", err)
+		fmt.Printf("   Output: %s\n", string(output))
+
+		return errors.Wrapf(err, "failed to remove worktree: %s", string(output))
+	}
+
+	log.Info().
+		Str("output", string(output)).
+		Str("repo", repo.Name).
+		Str("command", cmdStr).
+		Msg("Successfully removed worktree")
+
+	fmt.Printf("✓ Successfully executed: %s\n", cmdStr)
+	if len(output) > 0 {
+		fmt.Printf("  Output: %s\n", string(output))
+	}
+
+	// Verify worktree was removed
+	fmt.Printf("\nVerification: Remaining worktrees for %s:\n", repo.Name)
+	listCmd = exec.CommandContext(ctx, "git", "worktree", "list")
+	listCmd.Dir = repo.Path
+	if output, err := listCmd.CombinedOutput(); err != nil {
+		fmt.Printf("⚠️  Failed to list worktrees: %v\n", err)
+	} else {
+		fmt.Printf("%s", string(output))
+	}
+
+	return nil
 }

@@ -1,6 +1,7 @@
-package cmd
+package cmds
 
 import (
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"context"
 	"fmt"
 	"strings"
@@ -53,7 +54,7 @@ Examples:
 }
 
 func runDelete(ctx context.Context, workspaceName string, force bool, forceWorktrees bool, removeFiles bool, outputFormat string) error {
-	manager, err := NewWorkspaceManager()
+	manager, err := wsm.NewWorkspaceManager()
 	if err != nil {
 		return errors.Wrap(err, "failed to create workspace manager")
 	}
@@ -67,7 +68,7 @@ func runDelete(ctx context.Context, workspaceName string, force bool, forceWorkt
 	// Show workspace status first
 	fmt.Printf("Current workspace status:\n")
 	fmt.Printf("========================\n")
-	checker := NewStatusChecker()
+	checker := wsm.NewStatusChecker()
 	status, err := checker.GetWorkspaceStatus(ctx, workspace)
 	if err == nil {
 		if err := printStatusDetailed(status, false); err != nil {
@@ -80,7 +81,7 @@ func runDelete(ctx context.Context, workspaceName string, force bool, forceWorkt
 
 	// Show what will be deleted
 	if outputFormat == "json" {
-		return printJSON(workspace)
+		return wsm.PrintJSON(workspace)
 	}
 
 	fmt.Printf("Workspace: %s\n", workspace.Name)

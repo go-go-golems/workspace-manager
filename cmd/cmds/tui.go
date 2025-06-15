@@ -1,6 +1,7 @@
-package cmd
+package cmds
 
 import (
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"context"
 	"fmt"
 	"strings"
@@ -20,13 +21,13 @@ func newMainModel() (*mainModel, error) {
 		return nil, errors.Wrap(err, "failed to get registry path")
 	}
 
-	discoverer := NewRepositoryDiscoverer(registryPath)
+	discoverer := wsm.NewRepositoryDiscoverer(registryPath)
 	if err := discoverer.LoadRegistry(); err != nil {
 		return nil, errors.Wrap(err, "failed to load registry")
 	}
 
 	// Load workspace manager
-	workspaceManager, err := NewWorkspaceManager()
+	workspaceManager, err := wsm.NewWorkspaceManager()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create workspace manager")
 	}
@@ -103,7 +104,7 @@ func (m *mainModel) refreshRepositories() {
 
 // Refresh workspaces
 func (m *mainModel) refreshWorkspaces() {
-	workspaces, err := loadWorkspaces()
+	workspaces, err := wsm.LoadWorkspaces()
 	if err != nil {
 		m.message = fmt.Sprintf("Error loading workspaces: %v", err)
 		return

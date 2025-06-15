@@ -1,6 +1,7 @@
-package cmd
+package cmds
 
 import (
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"context"
 	"fmt"
 	"os"
@@ -96,8 +97,8 @@ func runSyncAll(ctx context.Context, pull, push, rebase, dryRun bool) error {
 		return errors.Wrap(err, "failed to detect current workspace")
 	}
 
-	syncOps := NewSyncOperations(workspace)
-	options := &SyncOptions{
+	syncOps := wsm.NewSyncOperations(workspace)
+	options := &wsm.SyncOptions{
 		Pull:   pull,
 		Push:   push,
 		Rebase: rebase,
@@ -123,8 +124,8 @@ func runSyncPull(ctx context.Context, rebase, dryRun bool) error {
 		return errors.Wrap(err, "failed to detect current workspace")
 	}
 
-	syncOps := NewSyncOperations(workspace)
-	options := &SyncOptions{
+	syncOps := wsm.NewSyncOperations(workspace)
+	options := &wsm.SyncOptions{
 		Pull:   true,
 		Push:   false,
 		Rebase: rebase,
@@ -150,8 +151,8 @@ func runSyncPush(ctx context.Context, dryRun bool) error {
 		return errors.Wrap(err, "failed to detect current workspace")
 	}
 
-	syncOps := NewSyncOperations(workspace)
-	options := &SyncOptions{
+	syncOps := wsm.NewSyncOperations(workspace)
+	options := &wsm.SyncOptions{
 		Pull:   false,
 		Push:   true,
 		Rebase: false,
@@ -171,7 +172,7 @@ func runSyncPush(ctx context.Context, dryRun bool) error {
 	return printSyncResults(results, dryRun)
 }
 
-func printSyncResults(results []SyncResult, dryRun bool) error {
+func printSyncResults(results []wsm.SyncResult, dryRun bool) error {
 	if len(results) == 0 {
 		fmt.Println("No repositories to sync.")
 		return nil

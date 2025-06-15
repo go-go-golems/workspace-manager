@@ -1,6 +1,7 @@
-package cmd
+package cmds
 
 import (
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"bufio"
 	"context"
 	"encoding/json"
@@ -102,7 +103,7 @@ func runPush(ctx context.Context, remoteName, workspaceName string, dryRun, forc
 	}
 
 	// Get workspace status
-	checker := NewStatusChecker()
+	checker := wsm.NewStatusChecker()
 	status, err := checker.GetWorkspaceStatus(ctx, workspace)
 	if err != nil {
 		return errors.Wrap(err, "failed to get workspace status")
@@ -190,7 +191,7 @@ type RepoInfo struct {
 	} `json:"defaultBranchRef"`
 }
 
-func checkIfNeedsPush(ctx context.Context, repoStatus RepositoryStatus, workspacePath, remoteName string) (PushCandidate, bool) {
+func checkIfNeedsPush(ctx context.Context, repoStatus wsm.RepositoryStatus, workspacePath, remoteName string) (PushCandidate, bool) {
 	candidate := PushCandidate{
 		Repository: repoStatus.Repository.Name,
 		Branch:     repoStatus.CurrentBranch,

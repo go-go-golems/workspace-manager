@@ -1,4 +1,4 @@
-package cmd
+package wsm
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 )
 
 // printJSON prints data as formatted JSON
-func printJSON(data interface{}) error {
+func PrintJSON(data interface{}) error {
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return err
@@ -15,8 +15,8 @@ func printJSON(data interface{}) error {
 	return nil
 }
 
-// getStatusSymbol returns a symbol for the git status
-func getStatusSymbol(status string) string {
+// GetStatusSymbol returns a symbol for the git status
+func GetStatusSymbol(status string) string {
 	switch status {
 	case "A":
 		return "+"

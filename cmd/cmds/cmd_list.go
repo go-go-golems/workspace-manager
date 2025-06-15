@@ -1,6 +1,7 @@
-package cmd
+package cmds
 
 import (
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"fmt"
 	"os"
 	"sort"
@@ -71,7 +72,7 @@ func runListRepos(format string, tags []string) error {
 		return errors.Wrap(err, "failed to get registry path")
 	}
 
-	discoverer := NewRepositoryDiscoverer(registryPath)
+	discoverer := wsm.NewRepositoryDiscoverer(registryPath)
 	if err := discoverer.LoadRegistry(); err != nil {
 		return errors.Wrap(err, "failed to load registry")
 	}
@@ -99,7 +100,7 @@ func runListRepos(format string, tags []string) error {
 }
 
 func runListWorkspaces(format string) error {
-	workspaces, err := loadWorkspaces()
+	workspaces, err := wsm.LoadWorkspaces()
 	if err != nil {
 		return errors.Wrap(err, "failed to load workspaces")
 	}
@@ -124,7 +125,7 @@ func runListWorkspaces(format string) error {
 	}
 }
 
-func printReposTable(repos []Repository) error {
+func printReposTable(repos []wsm.Repository) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer w.Flush()
 
@@ -154,11 +155,11 @@ func printReposTable(repos []Repository) error {
 	return nil
 }
 
-func printReposJSON(repos []Repository) error {
-	return printJSON(repos)
+func printReposJSON(repos []wsm.Repository) error {
+	return wsm.PrintJSON(repos)
 }
 
-func printWorkspacesTable(workspaces []Workspace) error {
+func printWorkspacesTable(workspaces []wsm.Workspace) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer w.Flush()
 
@@ -187,6 +188,6 @@ func printWorkspacesTable(workspaces []Workspace) error {
 	return nil
 }
 
-func printWorkspacesJSON(workspaces []Workspace) error {
-	return printJSON(workspaces)
+func printWorkspacesJSON(workspaces []wsm.Workspace) error {
+	return wsm.PrintJSON(workspaces)
 }

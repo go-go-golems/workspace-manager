@@ -1,6 +1,7 @@
-package cmd
+package cmds
 
 import (
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"context"
 	"fmt"
 	"os"
@@ -76,7 +77,7 @@ func runDiscover(ctx context.Context, paths []string, recursive bool, maxDepth i
 	}
 
 	// Create discoverer and load existing registry
-	discoverer := NewRepositoryDiscoverer(registryPath)
+	discoverer := wsm.NewRepositoryDiscoverer(registryPath)
 	if err := discoverer.LoadRegistry(); err != nil {
 		return errors.Wrap(err, "failed to load registry")
 	}

@@ -1,4 +1,4 @@
-package cmd
+package wsm
 
 import (
 	"context"
@@ -178,8 +178,8 @@ func getGitLastCommit(ctx context.Context, path string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-// checkBranchMerged checks if the current branch has been merged to origin/main
-func checkBranchMerged(ctx context.Context, path string) (bool, error) {
+// CheckBranchMerged checks if the current branch has been merged to origin/main
+func CheckBranchMerged(ctx context.Context, path string) (bool, error) {
 	// Get current branch for logging
 	currentBranch, branchErr := getGitCurrentBranch(ctx, path)
 	if branchErr != nil {
@@ -223,8 +223,8 @@ func checkBranchMerged(ctx context.Context, path string) (bool, error) {
 	return false, err
 }
 
-// checkBranchNeedsRebase checks if the current branch needs to be rebased on origin/main
-func checkBranchNeedsRebase(ctx context.Context, path string) (bool, error) {
+// CheckBranchNeedsRebase checks if the current branch needs to be rebased on origin/main
+func CheckBranchNeedsRebase(ctx context.Context, path string) (bool, error) {
 	// Get current branch for logging
 	currentBranch, branchErr := getGitCurrentBranch(ctx, path)
 	if branchErr != nil {

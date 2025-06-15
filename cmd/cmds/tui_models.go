@@ -1,6 +1,7 @@
-package cmd
+package cmds
 
 import (
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"fmt"
 	"strings"
 
@@ -25,10 +26,10 @@ const (
 // Main TUI model
 type mainModel struct {
 	state            appState
-	discoverer       *RepositoryDiscoverer
-	workspaceManager *WorkspaceManager
-	repositories     []Repository
-	workspaces       []Workspace
+	discoverer       *wsm.RepositoryDiscoverer
+	workspaceManager *wsm.WorkspaceManager
+	repositories     []wsm.Repository
+	workspaces       []wsm.Workspace
 
 	// UI components
 	repoList      list.Model
@@ -52,7 +53,7 @@ type mainModel struct {
 	message  string
 
 	// Delete confirmation
-	deleteWorkspace *Workspace
+	deleteWorkspace *wsm.Workspace
 	deleteFiles     bool
 	forceWorktrees  bool
 
@@ -142,7 +143,7 @@ func defaultKeyMap() keyMap {
 
 // Repository list item
 type repoItem struct {
-	repo     Repository
+	repo     wsm.Repository
 	selected bool
 }
 
@@ -160,7 +161,7 @@ func (r repoItem) FilterValue() string {
 
 // Workspace list item
 type workspaceItem struct {
-	workspace Workspace
+	workspace wsm.Workspace
 }
 
 func (w workspaceItem) Title() string { return w.workspace.Name }

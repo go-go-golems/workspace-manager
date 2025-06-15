@@ -1,6 +1,7 @@
-package cmd
+package cmds
 
 import (
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"context"
 	"fmt"
 	"os"
@@ -110,7 +111,7 @@ func runRebase(ctx context.Context, repository, targetBranch string, interactive
 	return printRebaseResults(results, dryRun)
 }
 
-func rebaseRepository(ctx context.Context, workspace *Workspace, repoName, targetBranch string, interactive, dryRun bool) RebaseResult {
+func rebaseRepository(ctx context.Context, workspace *wsm.Workspace, repoName, targetBranch string, interactive, dryRun bool) RebaseResult {
 	result := RebaseResult{
 		Repository:   repoName,
 		Success:      true,

@@ -1,6 +1,7 @@
-package cmd
+package cmds
 
 import (
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"bufio"
 	"context"
 	"fmt"
@@ -104,7 +105,7 @@ func runPR(ctx context.Context, workspaceName string, dryRun, force, draft bool,
 	}
 
 	// Get workspace status to check branch merge status
-	checker := NewStatusChecker()
+	checker := wsm.NewStatusChecker()
 	status, err := checker.GetWorkspaceStatus(ctx, workspace)
 	if err != nil {
 		return errors.Wrap(err, "failed to get workspace status")
@@ -209,7 +210,7 @@ func checkGHCLI(ctx context.Context) error {
 	return nil
 }
 
-func checkIfNeedsPR(ctx context.Context, repoStatus RepositoryStatus, workspacePath string) (PRCandidate, bool) {
+func checkIfNeedsPR(ctx context.Context, repoStatus wsm.RepositoryStatus, workspacePath string) (PRCandidate, bool) {
 	candidate := PRCandidate{
 		Repository: repoStatus.Repository.Name,
 		Branch:     repoStatus.CurrentBranch,

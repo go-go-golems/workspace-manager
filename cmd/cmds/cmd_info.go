@@ -1,6 +1,7 @@
-package cmd
+package cmds
 
 import (
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"context"
 	"fmt"
 	"os"
@@ -90,14 +91,14 @@ func runInfo(ctx context.Context, workspaceName string, outputFormat, outputFiel
 
 	// Handle JSON output
 	if outputFormat == "json" {
-		return printJSON(workspace)
+		return wsm.PrintJSON(workspace)
 	}
 
 	// Default table output
 	return printInfoTable(workspace)
 }
 
-func printField(workspace *Workspace, field string) error {
+func printField(workspace *wsm.Workspace, field string) error {
 	switch strings.ToLower(field) {
 	case "path":
 		fmt.Println(workspace.Path)
@@ -119,7 +120,7 @@ func printField(workspace *Workspace, field string) error {
 	return nil
 }
 
-func printInfoTable(workspace *Workspace) error {
+func printInfoTable(workspace *wsm.Workspace) error {
 	fmt.Printf("Workspace Information:\n")
 	fmt.Printf("  Name:         %s\n", workspace.Name)
 	fmt.Printf("  Path:         %s\n", workspace.Path)

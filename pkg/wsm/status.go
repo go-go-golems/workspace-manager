@@ -1,4 +1,4 @@
-package cmd
+package wsm
 
 import (
 	"context"
@@ -82,12 +82,12 @@ func (sc *StatusChecker) getRepositoryStatus(ctx context.Context, repo Repositor
 	}
 
 	// Check if branch is merged to origin/main
-	if isMerged, err := checkBranchMerged(ctx, repoPath); err == nil {
+	if isMerged, err := CheckBranchMerged(ctx, repoPath); err == nil {
 		status.IsMerged = isMerged
 	}
 
 	// Check if branch needs to be rebased on origin/main
-	if needsRebase, err := checkBranchNeedsRebase(ctx, repoPath); err == nil {
+	if needsRebase, err := CheckBranchNeedsRebase(ctx, repoPath); err == nil {
 		status.NeedsRebase = needsRebase
 	}
 

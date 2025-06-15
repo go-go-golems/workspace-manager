@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
+	"github.com/go-go-golems/workspace-manager/cmd/cmds"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
@@ -52,22 +53,22 @@ func init() {
 
 	// Add all subcommands
 	rootCmd.AddCommand(
-		NewDiscoverCommand(),
-		NewListCommand(),
-		NewCreateCommand(),
-		NewAddCommand(),
-		NewRemoveCommand(),
-		NewDeleteCommand(),
-		NewInfoCommand(),
-		NewStatusCommand(),
-		NewPRCommand(),
-		NewPushCommand(),
-		NewTUICommand(),
-		NewCommitCommand(),
-		NewSyncCommand(),
-		NewBranchCommand(),
-		NewRebaseCommand(),
-		NewDiffCommand(),
-		NewLogCommand(),
+		cmds.NewDiscoverCommand(),
+		cmds.NewListCommand(),
+		cmds.NewCreateCommand(),
+		cmds.NewAddCommand(),
+		cmds.NewRemoveCommand(),
+		cmds.NewDeleteCommand(),
+		cmds.NewInfoCommand(),
+		cmds.NewStatusCommand(),
+		cmds.NewPRCommand(),
+		cmds.NewPushCommand(),
+		cmds.NewTUICommand(),
+		cmds.NewCommitCommand(),
+		cmds.NewSyncCommand(),
+		cmds.NewBranchCommand(),
+		cmds.NewRebaseCommand(),
+		cmds.NewDiffCommand(),
+		cmds.NewLogCommand(),
 	)
 }
