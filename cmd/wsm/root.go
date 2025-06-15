@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
