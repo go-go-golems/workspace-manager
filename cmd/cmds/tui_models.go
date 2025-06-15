@@ -42,9 +42,9 @@ type mainModel struct {
 	agentPath     textinput.Model
 	formStep      int
 
-	// Filtering
-	tagFilter   string
-	searchQuery string
+	// Filtering (currently unused, reserved for future features)
+	// tagFilter   string
+	// searchQuery string
 
 	// UI state
 	width    int
@@ -200,9 +200,10 @@ var (
 			Foreground(lipgloss.Color("#04B575")).
 			Margin(1, 0)
 
-	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FF5F56")).
-			Margin(1, 0)
+	// errorStyle reserved for future error display features
+	// errorStyle = lipgloss.NewStyle().
+	//	Foreground(lipgloss.Color("#FF5F56")).
+	//	Margin(1, 0)
 
 	formStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).

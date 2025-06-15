@@ -183,6 +183,8 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.agentPath, cmd = m.agentPath.Update(msg)
 		}
 		cmds = append(cmds, cmd)
+	case stateMain, stateCreateWorkspace, stateDeleteConfirm:
+		// These states don't have interactive components to update
 	}
 
 	return m, tea.Batch(cmds...)

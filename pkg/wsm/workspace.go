@@ -968,7 +968,10 @@ func (wm *WorkspaceManager) CreateWorktreeForAdd(ctx context.Context, workspace 
 			fmt.Printf("Choice [o/u/c]: ")
 
 			var choice string
-			fmt.Scanln(&choice)
+			if _, err := fmt.Scanln(&choice); err != nil {
+				// If input fails, default to cancel to be safe
+				choice = "c"
+			}
 
 			switch strings.ToLower(choice) {
 			case "o", "overwrite":

@@ -286,7 +286,11 @@ func printRebaseResults(results []RebaseResult, dryRun bool) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
+	defer func() {
+		if err := w.Flush(); err != nil {
+			log.Warn().Err(err).Msg("Failed to flush table writer")
+		}
+	}()
 
 	fmt.Fprintln(w, "\nREPOSITORY\tSTATUS\tTARGET\tCOMMITS BEFORE\tCOMMITS AFTER\tERROR")
 	fmt.Fprintln(w, "----------\t------\t------\t--------------\t-------------\t-----")

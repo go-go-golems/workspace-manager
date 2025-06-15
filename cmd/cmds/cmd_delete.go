@@ -109,7 +109,10 @@ func runDelete(ctx context.Context, workspaceName string, force bool, forceWorkt
 	if !force {
 		fmt.Printf("\nAre you sure you want to delete workspace '%s'? [y/N]: ", workspaceName)
 		var response string
-		fmt.Scanln(&response)
+		if _, err := fmt.Scanln(&response); err != nil {
+			// If input fails, default to "no" to be safe
+			response = "n"
+		}
 
 		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
 			fmt.Println("Operation cancelled.")

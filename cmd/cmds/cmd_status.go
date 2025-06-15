@@ -252,7 +252,11 @@ func printStatusDetailed(status *wsm.WorkspaceStatus, includeUntracked bool) err
 	fmt.Printf("Overall Status: %s\n\n", status.Overall)
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
+	defer func() {
+		if err := w.Flush(); err != nil {
+			log.Warn().Err(err).Msg("Failed to flush table writer")
+		}
+	}()
 
 	fmt.Fprintln(w, "REPOSITORY\tBRANCH\tSTATUS\tCHANGES\tSYNC\tMERGED\tREBASE")
 	fmt.Fprintln(w, "----------\t------\t------\t-------\t----\t------\t------")

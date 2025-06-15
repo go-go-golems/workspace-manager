@@ -141,10 +141,8 @@ func selectChangesInteractively(allChanges map[string][]wsm.FileChange, initialM
 	// Show all changes
 	fmt.Println("Changes found:")
 	repoIndex := 0
-	repoNames := make([]string, 0, len(allChanges))
 
 	for repoName, changes := range allChanges {
-		repoNames = append(repoNames, repoName)
 		fmt.Printf("\n%d. Repository: %s (%d files)\n", repoIndex+1, repoName, len(changes))
 
 		for i, change := range changes {
@@ -164,7 +162,9 @@ func selectChangesInteractively(allChanges map[string][]wsm.FileChange, initialM
 	message := initialMessage
 	if message == "" {
 		fmt.Print("Commit message: ")
-		fmt.Scanln(&message)
+		if _, err := fmt.Scanln(&message); err != nil {
+			return nil, "", errors.Wrap(err, "failed to read commit message")
+		}
 		if message == "" {
 			return nil, "", errors.New("commit message is required")
 		}

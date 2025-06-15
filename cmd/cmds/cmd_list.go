@@ -9,6 +9,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -127,7 +128,11 @@ func runListWorkspaces(format string) error {
 
 func printReposTable(repos []wsm.Repository) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
+	defer func() {
+		if err := w.Flush(); err != nil {
+			log.Warn().Err(err).Msg("Failed to flush table writer")
+		}
+	}()
 
 	fmt.Fprintln(w, "NAME\tPATH\tBRANCH\tTAGS\tREMOTE")
 	fmt.Fprintln(w, "----\t----\t------\t----\t------")
@@ -161,7 +166,11 @@ func printReposJSON(repos []wsm.Repository) error {
 
 func printWorkspacesTable(workspaces []wsm.Workspace) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
+	defer func() {
+		if err := w.Flush(); err != nil {
+			log.Warn().Err(err).Msg("Failed to flush table writer")
+		}
+	}()
 
 	fmt.Fprintln(w, "NAME\tPATH\tREPOS\tBRANCH\tCREATED")
 	fmt.Fprintln(w, "----\t----\t-----\t------\t-------")

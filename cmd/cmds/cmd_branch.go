@@ -8,6 +8,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -118,7 +119,11 @@ func runBranchList(ctx context.Context) error {
 	fmt.Printf("📋 Current branches in workspace: %s\n", workspace.Name)
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
+	defer func() {
+		if err := w.Flush(); err != nil {
+			log.Warn().Err(err).Msg("Failed to flush table writer")
+		}
+	}()
 
 	fmt.Fprintln(w, "\nREPOSITORY\tCURRENT BRANCH\tSTATUS")
 	fmt.Fprintln(w, "----------\t--------------\t------")
@@ -164,7 +169,11 @@ func printBranchResults(results []wsm.SyncResult, operation string) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
+	defer func() {
+		if err := w.Flush(); err != nil {
+			log.Warn().Err(err).Msg("Failed to flush table writer")
+		}
+	}()
 
 	fmt.Fprintln(w, "\nREPOSITORY\tSTATUS\tERROR")
 	fmt.Fprintln(w, "----------\t------\t-----")
