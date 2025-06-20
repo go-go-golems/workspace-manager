@@ -3,12 +3,12 @@ package cmds
 import (
 	"context"
 	"fmt"
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"os"
 	"text/tabwriter"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -106,9 +106,9 @@ func runSyncAll(ctx context.Context, pull, push, rebase, dryRun bool) error {
 		DryRun: dryRun,
 	}
 
-	fmt.Printf("🔄 Synchronizing workspace: %s\n", workspace.Name)
+	output.PrintHeader("Synchronizing workspace: %s", workspace.Name)
 	if dryRun {
-		fmt.Println("📋 Dry run mode - no changes will be made")
+		output.PrintInfo("Dry run mode - no changes will be made")
 	}
 
 	results, err := syncOps.SyncWorkspace(ctx, options)
@@ -133,9 +133,9 @@ func runSyncPull(ctx context.Context, rebase, dryRun bool) error {
 		DryRun: dryRun,
 	}
 
-	fmt.Printf("📥 Pulling changes for workspace: %s\n", workspace.Name)
+	output.PrintHeader("Pulling changes for workspace: %s", workspace.Name)
 	if dryRun {
-		fmt.Println("📋 Dry run mode - no changes will be made")
+		output.PrintInfo("Dry run mode - no changes will be made")
 	}
 
 	results, err := syncOps.SyncWorkspace(ctx, options)
@@ -160,9 +160,9 @@ func runSyncPush(ctx context.Context, dryRun bool) error {
 		DryRun: dryRun,
 	}
 
-	fmt.Printf("📤 Pushing changes for workspace: %s\n", workspace.Name)
+	output.PrintHeader("📤 Pushing changes for workspace: %s", workspace.Name)
 	if dryRun {
-		fmt.Println("📋 Dry run mode - no changes will be made")
+		output.PrintInfo("Dry run mode - no changes will be made")
 	}
 
 	results, err := syncOps.SyncWorkspace(ctx, options)
@@ -175,14 +175,18 @@ func runSyncPush(ctx context.Context, dryRun bool) error {
 
 func printSyncResults(results []wsm.SyncResult, dryRun bool) error {
 	if len(results) == 0 {
-		fmt.Println("No repositories to sync.")
+		output.PrintInfo("No repositories to sync.")
 		return nil
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer func() {
 		if err := w.Flush(); err != nil {
-			log.Warn().Err(err).Msg("Failed to flush table writer")
+			output.LogWarn(
+				fmt.Sprintf("Failed to flush table writer: %v", err),
+				"Failed to flush table writer",
+				"error", err,
+			)
 		}
 	}()
 
@@ -237,14 +241,10 @@ func printSyncResults(results []wsm.SyncResult, dryRun bool) error {
 	fmt.Fprintln(w)
 
 	// Summary
-	fmt.Printf("Summary: %d/%d repositories synced successfully", successCount, len(results))
+	output.PrintSuccess("Summary: %d/%d repositories synced successfully", successCount, len(results))
 	if conflictCount > 0 {
-		fmt.Printf(", %d with conflicts", conflictCount)
-	}
-	fmt.Println()
-
-	if conflictCount > 0 {
-		fmt.Println("\n⚠️  Some repositories have conflicts. Resolve them manually and run sync again.")
+		output.PrintWarning("⚠️  %d repositories have conflicts", conflictCount)
+		output.PrintInfo("Resolve conflicts manually and run sync again.")
 	}
 
 	return nil

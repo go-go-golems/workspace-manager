@@ -3,14 +3,15 @@ package wsm
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 // RepositoryDiscoverer handles repository discovery operations
@@ -72,7 +73,7 @@ func (rd *RepositoryDiscoverer) SaveRegistry() error {
 
 // DiscoverRepositories discovers git repositories in the given paths
 func (rd *RepositoryDiscoverer) DiscoverRepositories(ctx context.Context, paths []string, recursive bool, maxDepth int) error {
-	log.Info().Msg("Starting repository discovery")
+	output.LogInfo("Starting repository discovery", "Starting repository discovery")
 
 	var allRepos []Repository
 
@@ -88,7 +89,11 @@ func (rd *RepositoryDiscoverer) DiscoverRepositories(ctx context.Context, paths 
 	rd.registry.Repositories = rd.mergeRepositories(rd.registry.Repositories, allRepos)
 	rd.registry.LastScan = time.Now()
 
-	log.Info().Int("count", len(allRepos)).Msg("Discovery completed")
+	output.LogInfo(
+		fmt.Sprintf("Discovery completed: found %d repositories", len(allRepos)),
+		"Discovery completed",
+		"count", len(allRepos),
+	)
 
 	return rd.SaveRegistry()
 }
@@ -105,7 +110,12 @@ func (rd *RepositoryDiscoverer) scanDirectory(ctx context.Context, path string, 
 	if rd.isGitRepository(path) {
 		repo, err := rd.analyzeRepository(ctx, path)
 		if err != nil {
-			log.Warn().Err(err).Str("path", path).Msg("Failed to analyze repository")
+			output.LogWarn(
+				fmt.Sprintf("Failed to analyze repository at %s: %v", path, err),
+				"Failed to analyze repository",
+				"error", err,
+				"path", path,
+			)
 		} else {
 			repos = append(repos, *repo)
 		}
@@ -138,7 +148,12 @@ func (rd *RepositoryDiscoverer) scanDirectory(ctx context.Context, path string, 
 		subPath := filepath.Join(path, name)
 		subRepos, err := rd.scanDirectory(ctx, subPath, recursive, maxDepth, currentDepth+1)
 		if err != nil {
-			log.Warn().Err(err).Str("path", subPath).Msg("Failed to scan subdirectory")
+			output.LogWarn(
+				fmt.Sprintf("Failed to scan subdirectory %s: %v", subPath, err),
+				"Failed to scan subdirectory",
+				"error", err,
+				"path", subPath,
+			)
 			continue
 		}
 		repos = append(repos, subRepos...)

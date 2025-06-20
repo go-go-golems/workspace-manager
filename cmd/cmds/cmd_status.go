@@ -3,6 +3,7 @@ package cmds
 import (
 	"context"
 	"fmt"
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"os"
 	"path/filepath"
@@ -100,11 +101,13 @@ func detectWorkspace(cwd string) (string, error) {
 
 		// Check if current directory is within or matches workspace path
 		if strings.HasPrefix(cwd, workspace.Path) {
-			log.Info().
-				Str("workspaceName", workspace.Name).
-				Str("workspacePath", workspace.Path).
-				Str("cwd", cwd).
-				Msg("Found workspace containing current directory")
+			output.LogInfo(
+				fmt.Sprintf("Detected workspace: %s", workspace.Name),
+				"Found workspace containing current directory",
+				"workspaceName", workspace.Name,
+				"workspacePath", workspace.Path,
+				"cwd", cwd,
+			)
 			return workspace.Name, nil
 		}
 
@@ -117,12 +120,14 @@ func detectWorkspace(cwd string) (string, error) {
 				Msg("Checking repository worktree path")
 
 			if strings.HasPrefix(cwd, repoWorktreePath) {
-				log.Info().
-					Str("workspaceName", workspace.Name).
-					Str("repo", repo.Name).
-					Str("repoWorktreePath", repoWorktreePath).
-					Str("cwd", cwd).
-					Msg("Found workspace via repository worktree path")
+				output.LogInfo(
+					fmt.Sprintf("Detected workspace: %s (via repo %s)", workspace.Name, repo.Name),
+					"Found workspace via repository worktree path",
+					"workspaceName", workspace.Name,
+					"repo", repo.Name,
+					"repoWorktreePath", repoWorktreePath,
+					"cwd", cwd,
+				)
 				return workspace.Name, nil
 			}
 		}
@@ -170,10 +175,12 @@ func detectWorkspace(cwd string) (string, error) {
 
 			for _, workspace := range workspaces {
 				if workspace.Name == dirName || strings.Contains(workspace.Path, dirName) {
-					log.Info().
-						Str("workspaceName", workspace.Name).
-						Str("dirName", dirName).
-						Msg("Found workspace by directory name match")
+					output.LogInfo(
+						fmt.Sprintf("Detected workspace: %s", workspace.Name),
+						"Found workspace by directory name match",
+						"workspaceName", workspace.Name,
+						"dirName", dirName,
+					)
 					return workspace.Name, nil
 				}
 			}
@@ -211,7 +218,7 @@ func loadWorkspace(name string) (*wsm.Workspace, error) {
 }
 
 func printStatusShort(status *wsm.WorkspaceStatus, includeUntracked bool) error {
-	fmt.Printf("Workspace: %s (%s)\n", status.Workspace.Name, status.Overall)
+	output.PrintHeader("Workspace: %s (%s)", status.Workspace.Name, status.Overall)
 
 	for _, repoStatus := range status.Repositories {
 		symbol := getRepositoryStatusSymbol(repoStatus)
@@ -247,14 +254,19 @@ func printStatusShort(status *wsm.WorkspaceStatus, includeUntracked bool) error 
 }
 
 func printStatusDetailed(status *wsm.WorkspaceStatus, includeUntracked bool) error {
-	fmt.Printf("Workspace: %s\n", status.Workspace.Name)
-	fmt.Printf("Path: %s\n", status.Workspace.Path)
-	fmt.Printf("Overall Status: %s\n\n", status.Overall)
+	output.PrintHeader("Workspace: %s", status.Workspace.Name)
+	output.PrintInfo("Path: %s", status.Workspace.Path)
+	output.PrintInfo("Overall Status: %s", status.Overall)
+	fmt.Println()
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer func() {
 		if err := w.Flush(); err != nil {
-			log.Warn().Err(err).Msg("Failed to flush table writer")
+			output.LogWarn(
+				fmt.Sprintf("Failed to flush table writer: %v", err),
+				"Failed to flush table writer",
+				"error", err,
+			)
 		}
 	}()
 

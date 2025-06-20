@@ -3,15 +3,15 @@ package cmds
 import (
 	"context"
 	"fmt"
-	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
+	"github.com/go-go-golems/workspace-manager/pkg/output"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -85,13 +85,13 @@ func runRebase(ctx context.Context, repository, targetBranch string, interactive
 	}
 
 	if repository != "" {
-		fmt.Printf("🔄 Rebasing repository '%s' onto '%s'\n", repository, targetBranch)
+		output.PrintHeader("🔄 Rebasing repository '%s' onto '%s'", repository, targetBranch)
 	} else {
-		fmt.Printf("🔄 Rebasing all repositories onto '%s'\n", targetBranch)
+		output.PrintHeader("🔄 Rebasing all repositories onto '%s'", targetBranch)
 	}
 
 	if dryRun {
-		fmt.Println("📋 Dry run mode - no changes will be made")
+		output.PrintInfo("Dry run mode - no changes will be made")
 	}
 
 	var results []RebaseResult
@@ -145,7 +145,12 @@ func rebaseRepository(ctx context.Context, workspace *wsm.Workspace, repoName, t
 	// Get commits count before rebase
 	commitsBefore, err := getCommitsAhead(ctx, repoPath, targetBranch)
 	if err != nil {
-		log.Warn().Err(err).Str("repo", repoName).Msg("Could not get commits count before rebase")
+		output.LogWarn(
+			fmt.Sprintf("Could not get commits count before rebase for '%s': %v", repoName, err),
+			"Could not get commits count before rebase",
+			"error", err,
+			"repo", repoName,
+		)
 	}
 	result.CommitsBefore = commitsBefore
 
@@ -177,16 +182,23 @@ func rebaseRepository(ctx context.Context, workspace *wsm.Workspace, repoName, t
 	// Get commits count after rebase
 	commitsAfter, err := getCommitsAhead(ctx, repoPath, targetBranch)
 	if err != nil {
-		log.Warn().Err(err).Str("repo", repoName).Msg("Could not get commits count after rebase")
+		output.LogWarn(
+			fmt.Sprintf("Could not get commits count after rebase for '%s': %v", repoName, err),
+			"Could not get commits count after rebase",
+			"error", err,
+			"repo", repoName,
+		)
 	}
 	result.CommitsAfter = commitsAfter
 
-	log.Info().
-		Str("repository", repoName).
-		Str("target", targetBranch).
-		Int("commits_before", result.CommitsBefore).
-		Int("commits_after", result.CommitsAfter).
-		Msg("Repository rebase completed")
+	output.LogInfo(
+		fmt.Sprintf("Repository %s rebase completed", repoName),
+		"Repository rebase completed",
+		"repository", repoName,
+		"target", targetBranch,
+		"commits_before", result.CommitsBefore,
+		"commits_after", result.CommitsAfter,
+	)
 
 	return result
 }
@@ -281,14 +293,18 @@ func hasRebaseConflicts(ctx context.Context, repoPath string) bool {
 
 func printRebaseResults(results []RebaseResult, dryRun bool) error {
 	if len(results) == 0 {
-		fmt.Println("No repositories to rebase.")
+		output.PrintInfo("No repositories to rebase.")
 		return nil
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer func() {
 		if err := w.Flush(); err != nil {
-			log.Warn().Err(err).Msg("Failed to flush table writer")
+			output.LogWarn(
+				fmt.Sprintf("Failed to flush table writer: %v", err),
+				"Failed to flush table writer",
+				"error", err,
+			)
 		}
 	}()
 
@@ -339,14 +355,10 @@ func printRebaseResults(results []RebaseResult, dryRun bool) error {
 	fmt.Fprintln(w)
 
 	// Summary
-	fmt.Printf("Summary: %d/%d repositories rebased successfully", successCount, len(results))
+	output.PrintSuccess("Summary: %d/%d repositories rebased successfully", successCount, len(results))
 	if conflictCount > 0 {
-		fmt.Printf(", %d with conflicts", conflictCount)
-	}
-	fmt.Println()
-
-	if conflictCount > 0 {
-		fmt.Println("\n⚠️  Some repositories have conflicts. Resolve them manually with:")
+		output.PrintWarning("%d repositories have conflicts", conflictCount)
+		output.PrintInfo("Resolve conflicts manually with:")
 		fmt.Println("  - Fix conflicts in the affected files")
 		fmt.Println("  - git add <resolved-files>")
 		fmt.Println("  - git rebase --continue")

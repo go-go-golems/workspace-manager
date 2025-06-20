@@ -2,7 +2,7 @@ package cmds
 
 import (
 	"context"
-	"fmt"
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"os"
 	"path/filepath"
@@ -83,17 +83,17 @@ func runDiscover(ctx context.Context, paths []string, recursive bool, maxDepth i
 	}
 
 	// Discover repositories
-	fmt.Printf("Discovering repositories in %v...\n", expandedPaths)
+	output.PrintInfo("Discovering repositories in %v", expandedPaths)
 	if err := discoverer.DiscoverRepositories(ctx, expandedPaths, recursive, maxDepth); err != nil {
 		return errors.Wrap(err, "discovery failed")
 	}
 
 	// Show results
 	repos := discoverer.GetRepositories()
-	fmt.Printf("Discovery complete! Found %d repositories.\n", len(repos))
+	output.PrintSuccess("Discovery complete! Found %d repositories", len(repos))
 
 	if len(repos) > 0 {
-		fmt.Println("\nUse 'workspace-manager list repos' to see all discovered repositories.")
+		output.PrintInfo("Use 'workspace-manager list repos' to see all discovered repositories")
 	}
 
 	return nil

@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"fmt"
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"os"
 	"sort"
@@ -9,7 +10,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -83,9 +83,9 @@ func runListRepos(format string, tags []string) error {
 
 	if len(repos) == 0 {
 		if len(tags) > 0 {
-			fmt.Printf("No repositories found with tags: %s\n", strings.Join(tags, ", "))
+			output.PrintInfo("No repositories found with tags: %s", strings.Join(tags, ", "))
 		} else {
-			fmt.Println("No repositories found. Run 'workspace-manager discover' to scan for repositories.")
+			output.PrintInfo("No repositories found. Run 'workspace-manager discover' to scan for repositories")
 		}
 		return nil
 	}
@@ -107,7 +107,7 @@ func runListWorkspaces(format string) error {
 	}
 
 	if len(workspaces) == 0 {
-		fmt.Println("No workspaces found. Use 'workspace-manager create' to create a workspace.")
+		output.PrintInfo("No workspaces found. Use 'workspace-manager create' to create a workspace")
 		return nil
 	}
 
@@ -130,7 +130,11 @@ func printReposTable(repos []wsm.Repository) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer func() {
 		if err := w.Flush(); err != nil {
-			log.Warn().Err(err).Msg("Failed to flush table writer")
+			output.LogWarn(
+				fmt.Sprintf("Failed to flush table writer: %v", err),
+				"Failed to flush table writer",
+				"error", err,
+			)
 		}
 	}()
 
@@ -168,7 +172,11 @@ func printWorkspacesTable(workspaces []wsm.Workspace) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer func() {
 		if err := w.Flush(); err != nil {
-			log.Warn().Err(err).Msg("Failed to flush table writer")
+			output.LogWarn(
+				fmt.Sprintf("Failed to flush table writer: %v", err),
+				"Failed to flush table writer",
+				"error", err,
+			)
 		}
 	}()
 
