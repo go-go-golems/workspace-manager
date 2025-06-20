@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 // GitOperations handles git operations across workspace repositories
@@ -126,14 +125,16 @@ func (gops *GitOperations) StageFile(ctx context.Context, repoName, filePath str
 	cmd := exec.CommandContext(ctx, "git", "add", filePath)
 	cmd.Dir = repoPath
 
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return errors.Wrapf(err, "failed to stage file %s in %s: %s", filePath, repoName, string(output))
+	if cmdOutput, err := cmd.CombinedOutput(); err != nil {
+		return errors.Wrapf(err, "failed to stage file %s in %s: %s", filePath, repoName, string(cmdOutput))
 	}
 
-	log.Info().
-		Str("repository", repoName).
-		Str("file", filePath).
-		Msg("File staged")
+	output.LogInfo(
+		fmt.Sprintf("Staged file %s in %s", filePath, repoName),
+		"File staged",
+		"repository", repoName,
+		"file", filePath,
+	)
 
 	return nil
 }
@@ -145,14 +146,16 @@ func (gops *GitOperations) UnstageFile(ctx context.Context, repoName, filePath s
 	cmd := exec.CommandContext(ctx, "git", "reset", "HEAD", filePath)
 	cmd.Dir = repoPath
 
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return errors.Wrapf(err, "failed to unstage file %s in %s: %s", filePath, repoName, string(output))
+	if cmdOutput, err := cmd.CombinedOutput(); err != nil {
+		return errors.Wrapf(err, "failed to unstage file %s in %s: %s", filePath, repoName, string(cmdOutput))
 	}
 
-	log.Info().
-		Str("repository", repoName).
-		Str("file", filePath).
-		Msg("File unstaged")
+	output.LogInfo(
+		fmt.Sprintf("Unstaged file %s in %s", filePath, repoName),
+		"File unstaged",
+		"repository", repoName,
+		"file", filePath,
+	)
 
 	return nil
 }
@@ -223,11 +226,13 @@ func (gops *GitOperations) CommitChanges(ctx context.Context, operation *CommitO
 		return fmt.Errorf("commit failed for some repositories:\n%s", strings.Join(errors, "\n"))
 	}
 
-	log.Info().
-		Strs("repositories", successfulRepos).
-		Str("message", operation.Message).
-		Bool("pushed", operation.Push).
-		Msg("Commit operation completed successfully")
+	output.LogInfo(
+		fmt.Sprintf("Successfully committed to %d repositories", len(successfulRepos)),
+		"Commit operation completed successfully",
+		"repositories", successfulRepos,
+		"message", operation.Message,
+		"pushed", operation.Push,
+	)
 
 	return nil
 }
@@ -291,15 +296,17 @@ func (gops *GitOperations) commitRepository(ctx context.Context, repoName, repoP
 	cmd := exec.CommandContext(ctx, "git", "commit", "-m", message)
 	cmd.Dir = repoPath
 
-	output, err := cmd.CombinedOutput()
+	cmdOutput, err := cmd.CombinedOutput()
 	if err != nil {
-		return errors.Wrapf(err, "failed to commit in %s: %s", repoName, string(output))
+		return errors.Wrapf(err, "failed to commit in %s: %s", repoName, string(cmdOutput))
 	}
 
-	log.Info().
-		Str("repository", repoName).
-		Str("message", message).
-		Msg("Repository committed successfully")
+	output.LogInfo(
+		fmt.Sprintf("Committed changes to %s", repoName),
+		"Repository committed successfully",
+		"repository", repoName,
+		"message", message,
+	)
 
 	return nil
 }
@@ -309,14 +316,16 @@ func (gops *GitOperations) pushRepository(ctx context.Context, repoName, repoPat
 	cmd := exec.CommandContext(ctx, "git", "push")
 	cmd.Dir = repoPath
 
-	output, err := cmd.CombinedOutput()
+	cmdOutput, err := cmd.CombinedOutput()
 	if err != nil {
-		return errors.Wrapf(err, "failed to push %s: %s", repoName, string(output))
+		return errors.Wrapf(err, "failed to push %s: %s", repoName, string(cmdOutput))
 	}
 
-	log.Info().
-		Str("repository", repoName).
-		Msg("Repository pushed successfully")
+	output.LogInfo(
+		fmt.Sprintf("Pushed changes to %s", repoName),
+		"Repository pushed successfully",
+		"repository", repoName,
+	)
 
 	return nil
 }

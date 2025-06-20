@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 // SyncOperations handles synchronization operations across repositories
@@ -51,7 +50,7 @@ func (so *SyncOperations) SyncWorkspace(ctx context.Context, options *SyncOption
 	var results []SyncResult
 
 	output.LogInfo(
-		fmt.Sprintf("Starting workspace sync (pull:%v, push:%v, rebase:%v, dry-run:%v)", 
+		fmt.Sprintf("Starting workspace sync (pull:%v, push:%v, rebase:%v, dry-run:%v)",
 			options.Pull, options.Push, options.Rebase, options.DryRun),
 		"Starting workspace sync",
 		"pull", options.Pull,
@@ -122,15 +121,17 @@ func (so *SyncOperations) syncRepository(ctx context.Context, repoName, repoPath
 	result.AheadAfter = ahead
 	result.BehindAfter = behind
 
-	log.Info().
-		Str("repository", repoName).
-		Bool("pulled", result.Pulled).
-		Bool("pushed", result.Pushed).
-		Int("ahead_before", result.AheadBefore).
-		Int("behind_before", result.BehindBefore).
-		Int("ahead_after", result.AheadAfter).
-		Int("behind_after", result.BehindAfter).
-		Msg("Repository sync completed")
+	output.LogInfo(
+		fmt.Sprintf("Synced %s (ahead: %d→%d, behind: %d→%d)", repoName, result.AheadBefore, result.AheadAfter, result.BehindBefore, result.BehindAfter),
+		"Repository sync completed",
+		"repository", repoName,
+		"pulled", result.Pulled,
+		"pushed", result.Pushed,
+		"ahead_before", result.AheadBefore,
+		"behind_before", result.BehindBefore,
+		"ahead_after", result.AheadAfter,
+		"behind_after", result.BehindAfter,
+	)
 
 	return result
 }
@@ -217,10 +218,12 @@ func (so *SyncOperations) hasConflicts(ctx context.Context, repoPath string) boo
 func (so *SyncOperations) CreateBranch(ctx context.Context, branchName string, track bool) ([]SyncResult, error) {
 	var results []SyncResult
 
-	log.Info().
-		Str("branch", branchName).
-		Bool("track", track).
-		Msg("Creating branch across workspace")
+	output.LogInfo(
+		fmt.Sprintf("Creating branch '%s' across workspace", branchName),
+		"Creating branch across workspace",
+		"branch", branchName,
+		"track", track,
+	)
 
 	for _, repo := range so.workspace.Repositories {
 		repoPath := filepath.Join(so.workspace.Path, repo.Name)
@@ -246,17 +249,19 @@ func (so *SyncOperations) createBranchInRepository(ctx context.Context, repoName
 	}
 	cmd.Dir = repoPath
 
-	output, err := cmd.CombinedOutput()
+	cmdOutput, err := cmd.CombinedOutput()
 	if err != nil {
 		result.Success = false
-		result.Error = fmt.Sprintf("failed to create branch: %s", string(output))
+		result.Error = fmt.Sprintf("failed to create branch: %s", string(cmdOutput))
 		return result
 	}
 
-	log.Info().
-		Str("repository", repoName).
-		Str("branch", branchName).
-		Msg("Branch created successfully")
+	output.LogInfo(
+		fmt.Sprintf("Created branch '%s' in %s", branchName, repoName),
+		"Branch created successfully",
+		"repository", repoName,
+		"branch", branchName,
+	)
 
 	return result
 }
@@ -265,9 +270,11 @@ func (so *SyncOperations) createBranchInRepository(ctx context.Context, repoName
 func (so *SyncOperations) SwitchBranch(ctx context.Context, branchName string) ([]SyncResult, error) {
 	var results []SyncResult
 
-	log.Info().
-		Str("branch", branchName).
-		Msg("Switching branch across workspace")
+	output.LogInfo(
+		fmt.Sprintf("Switching to branch '%s' across workspace", branchName),
+		"Switching branch across workspace",
+		"branch", branchName,
+	)
 
 	for _, repo := range so.workspace.Repositories {
 		repoPath := filepath.Join(so.workspace.Path, repo.Name)
@@ -288,17 +295,19 @@ func (so *SyncOperations) switchBranchInRepository(ctx context.Context, repoName
 	cmd := exec.CommandContext(ctx, "git", "checkout", branchName)
 	cmd.Dir = repoPath
 
-	output, err := cmd.CombinedOutput()
+	cmdOutput, err := cmd.CombinedOutput()
 	if err != nil {
 		result.Success = false
-		result.Error = fmt.Sprintf("failed to switch branch: %s", string(output))
+		result.Error = fmt.Sprintf("failed to switch branch: %s", string(cmdOutput))
 		return result
 	}
 
-	log.Info().
-		Str("repository", repoName).
-		Str("branch", branchName).
-		Msg("Branch switched successfully")
+	output.LogInfo(
+		fmt.Sprintf("Switched to branch '%s' in %s", branchName, repoName),
+		"Branch switched successfully",
+		"repository", repoName,
+		"branch", branchName,
+	)
 
 	return result
 }

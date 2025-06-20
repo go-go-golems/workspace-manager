@@ -13,7 +13,6 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 // WorkspaceManager handles workspace creation and management
@@ -139,7 +138,11 @@ func (wm *WorkspaceManager) shouldCreateGoWorkspace(repos []Repository) bool {
 
 // createWorkspaceStructure creates the physical workspace structure
 func (wm *WorkspaceManager) createWorkspaceStructure(ctx context.Context, workspace *Workspace) error {
-	log.Info().Str("workspace", workspace.Name).Msg("Creating workspace structure")
+	output.LogInfo(
+		fmt.Sprintf("Creating workspace structure for '%s'", workspace.Name),
+		"Creating workspace structure",
+		"workspace", workspace.Name,
+	)
 
 	// Create workspace directory
 	if err := os.MkdirAll(workspace.Path, 0755); err != nil {
@@ -159,11 +162,13 @@ func (wm *WorkspaceManager) createWorkspaceStructure(ctx context.Context, worksp
 
 		if err := wm.createWorktree(ctx, workspace, repo); err != nil {
 			// Rollback any worktrees created so far
-			log.Error().
-				Err(err).
-				Str("repo", repo.Name).
-				Int("createdWorktrees", len(createdWorktrees)).
-				Msg("Failed to create worktree, rolling back")
+			output.LogError(
+				fmt.Sprintf("Failed to create worktree for repository '%s'", repo.Name),
+				"Failed to create worktree, rolling back",
+				"repo", repo.Name,
+				"createdWorktrees", len(createdWorktrees),
+				"error", err,
+			)
 
 			wm.rollbackWorktrees(ctx, createdWorktrees)
 			wm.cleanupWorkspaceDirectory(workspace.Path)
@@ -172,16 +177,22 @@ func (wm *WorkspaceManager) createWorkspaceStructure(ctx context.Context, worksp
 
 		// Track successful creation
 		createdWorktrees = append(createdWorktrees, worktreeInfo)
-		log.Info().
-			Str("repo", repo.Name).
-			Str("path", worktreeInfo.TargetPath).
-			Msg("Successfully created worktree")
+		output.LogInfo(
+			fmt.Sprintf("Successfully created worktree for '%s'", repo.Name),
+			"Successfully created worktree",
+			"repo", repo.Name,
+			"path", worktreeInfo.TargetPath,
+		)
 	}
 
 	// Create go.work file if needed
 	if workspace.GoWorkspace {
 		if err := wm.CreateGoWorkspace(workspace); err != nil {
-			log.Error().Err(err).Msg("Failed to create go.work file, rolling back worktrees")
+			output.LogError(
+				"Failed to create go.work file",
+				"Failed to create go.work file, rolling back worktrees",
+				"error", err,
+			)
 			wm.rollbackWorktrees(ctx, createdWorktrees)
 			wm.cleanupWorkspaceDirectory(workspace.Path)
 			return errors.Wrap(err, "failed to create go.work file")
@@ -191,17 +202,23 @@ func (wm *WorkspaceManager) createWorkspaceStructure(ctx context.Context, worksp
 	// Copy AGENT.md if specified
 	if workspace.AgentMD != "" {
 		if err := wm.copyAgentMD(workspace); err != nil {
-			log.Error().Err(err).Msg("Failed to copy AGENT.md, rolling back worktrees")
+			output.LogError(
+				"Failed to copy AGENT.md file",
+				"Failed to copy AGENT.md, rolling back worktrees",
+				"error", err,
+			)
 			wm.rollbackWorktrees(ctx, createdWorktrees)
 			wm.cleanupWorkspaceDirectory(workspace.Path)
 			return errors.Wrap(err, "failed to copy AGENT.md")
 		}
 	}
 
-	log.Info().
-		Str("workspace", workspace.Name).
-		Int("worktrees", len(createdWorktrees)).
-		Msg("Successfully created workspace structure")
+	output.LogInfo(
+		fmt.Sprintf("Successfully created workspace structure for '%s' with %d worktrees", workspace.Name, len(createdWorktrees)),
+		"Successfully created workspace structure",
+		"workspace", workspace.Name,
+		"worktrees", len(createdWorktrees),
+	)
 
 	return nil
 }
@@ -210,11 +227,13 @@ func (wm *WorkspaceManager) createWorkspaceStructure(ctx context.Context, worksp
 func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Workspace, repo Repository) error {
 	targetPath := filepath.Join(workspace.Path, repo.Name)
 
-	log.Info().
-		Str("repo", repo.Name).
-		Str("branch", workspace.Branch).
-		Str("target", targetPath).
-		Msg("Creating worktree")
+	output.LogInfo(
+		fmt.Sprintf("Creating worktree for '%s' on branch '%s'", repo.Name, workspace.Branch),
+		"Creating worktree",
+		"repo", repo.Name,
+		"branch", workspace.Branch,
+		"target", targetPath,
+	)
 
 	if workspace.Branch == "" {
 		// No specific branch, create worktree from current branch
@@ -230,7 +249,12 @@ func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Works
 	// Check if branch exists remotely
 	remoteBranchExists, err := wm.CheckRemoteBranchExists(ctx, repo.Path, workspace.Branch)
 	if err != nil {
-		log.Warn().Err(err).Str("branch", workspace.Branch).Msg("Could not check remote branch existence")
+		output.LogWarn(
+			fmt.Sprintf("Could not check if remote branch '%s' exists", workspace.Branch),
+			"Could not check remote branch existence",
+			"branch", workspace.Branch,
+			"error", err,
+		)
 	}
 
 	fmt.Printf("\nBranch status for %s:\n", repo.Name)
@@ -240,7 +264,7 @@ func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Works
 	if branchExists {
 		// Branch exists locally - ask user what to do using huh
 		output.PrintWarning("Branch '%s' already exists in repository '%s'", workspace.Branch, repo.Name)
-		
+
 		var choice string
 		form := huh.NewForm(
 			huh.NewGroup(
@@ -312,35 +336,41 @@ func (wm *WorkspaceManager) ExecuteWorktreeCommand(ctx context.Context, repoPath
 	cmdStr := strings.Join(args, " ")
 	fmt.Printf("Executing: %s (in %s)\n", cmdStr, repoPath)
 
-	log.Info().
-		Str("command", cmdStr).
-		Str("repoPath", repoPath).
-		Msg("Executing git worktree command")
+	output.LogInfo(
+		fmt.Sprintf("Executing git worktree command: %s", cmdStr),
+		"Executing git worktree command",
+		"command", cmdStr,
+		"repoPath", repoPath,
+	)
 
-	output, err := cmd.CombinedOutput()
+	cmdOutput, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Printf("❌ Command failed: %s\n", cmdStr)
 		fmt.Printf("   Error: %v\n", err)
-		fmt.Printf("   Output: %s\n", string(output))
+		fmt.Printf("   Output: %s\n", string(cmdOutput))
 
-		log.Error().
-			Err(err).
-			Str("output", string(output)).
-			Str("command", cmdStr).
-			Msg("Git worktree command failed")
+		output.LogError(
+			fmt.Sprintf("Git worktree command failed: %s", cmdStr),
+			"Git worktree command failed",
+			"error", err,
+			"output", string(cmdOutput),
+			"command", cmdStr,
+		)
 
-		return errors.Wrapf(err, "git command failed: %s", string(output))
+		return errors.Wrapf(err, "git command failed: %s", string(cmdOutput))
 	}
 
 	fmt.Printf("✓ Successfully executed: %s\n", cmdStr)
-	if len(output) > 0 {
-		fmt.Printf("  Output: %s\n", string(output))
+	if len(cmdOutput) > 0 {
+		fmt.Printf("  Output: %s\n", string(cmdOutput))
 	}
 
-	log.Info().
-		Str("output", string(output)).
-		Str("command", cmdStr).
-		Msg("Git worktree command succeeded")
+	output.LogInfo(
+		fmt.Sprintf("Git worktree command succeeded: %s", cmdStr),
+		"Git worktree command succeeded",
+		"output", string(cmdOutput),
+		"command", cmdStr,
+	)
 
 	return nil
 }
@@ -349,7 +379,11 @@ func (wm *WorkspaceManager) ExecuteWorktreeCommand(ctx context.Context, repoPath
 func (wm *WorkspaceManager) CreateGoWorkspace(workspace *Workspace) error {
 	goWorkPath := filepath.Join(workspace.Path, "go.work")
 
-	log.Info().Str("path", goWorkPath).Msg("Creating go.work file")
+	output.LogInfo(
+		fmt.Sprintf("Creating go.work file at %s", goWorkPath),
+		"Creating go.work file",
+		"path", goWorkPath,
+	)
 
 	content := "go 1.23\n\nuse (\n"
 
@@ -384,7 +418,12 @@ func (wm *WorkspaceManager) copyAgentMD(workspace *Workspace) error {
 
 	target := filepath.Join(workspace.Path, "AGENT.md")
 
-	log.Info().Str("source", source).Str("target", target).Msg("Copying AGENT.md")
+	output.LogInfo(
+		fmt.Sprintf("Copying AGENT.md from %s to %s", source, target),
+		"Copying AGENT.md",
+		"source", source,
+		"target", target,
+	)
 
 	data, err := os.ReadFile(source)
 	if err != nil {
@@ -464,13 +503,23 @@ func LoadWorkspaces() ([]Workspace, error) {
 			path := filepath.Join(workspacesDir, entry.Name())
 			data, err := os.ReadFile(path)
 			if err != nil {
-				log.Warn().Err(err).Str("path", path).Msg("Failed to read workspace file")
+				output.LogWarn(
+					fmt.Sprintf("Failed to read workspace file: %s", path),
+					"Failed to read workspace file",
+					"path", path,
+					"error", err,
+				)
 				continue
 			}
 
 			var workspace Workspace
 			if err := json.Unmarshal(data, &workspace); err != nil {
-				log.Warn().Err(err).Str("path", path).Msg("Failed to parse workspace file")
+				output.LogWarn(
+					fmt.Sprintf("Failed to parse workspace file: %s", path),
+					"Failed to parse workspace file",
+					"path", path,
+					"error", err,
+				)
 				continue
 			}
 
@@ -509,11 +558,13 @@ func (wm *WorkspaceManager) LoadWorkspace(name string) (*Workspace, error) {
 
 // DeleteWorkspace deletes a workspace and optionally removes its files
 func (wm *WorkspaceManager) DeleteWorkspace(ctx context.Context, name string, removeFiles bool, forceWorktrees bool) error {
-	log.Info().
-		Str("workspace", name).
-		Bool("removeFiles", removeFiles).
-		Bool("forceWorktrees", forceWorktrees).
-		Msg("Deleting workspace")
+	output.LogInfo(
+		fmt.Sprintf("Deleting workspace '%s' (removeFiles: %v, forceWorktrees: %v)", name, removeFiles, forceWorktrees),
+		"Deleting workspace",
+		"workspace", name,
+		"removeFiles", removeFiles,
+		"forceWorktrees", forceWorktrees,
+	)
 
 	// Load workspace to get its path
 	workspace, err := wm.LoadWorkspace(name)
@@ -529,24 +580,40 @@ func (wm *WorkspaceManager) DeleteWorkspace(ctx context.Context, name string, re
 	// Remove workspace directory and files if requested
 	if removeFiles {
 		if _, err := os.Stat(workspace.Path); err == nil {
-			log.Info().Str("path", workspace.Path).Msg("Removing workspace directory and files")
+			output.LogInfo(
+				fmt.Sprintf("Removing workspace directory and files: %s", workspace.Path),
+				"Removing workspace directory and files",
+				"path", workspace.Path,
+			)
 
 			// Log what we're removing for transparency
 			if err := wm.logWorkspaceFilesToRemove(workspace.Path); err != nil {
-				log.Warn().Err(err).Msg("Failed to enumerate workspace files for logging")
+				output.LogWarn(
+					"Failed to enumerate workspace files for logging",
+					"Failed to enumerate workspace files for logging",
+					"error", err,
+				)
 			}
 
 			if err := os.RemoveAll(workspace.Path); err != nil {
 				return errors.Wrapf(err, "failed to remove workspace directory: %s", workspace.Path)
 			}
 
-			log.Info().Str("path", workspace.Path).Msg("Successfully removed workspace directory and all files")
+			output.LogInfo(
+				fmt.Sprintf("Successfully removed workspace directory and all files: %s", workspace.Path),
+				"Successfully removed workspace directory and all files",
+				"path", workspace.Path,
+			)
 		}
 	} else {
 		// If not removing files, still clean up go.work and AGENT.md from workspace directory
 		// as these are workspace-specific files that should be removed with workspace deletion
 		if err := wm.cleanupWorkspaceSpecificFiles(workspace.Path); err != nil {
-			log.Warn().Err(err).Msg("Failed to clean up workspace-specific files")
+			output.LogWarn(
+				"Failed to clean up workspace-specific files",
+				"Failed to clean up workspace-specific files",
+				"error", err,
+			)
 		}
 	}
 
@@ -592,10 +659,12 @@ func (wm *WorkspaceManager) removeWorktrees(ctx context.Context, workspace *Work
 	for _, repo := range workspace.Repositories {
 		worktreePath := filepath.Join(workspace.Path, repo.Name)
 
-		log.Info().
-			Str("repo", repo.Name).
-			Str("worktree", worktreePath).
-			Msg("Removing worktree")
+		output.LogInfo(
+			fmt.Sprintf("Removing worktree for '%s'", repo.Name),
+			"Removing worktree",
+			"repo", repo.Name,
+			"worktree", worktreePath,
+		)
 
 		fmt.Printf("\n--- Processing %s ---\n", repo.Name)
 		fmt.Printf("Workspace path: %s\n", workspace.Path)
@@ -624,40 +693,46 @@ func (wm *WorkspaceManager) removeWorktrees(ctx context.Context, workspace *Work
 		}
 		cmd.Dir = repo.Path
 
-		log.Info().
-			Str("repo", repo.Name).
-			Str("repoPath", repo.Path).
-			Str("worktreePath", worktreePath).
-			Str("command", cmdStr).
-			Msg("Executing git worktree remove command")
+		output.LogInfo(
+			fmt.Sprintf("Executing git worktree remove command: %s", cmdStr),
+			"Executing git worktree remove command",
+			"repo", repo.Name,
+			"repoPath", repo.Path,
+			"worktreePath", worktreePath,
+			"command", cmdStr,
+		)
 
 		fmt.Printf("Executing: %s (in %s)\n", cmdStr, repo.Path)
 
-		if output, err := cmd.CombinedOutput(); err != nil {
-			log.Error().
-				Err(err).
-				Str("output", string(output)).
-				Str("repo", repo.Name).
-				Str("repoPath", repo.Path).
-				Str("worktree", worktreePath).
-				Str("command", cmdStr).
-				Msg("Failed to remove worktree with git command")
+		if cmdOutput, err := cmd.CombinedOutput(); err != nil {
+			output.LogError(
+				fmt.Sprintf("Failed to remove worktree for repository '%s'", repo.Name),
+				"Failed to remove worktree with git command",
+				"error", err,
+				"output", string(cmdOutput),
+				"repo", repo.Name,
+				"repoPath", repo.Path,
+				"worktree", worktreePath,
+				"command", cmdStr,
+			)
 
 			fmt.Printf("❌ Command failed: %s\n", cmdStr)
 			fmt.Printf("   Error: %v\n", err)
-			fmt.Printf("   Output: %s\n", string(output))
+			fmt.Printf("   Output: %s\n", string(cmdOutput))
 
-			errs = append(errs, errors.Wrapf(err, "failed to remove worktree for %s: %s", repo.Name, string(output)))
+			errs = append(errs, errors.Wrapf(err, "failed to remove worktree for %s: %s", repo.Name, string(cmdOutput)))
 		} else {
-			log.Info().
-				Str("output", string(output)).
-				Str("repo", repo.Name).
-				Str("command", cmdStr).
-				Msg("Successfully removed worktree")
+			output.LogInfo(
+				fmt.Sprintf("Successfully removed worktree for '%s'", repo.Name),
+				"Successfully removed worktree",
+				"output", string(cmdOutput),
+				"repo", repo.Name,
+				"command", cmdStr,
+			)
 
 			fmt.Printf("✓ Successfully executed: %s\n", cmdStr)
-			if len(output) > 0 {
-				fmt.Printf("  Output: %s\n", string(output))
+			if len(cmdOutput) > 0 {
+				fmt.Printf("  Output: %s\n", string(cmdOutput))
 			}
 		}
 	}
@@ -707,12 +782,14 @@ func (wm *WorkspaceManager) logWorkspaceFilesToRemove(workspacePath string) erro
 		}
 	}
 
-	log.Info().
-		Str("workspacePath", workspacePath).
-		Strs("files", files).
-		Strs("directories", dirs).
-		Int("totalItems", len(entries)).
-		Msg("Workspace contents to be removed")
+	output.LogInfo(
+		fmt.Sprintf("Workspace %s contains %d items to be removed", workspacePath, len(entries)),
+		"Workspace contents to be removed",
+		"workspacePath", workspacePath,
+		"files", files,
+		"directories", dirs,
+		"totalItems", len(entries),
+	)
 
 	return nil
 }
@@ -726,16 +803,34 @@ func (wm *WorkspaceManager) cleanupWorkspaceSpecificFiles(workspacePath string) 
 		filePath := filepath.Join(workspacePath, fileName)
 
 		if _, err := os.Stat(filePath); err == nil {
-			log.Info().Str("file", filePath).Msg("Removing workspace-specific file")
+			output.LogInfo(
+				fmt.Sprintf("Removing workspace file %s", fileName),
+				"Removing workspace-specific file",
+				"file", filePath,
+			)
 
 			if err := os.Remove(filePath); err != nil {
-				log.Warn().Err(err).Str("file", filePath).Msg("Failed to remove workspace-specific file")
+				output.LogWarn(
+					fmt.Sprintf("Failed to remove workspace-specific file: %s", filePath),
+					"Failed to remove workspace-specific file",
+					"file", filePath,
+					"error", err,
+				)
 				return errors.Wrapf(err, "failed to remove %s", filePath)
 			}
 
-			log.Info().Str("file", filePath).Msg("Successfully removed workspace-specific file")
+			output.LogInfo(
+				fmt.Sprintf("Successfully removed %s", fileName),
+				"Successfully removed workspace-specific file",
+				"file", filePath,
+			)
 		} else if !os.IsNotExist(err) {
-			log.Warn().Err(err).Str("file", filePath).Msg("Error checking workspace-specific file")
+			output.LogWarn(
+				fmt.Sprintf("Error checking workspace-specific file: %s", filePath),
+				"Error checking workspace-specific file",
+				"file", filePath,
+				"error", err,
+			)
 		}
 	}
 
@@ -749,18 +844,24 @@ func (wm *WorkspaceManager) rollbackWorktrees(ctx context.Context, worktrees []W
 	}
 
 	fmt.Printf("\n🔄 Rolling back %d created worktrees...\n", len(worktrees))
-	log.Info().Int("count", len(worktrees)).Msg("Rolling back created worktrees")
+	output.LogInfo(
+		fmt.Sprintf("Rolling back %d created worktrees", len(worktrees)),
+		"Rolling back created worktrees",
+		"count", len(worktrees),
+	)
 
 	for i := len(worktrees) - 1; i >= 0; i-- {
 		worktree := worktrees[i]
 
 		fmt.Printf("Rolling back worktree: %s (at %s)\n", worktree.Repository.Name, worktree.TargetPath)
 
-		log.Info().
-			Str("repo", worktree.Repository.Name).
-			Str("targetPath", worktree.TargetPath).
-			Str("repoPath", worktree.Repository.Path).
-			Msg("Rolling back worktree")
+		output.LogInfo(
+			fmt.Sprintf("Rolling back worktree for %s", worktree.Repository.Name),
+			"Rolling back worktree",
+			"repo", worktree.Repository.Name,
+			"targetPath", worktree.TargetPath,
+			"repoPath", worktree.Repository.Path,
+		)
 
 		// Use git worktree remove --force for rollback to ensure it works even with uncommitted changes
 		cmd := exec.CommandContext(ctx, "git", "worktree", "remove", "--force", worktree.TargetPath)
@@ -769,28 +870,32 @@ func (wm *WorkspaceManager) rollbackWorktrees(ctx context.Context, worktrees []W
 		cmdStr := fmt.Sprintf("git worktree remove --force %s", worktree.TargetPath)
 		fmt.Printf("  Executing: %s (in %s)\n", cmdStr, worktree.Repository.Path)
 
-		if output, err := cmd.CombinedOutput(); err != nil {
+		if cmdOutput, err := cmd.CombinedOutput(); err != nil {
 			fmt.Printf("  ⚠️  Failed to remove worktree: %v\n", err)
-			fmt.Printf("      Output: %s\n", string(output))
+			fmt.Printf("      Output: %s\n", string(cmdOutput))
 
-			log.Warn().
-				Err(err).
-				Str("output", string(output)).
-				Str("repo", worktree.Repository.Name).
-				Str("targetPath", worktree.TargetPath).
-				Msg("Failed to remove worktree during rollback")
+			output.LogWarn(
+				fmt.Sprintf("Failed to remove worktree for '%s' during rollback", worktree.Repository.Name),
+				"Failed to remove worktree during rollback",
+				"error", err,
+				"output", string(cmdOutput),
+				"repo", worktree.Repository.Name,
+				"targetPath", worktree.TargetPath,
+			)
 		} else {
 			fmt.Printf("  ✓ Successfully removed worktree\n")
 
-			log.Info().
-				Str("repo", worktree.Repository.Name).
-				Str("targetPath", worktree.TargetPath).
-				Msg("Successfully removed worktree during rollback")
+			output.LogInfo(
+				fmt.Sprintf("Successfully removed worktree for %s", worktree.Repository.Name),
+				"Successfully removed worktree during rollback",
+				"repo", worktree.Repository.Name,
+				"targetPath", worktree.TargetPath,
+			)
 		}
 	}
 
 	fmt.Printf("🔄 Rollback completed\n\n")
-	log.Info().Msg("Worktree rollback completed")
+	output.LogInfo("Rollback completed", "Worktree rollback completed")
 }
 
 // cleanupWorkspaceDirectory removes the workspace directory if it's empty or only contains expected files
@@ -800,7 +905,11 @@ func (wm *WorkspaceManager) cleanupWorkspaceDirectory(workspacePath string) {
 	}
 
 	fmt.Printf("🧹 Cleaning up workspace directory: %s\n", workspacePath)
-	log.Info().Str("path", workspacePath).Msg("Cleaning up workspace directory")
+	output.LogInfo(
+		fmt.Sprintf("Cleaning up workspace directory %s", workspacePath),
+		"Cleaning up workspace directory",
+		"path", workspacePath,
+	)
 
 	// Check if directory exists
 	if _, err := os.Stat(workspacePath); os.IsNotExist(err) {
@@ -812,7 +921,12 @@ func (wm *WorkspaceManager) cleanupWorkspaceDirectory(workspacePath string) {
 	entries, err := os.ReadDir(workspacePath)
 	if err != nil {
 		fmt.Printf("  ⚠️  Failed to read directory: %v\n", err)
-		log.Warn().Err(err).Str("path", workspacePath).Msg("Failed to read workspace directory during cleanup")
+		output.LogWarn(
+			fmt.Sprintf("Failed to read workspace directory during cleanup: %s", workspacePath),
+			"Failed to read workspace directory during cleanup",
+			"path", workspacePath,
+			"error", err,
+		)
 		return
 	}
 
@@ -838,14 +952,28 @@ func (wm *WorkspaceManager) cleanupWorkspaceDirectory(workspacePath string) {
 		fmt.Printf("  Removing workspace directory (empty or only contains expected files)\n")
 		if err := os.RemoveAll(workspacePath); err != nil {
 			fmt.Printf("  ⚠️  Failed to remove workspace directory: %v\n", err)
-			log.Warn().Err(err).Str("path", workspacePath).Msg("Failed to remove workspace directory during cleanup")
+			output.LogWarn(
+				fmt.Sprintf("Failed to remove workspace directory during cleanup: %s", workspacePath),
+				"Failed to remove workspace directory during cleanup",
+				"path", workspacePath,
+				"error", err,
+			)
 		} else {
 			fmt.Printf("  ✓ Successfully removed workspace directory\n")
-			log.Info().Str("path", workspacePath).Msg("Successfully removed workspace directory during cleanup")
+			output.LogInfo(
+				fmt.Sprintf("Successfully removed workspace directory %s", workspacePath),
+				"Successfully removed workspace directory during cleanup",
+				"path", workspacePath,
+			)
 		}
 	} else {
 		fmt.Printf("  Directory contains unexpected files, leaving it intact\n")
-		log.Info().Str("path", workspacePath).Int("entries", len(entries)).Msg("Workspace directory contains unexpected files, not removing")
+		output.LogInfo(
+			fmt.Sprintf("Workspace directory %s contains %d unexpected files", workspacePath, len(entries)),
+			"Workspace directory contains unexpected files, not removing",
+			"path", workspacePath,
+			"entries", len(entries),
+		)
 
 		// List the unexpected files for debugging
 		for _, entry := range entries {
@@ -858,12 +986,14 @@ func (wm *WorkspaceManager) cleanupWorkspaceDirectory(workspacePath string) {
 
 // AddRepositoryToWorkspace adds a repository to an existing workspace
 func (wm *WorkspaceManager) AddRepositoryToWorkspace(ctx context.Context, workspaceName, repoName, branchName string, forceOverwrite bool) error {
-	log.Info().
-		Str("workspace", workspaceName).
-		Str("repo", repoName).
-		Str("branch", branchName).
-		Bool("force", forceOverwrite).
-		Msg("Adding repository to workspace")
+	output.LogInfo(
+		fmt.Sprintf("Adding repository %s to workspace %s", repoName, workspaceName),
+		"Adding repository to workspace",
+		"workspace", workspaceName,
+		"repo", repoName,
+		"branch", branchName,
+		"force", forceOverwrite,
+	)
 
 	// Load existing workspace
 	workspace, err := wm.LoadWorkspace(workspaceName)
@@ -916,8 +1046,11 @@ func (wm *WorkspaceManager) AddRepositoryToWorkspace(ctx context.Context, worksp
 	// Update go.work file if this is a Go workspace and the new repo has go.mod
 	if workspace.GoWorkspace {
 		if err := wm.CreateGoWorkspace(workspace); err != nil {
-			log.Warn().Err(err).Msg("Failed to update go.work file, but continuing")
-			output.PrintWarning("Failed to update go.work file: %v", err)
+			output.LogWarn(
+				fmt.Sprintf("Failed to update go.work file: %v", err),
+				"Failed to update go.work file, but continuing",
+				"error", err,
+			)
 		}
 	}
 
@@ -934,12 +1067,14 @@ func (wm *WorkspaceManager) AddRepositoryToWorkspace(ctx context.Context, worksp
 func (wm *WorkspaceManager) CreateWorktreeForAdd(ctx context.Context, workspace *Workspace, repo Repository, branch string, forceOverwrite bool) error {
 	targetPath := filepath.Join(workspace.Path, repo.Name)
 
-	log.Info().
-		Str("repo", repo.Name).
-		Str("branch", branch).
-		Str("target", targetPath).
-		Bool("force", forceOverwrite).
-		Msg("Creating worktree for add operation")
+	output.LogInfo(
+		fmt.Sprintf("Creating worktree for %s at %s", repo.Name, targetPath),
+		"Creating worktree for add operation",
+		"repo", repo.Name,
+		"branch", branch,
+		"target", targetPath,
+		"force", forceOverwrite,
+	)
 
 	// Check if target path already exists
 	if _, err := os.Stat(targetPath); err == nil {
@@ -960,7 +1095,12 @@ func (wm *WorkspaceManager) CreateWorktreeForAdd(ctx context.Context, workspace 
 	// Check if branch exists remotely
 	remoteBranchExists, err := wm.CheckRemoteBranchExists(ctx, repo.Path, branch)
 	if err != nil {
-		log.Warn().Err(err).Str("branch", branch).Msg("Could not check remote branch existence")
+		output.LogWarn(
+			fmt.Sprintf("Could not check remote branch existence for '%s': %v", branch, err),
+			"Could not check remote branch existence",
+			"error", err,
+			"branch", branch,
+		)
 	}
 
 	fmt.Printf("\nBranch status for %s:\n", repo.Name)
@@ -1021,12 +1161,14 @@ func (wm *WorkspaceManager) CreateWorktreeForAdd(ctx context.Context, workspace 
 
 // RemoveRepositoryFromWorkspace removes a repository from an existing workspace
 func (wm *WorkspaceManager) RemoveRepositoryFromWorkspace(ctx context.Context, workspaceName, repoName string, force, removeFiles bool) error {
-	log.Info().
-		Str("workspace", workspaceName).
-		Str("repo", repoName).
-		Bool("force", force).
-		Bool("removeFiles", removeFiles).
-		Msg("Removing repository from workspace")
+	output.LogInfo(
+		fmt.Sprintf("Removing repository %s from workspace %s", repoName, workspaceName),
+		"Removing repository from workspace",
+		"workspace", workspaceName,
+		"repo", repoName,
+		"force", force,
+		"removeFiles", removeFiles,
+	)
 
 	// Load existing workspace
 	workspace, err := wm.LoadWorkspace(workspaceName)
@@ -1076,8 +1218,11 @@ func (wm *WorkspaceManager) RemoveRepositoryFromWorkspace(ctx context.Context, w
 	// Update go.work file if this is a Go workspace
 	if workspace.GoWorkspace {
 		if err := wm.CreateGoWorkspace(workspace); err != nil {
-			log.Warn().Err(err).Msg("Failed to update go.work file, but continuing")
-			fmt.Printf("⚠️  Warning: Failed to update go.work file: %v\n", err)
+			output.LogWarn(
+				fmt.Sprintf("Failed to update go.work file: %v", err),
+				"Failed to update go.work file, but continuing",
+				"error", err,
+			)
 		}
 	}
 
@@ -1092,11 +1237,13 @@ func (wm *WorkspaceManager) RemoveRepositoryFromWorkspace(ctx context.Context, w
 
 // removeWorktreeForRepo removes a worktree for a specific repository
 func (wm *WorkspaceManager) removeWorktreeForRepo(ctx context.Context, repo Repository, worktreePath string, force bool) error {
-	log.Info().
-		Str("repo", repo.Name).
-		Str("worktree", worktreePath).
-		Bool("force", force).
-		Msg("Removing worktree for repository")
+	output.LogInfo(
+		fmt.Sprintf("Removing worktree for %s at %s", repo.Name, worktreePath),
+		"Removing worktree for repository",
+		"repo", repo.Name,
+		"worktree", worktreePath,
+		"force", force,
+	)
 
 	fmt.Printf("\n--- Removing worktree for %s ---\n", repo.Name)
 	fmt.Printf("Worktree path: %s\n", worktreePath)
@@ -1133,42 +1280,44 @@ func (wm *WorkspaceManager) removeWorktreeForRepo(ctx context.Context, repo Repo
 	}
 	cmd.Dir = repo.Path
 
-	log.Info().
-		Str("repo", repo.Name).
-		Str("repoPath", repo.Path).
-		Str("worktreePath", worktreePath).
-		Str("command", cmdStr).
-		Msg("Executing git worktree remove command")
+	output.LogInfo(
+		fmt.Sprintf("Executing: %s (in %s)", cmdStr, repo.Path),
+		"Executing git worktree remove command",
+		"repo", repo.Name,
+		"repoPath", repo.Path,
+		"worktreePath", worktreePath,
+		"command", cmdStr,
+	)
 
 	fmt.Printf("Executing: %s (in %s)\n", cmdStr, repo.Path)
 
-	output, err := cmd.CombinedOutput()
+	cmdOutput, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Error().
-			Err(err).
-			Str("output", string(output)).
-			Str("repo", repo.Name).
-			Str("repoPath", repo.Path).
-			Str("worktree", worktreePath).
-			Str("command", cmdStr).
-			Msg("Failed to remove worktree with git command")
+		output.LogError(
+			fmt.Sprintf("Failed to remove worktree for '%s': %v", repo.Name, err),
+			"Failed to remove worktree with git command",
+			"error", err,
+			"output", string(cmdOutput),
+			"repo", repo.Name,
+			"repoPath", repo.Path,
+			"worktree", worktreePath,
+			"command", cmdStr,
+		)
 
-		fmt.Printf("❌ Command failed: %s\n", cmdStr)
-		fmt.Printf("   Error: %v\n", err)
-		fmt.Printf("   Output: %s\n", string(output))
-
-		return errors.Wrapf(err, "failed to remove worktree: %s", string(output))
+		return errors.Wrapf(err, "failed to remove worktree: %s", string(cmdOutput))
 	}
 
-	log.Info().
-		Str("output", string(output)).
-		Str("repo", repo.Name).
-		Str("command", cmdStr).
-		Msg("Successfully removed worktree")
+	output.LogInfo(
+		fmt.Sprintf("Successfully removed worktree for '%s'", repo.Name),
+		"Successfully removed worktree",
+		"output", string(cmdOutput),
+		"repo", repo.Name,
+		"command", cmdStr,
+	)
 
 	fmt.Printf("✓ Successfully executed: %s\n", cmdStr)
-	if len(output) > 0 {
-		fmt.Printf("  Output: %s\n", string(output))
+	if len(cmdOutput) > 0 {
+		fmt.Printf("  Output: %s\n", string(cmdOutput))
 	}
 
 	// Verify worktree was removed

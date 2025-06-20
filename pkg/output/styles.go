@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -69,18 +68,17 @@ func PrintHeader(format string, args ...interface{}) {
 
 // LogInfo logs at info level while also printing pretty output to user
 func LogInfo(userMsg string, logMsg string, fields ...interface{}) {
-	PrintInfo(userMsg)
+	PrintInfo("%s", userMsg)
+}
 
-	// Create log event with fields
-	logEvent := log.Info()
-	for i := 0; i < len(fields); i += 2 {
-		if i+1 < len(fields) {
-			if key, ok := fields[i].(string); ok {
-				logEvent = logEvent.Interface(key, fields[i+1])
-			}
-		}
-	}
-	logEvent.Msg(logMsg)
+// LogError logs at error level while also printing pretty output to user
+func LogError(userMsg string, logMsg string, fields ...interface{}) {
+	PrintError("%s", userMsg)
+}
+
+// LogWarn logs at warn level while also printing pretty output to user
+func LogWarn(userMsg string, logMsg string, fields ...interface{}) {
+	PrintWarning("%s", userMsg)
 }
 
 // Spinner creates a simple text-based spinner for operations
