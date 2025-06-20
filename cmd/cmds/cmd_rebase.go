@@ -12,7 +12,6 @@ import (
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -146,7 +145,12 @@ func rebaseRepository(ctx context.Context, workspace *wsm.Workspace, repoName, t
 	// Get commits count before rebase
 	commitsBefore, err := getCommitsAhead(ctx, repoPath, targetBranch)
 	if err != nil {
-		log.Warn().Err(err).Str("repo", repoName).Msg("Could not get commits count before rebase")
+		output.LogWarn(
+			fmt.Sprintf("Could not get commits count before rebase for '%s': %v", repoName, err),
+			"Could not get commits count before rebase",
+			"error", err,
+			"repo", repoName,
+		)
 	}
 	result.CommitsBefore = commitsBefore
 
@@ -178,7 +182,12 @@ func rebaseRepository(ctx context.Context, workspace *wsm.Workspace, repoName, t
 	// Get commits count after rebase
 	commitsAfter, err := getCommitsAhead(ctx, repoPath, targetBranch)
 	if err != nil {
-		log.Warn().Err(err).Str("repo", repoName).Msg("Could not get commits count after rebase")
+		output.LogWarn(
+			fmt.Sprintf("Could not get commits count after rebase for '%s': %v", repoName, err),
+			"Could not get commits count after rebase",
+			"error", err,
+			"repo", repoName,
+		)
 	}
 	result.CommitsAfter = commitsAfter
 
@@ -291,7 +300,11 @@ func printRebaseResults(results []RebaseResult, dryRun bool) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer func() {
 		if err := w.Flush(); err != nil {
-			log.Warn().Err(err).Msg("Failed to flush table writer")
+			output.LogWarn(
+				fmt.Sprintf("Failed to flush table writer: %v", err),
+				"Failed to flush table writer",
+				"error", err,
+			)
 		}
 	}()
 

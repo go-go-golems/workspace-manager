@@ -3,8 +3,8 @@ package cmds
 import (
 	"context"
 	"fmt"
-	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"os"
 	"strings"
 

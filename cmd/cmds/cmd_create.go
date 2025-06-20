@@ -67,6 +67,14 @@ func runCreate(ctx context.Context, name string, repos []string, branch, branchP
 	if interactive {
 		selectedRepos, err := selectRepositoriesInteractively(wm)
 		if err != nil {
+			// Check if user cancelled - handle gracefully without error
+			errMsg := strings.ToLower(err.Error())
+			if strings.Contains(errMsg, "cancelled by user") ||
+				strings.Contains(errMsg, "creation cancelled") ||
+				strings.Contains(errMsg, "operation cancelled") {
+				output.PrintInfo("Operation cancelled.")
+				return nil // Return success to prevent usage help
+			}
 			return errors.Wrap(err, "interactive selection failed")
 		}
 		repos = selectedRepos
@@ -89,6 +97,14 @@ func runCreate(ctx context.Context, name string, repos []string, branch, branchP
 	log.Debug().Str("name", name).Strs("repos", repos).Str("branch", finalBranch).Bool("dryRun", dryRun).Msg("Creating workspace")
 	workspace, err := wm.CreateWorkspace(ctx, name, repos, finalBranch, agentSource, dryRun)
 	if err != nil {
+		// Check if user cancelled - handle gracefully without error
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "cancelled by user") ||
+			strings.Contains(errMsg, "creation cancelled") ||
+			strings.Contains(errMsg, "operation cancelled") {
+			output.PrintInfo("Operation cancelled.")
+			return nil // Return success to prevent usage help
+		}
 		return errors.Wrap(err, "failed to create workspace")
 	}
 
@@ -149,6 +165,14 @@ func selectRepositoriesInteractively(wm *wsm.WorkspaceManager) ([]string, error)
 	log.Debug().Int("repoCount", len(repos)).Msg("Showing interactive repository selection")
 	err := form.Run()
 	if err != nil {
+		// Check if user cancelled/aborted the form
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "user aborted") ||
+			strings.Contains(errMsg, "cancelled") ||
+			strings.Contains(errMsg, "aborted") ||
+			strings.Contains(errMsg, "interrupt") {
+			return nil, errors.New("workspace creation cancelled by user")
+		}
 		return nil, errors.Wrap(err, "interactive form failed")
 	}
 

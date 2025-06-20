@@ -3,7 +3,7 @@ package cmds
 import (
 	"context"
 	"fmt"
-
+	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
@@ -120,6 +120,15 @@ func runDelete(ctx context.Context, workspaceName string, force bool, forceWorkt
 
 		err := form.Run()
 		if err != nil {
+			// Check if user cancelled/aborted the form
+			errMsg := strings.ToLower(err.Error())
+			if strings.Contains(errMsg, "user aborted") ||
+				strings.Contains(errMsg, "cancelled") ||
+				strings.Contains(errMsg, "aborted") ||
+				strings.Contains(errMsg, "interrupt") {
+				output.PrintInfo("Operation cancelled.")
+				return nil
+			}
 			return errors.Wrap(err, "confirmation failed")
 		}
 
