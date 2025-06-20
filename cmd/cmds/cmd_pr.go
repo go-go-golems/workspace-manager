@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"os"
 	"os/exec"
@@ -120,28 +121,29 @@ func runPR(ctx context.Context, workspaceName string, dryRun, force, draft bool,
 	}
 
 	if len(candidateBranches) == 0 {
-		fmt.Println("No branches found that need pull requests.")
+		output.PrintInfo("No branches found that need pull requests.")
 		return nil
 	}
 
 	// Show what we found
-	fmt.Printf("Found %d branch(es) that could use pull requests:\n\n", len(candidateBranches))
+	output.PrintHeader("Found %d branch(es) that could use pull requests:", len(candidateBranches))
+	fmt.Println()
 
 	for i, candidate := range candidateBranches {
-		fmt.Printf("%d. %s/%s\n", i+1, candidate.Repository, candidate.Branch)
+		output.PrintInfo("%d. %s/%s", i+1, candidate.Repository, candidate.Branch)
 		fmt.Printf("   Commits ahead: %d\n", candidate.CommitsAhead)
 		if candidate.NeedsPush {
-			fmt.Printf("   🚀 Needs push: Branch must be pushed to remote first\n")
+			output.PrintWarning("   🚀 Needs push: Branch must be pushed to remote first")
 		}
 		if candidate.ExistingPR != "" {
-			fmt.Printf("   ⚠️  Existing PR: %s\n", candidate.ExistingPR)
+			output.PrintWarning("   ⚠️  Existing PR: %s", candidate.ExistingPR)
 		}
 		fmt.Printf("   Remote URL: %s\n", candidate.RemoteURL)
 		fmt.Println()
 	}
 
 	if dryRun {
-		fmt.Println("Dry run mode - no PRs will be created.")
+		output.PrintInfo("Dry run mode - no PRs will be created.")
 		return nil
 	}
 
@@ -149,7 +151,7 @@ func runPR(ctx context.Context, workspaceName string, dryRun, force, draft bool,
 	reader := bufio.NewReader(os.Stdin)
 	for _, candidate := range candidateBranches {
 		if candidate.ExistingPR != "" {
-			fmt.Printf("Skipping %s/%s - PR already exists: %s\n", candidate.Repository, candidate.Branch, candidate.ExistingPR)
+			output.PrintWarning("Skipping %s/%s - PR already exists: %s", candidate.Repository, candidate.Branch, candidate.ExistingPR)
 			continue
 		}
 
@@ -164,21 +166,21 @@ func runPR(ctx context.Context, workspaceName string, dryRun, force, draft bool,
 		if shouldCreate {
 			// Push branch first if needed
 			if candidate.NeedsPush {
-				fmt.Printf("🚀 Pushing branch %s/%s to remote...\n", candidate.Repository, candidate.Branch)
+				output.PrintInfo("🚀 Pushing branch %s/%s to remote...", candidate.Repository, candidate.Branch)
 				if err := pushBranchForPR(ctx, candidate); err != nil {
-					fmt.Printf("❌ Failed to push branch %s/%s: %v\n", candidate.Repository, candidate.Branch, err)
+					output.PrintError("Failed to push branch %s/%s: %v", candidate.Repository, candidate.Branch, err)
 					continue
 				}
-				fmt.Printf("✅ Pushed branch %s/%s\n", candidate.Repository, candidate.Branch)
+				output.PrintSuccess("Pushed branch %s/%s", candidate.Repository, candidate.Branch)
 			}
 
 			if err := createPR(ctx, candidate, draft, customTitle, customBody); err != nil {
-				fmt.Printf("❌ Failed to create PR for %s/%s: %v\n", candidate.Repository, candidate.Branch, err)
+				output.PrintError("Failed to create PR for %s/%s: %v", candidate.Repository, candidate.Branch, err)
 			} else {
-				fmt.Printf("✅ Created PR for %s/%s\n", candidate.Repository, candidate.Branch)
+				output.PrintSuccess("Created PR for %s/%s", candidate.Repository, candidate.Branch)
 			}
 		} else {
-			fmt.Printf("Skipped %s/%s\n", candidate.Repository, candidate.Branch)
+			output.PrintInfo("Skipped %s/%s", candidate.Repository, candidate.Branch)
 		}
 	}
 

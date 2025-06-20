@@ -3,6 +3,7 @@ package cmds
 import (
 	"context"
 	"fmt"
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"os"
 	"strings"
@@ -121,7 +122,7 @@ func printField(workspace *wsm.Workspace, field string) error {
 }
 
 func printInfoTable(workspace *wsm.Workspace) error {
-	fmt.Printf("Workspace Information:\n")
+	output.PrintHeader("Workspace Information")
 	fmt.Printf("  Name:         %s\n", workspace.Name)
 	fmt.Printf("  Path:         %s\n", workspace.Path)
 	fmt.Printf("  Branch:       %s\n", workspace.Branch)
@@ -130,7 +131,7 @@ func printInfoTable(workspace *wsm.Workspace) error {
 	fmt.Printf("  Go Workspace: %t\n", workspace.GoWorkspace)
 
 	if len(workspace.Repositories) > 0 {
-		fmt.Printf("\nRepositories:\n")
+		output.PrintHeader("\nRepositories")
 		for _, repo := range workspace.Repositories {
 			fmt.Printf("  - %s (%s)\n", repo.Name, repo.RemoteURL)
 		}

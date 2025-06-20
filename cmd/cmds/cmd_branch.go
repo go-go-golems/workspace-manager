@@ -3,10 +3,11 @@ package cmds
 import (
 	"context"
 	"fmt"
-	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"os"
 	"text/tabwriter"
 
+	"github.com/go-go-golems/workspace-manager/pkg/output"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -82,7 +83,7 @@ func runBranchCreate(ctx context.Context, branchName string, track bool) error {
 
 	syncOps := wsm.NewSyncOperations(workspace)
 
-	fmt.Printf("🌿 Creating branch '%s' across workspace: %s\n", branchName, workspace.Name)
+	output.PrintHeader("🌿 Creating branch '%s' across workspace: %s", branchName, workspace.Name)
 
 	results, err := syncOps.CreateBranch(ctx, branchName, track)
 	if err != nil {
@@ -100,7 +101,7 @@ func runBranchSwitch(ctx context.Context, branchName string) error {
 
 	syncOps := wsm.NewSyncOperations(workspace)
 
-	fmt.Printf("🔄 Switching to branch '%s' across workspace: %s\n", branchName, workspace.Name)
+	output.PrintHeader("🔄 Switching to branch '%s' across workspace: %s", branchName, workspace.Name)
 
 	results, err := syncOps.SwitchBranch(ctx, branchName)
 	if err != nil {
@@ -116,7 +117,7 @@ func runBranchList(ctx context.Context) error {
 		return errors.Wrap(err, "failed to detect current workspace")
 	}
 
-	fmt.Printf("📋 Current branches in workspace: %s\n", workspace.Name)
+	output.PrintHeader("📋 Current branches in workspace: %s", workspace.Name)
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer func() {
@@ -164,7 +165,7 @@ func runBranchList(ctx context.Context) error {
 
 func printBranchResults(results []wsm.SyncResult, operation string) error {
 	if len(results) == 0 {
-		fmt.Println("No repositories found.")
+		output.PrintInfo("No repositories found.")
 		return nil
 	}
 
@@ -203,10 +204,10 @@ func printBranchResults(results []wsm.SyncResult, operation string) error {
 	fmt.Fprintln(w)
 
 	// Summary
-	fmt.Printf("Summary: %d/%d repositories %s successfully\n", successCount, len(results), operation)
+	output.PrintSuccess("Summary: %d/%d repositories %s successfully", successCount, len(results), operation)
 
 	if successCount < len(results) {
-		fmt.Printf("\n⚠️  Some repositories failed. Check errors above and resolve manually.\n")
+		output.PrintWarning("Some repositories failed. Check errors above and resolve manually.")
 	}
 
 	return nil

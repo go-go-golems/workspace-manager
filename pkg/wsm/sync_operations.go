@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
@@ -49,12 +50,15 @@ type SyncOptions struct {
 func (so *SyncOperations) SyncWorkspace(ctx context.Context, options *SyncOptions) ([]SyncResult, error) {
 	var results []SyncResult
 
-	log.Info().
-		Bool("pull", options.Pull).
-		Bool("push", options.Push).
-		Bool("rebase", options.Rebase).
-		Bool("dry_run", options.DryRun).
-		Msg("Starting workspace sync")
+	output.LogInfo(
+		fmt.Sprintf("Starting workspace sync (pull:%v, push:%v, rebase:%v, dry-run:%v)", 
+			options.Pull, options.Push, options.Rebase, options.DryRun),
+		"Starting workspace sync",
+		"pull", options.Pull,
+		"push", options.Push,
+		"rebase", options.Rebase,
+		"dry_run", options.DryRun,
+	)
 
 	for _, repo := range so.workspace.Repositories {
 		repoPath := filepath.Join(so.workspace.Path, repo.Name)

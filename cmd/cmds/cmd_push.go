@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -118,12 +119,13 @@ func runPush(ctx context.Context, remoteName, workspaceName string, dryRun, forc
 	}
 
 	if len(candidateBranches) == 0 {
-		fmt.Printf("No branches found that need pushing to remote '%s'.\n", remoteName)
+		output.PrintInfo("No branches found that need pushing to remote '%s'", remoteName)
 		return nil
 	}
 
 	// Show what we found
-	fmt.Printf("Found %d branch(es) that could be pushed to remote '%s':\n\n", len(candidateBranches), remoteName)
+	output.PrintHeader("Found %d branch(es) that could be pushed to remote '%s':", len(candidateBranches), remoteName)
+	fmt.Println()
 
 	for i, candidate := range candidateBranches {
 		fmt.Printf("%d. %s/%s\n", i+1, candidate.Repository, candidate.Branch)
@@ -132,13 +134,13 @@ func runPush(ctx context.Context, remoteName, workspaceName string, dryRun, forc
 		if candidate.RemoteExists {
 			fmt.Printf("   Remote branch exists: %t\n", candidate.RemoteBranchExists)
 		} else {
-			fmt.Printf("   ⚠️  Remote repository not found or not accessible\n")
+			output.PrintWarning("   Remote repository not found or not accessible\n")
 		}
 		fmt.Println()
 	}
 
 	if dryRun {
-		fmt.Println("Dry run mode - no branches will be pushed.")
+		output.PrintInfo("Dry run mode - no branches will be pushed")
 		return nil
 	}
 
@@ -146,7 +148,7 @@ func runPush(ctx context.Context, remoteName, workspaceName string, dryRun, forc
 	reader := bufio.NewReader(os.Stdin)
 	for _, candidate := range candidateBranches {
 		if !candidate.RemoteExists {
-			fmt.Printf("Skipping %s/%s - remote repository '%s' not found or not accessible\n",
+			output.PrintWarning("Skipping %s/%s - remote repository '%s' not found or not accessible",
 				candidate.Repository, candidate.Branch, candidate.RemoteRepo)
 			continue
 		}
@@ -161,12 +163,12 @@ func runPush(ctx context.Context, remoteName, workspaceName string, dryRun, forc
 
 		if shouldPush {
 			if err := pushBranch(ctx, candidate, remoteName, setUpstream); err != nil {
-				fmt.Printf("❌ Failed to push %s/%s: %v\n", candidate.Repository, candidate.Branch, err)
+				output.PrintError("Failed to push %s/%s: %v", candidate.Repository, candidate.Branch, err)
 			} else {
-				fmt.Printf("✅ Pushed %s/%s to %s\n", candidate.Repository, candidate.Branch, remoteName)
+				output.PrintSuccess("Pushed %s/%s to %s", candidate.Repository, candidate.Branch, remoteName)
 			}
 		} else {
-			fmt.Printf("Skipped %s/%s\n", candidate.Repository, candidate.Branch)
+			output.PrintInfo("Skipped %s/%s", candidate.Repository, candidate.Branch)
 		}
 	}
 

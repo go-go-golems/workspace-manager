@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"os"
 	"text/tabwriter"
 
@@ -106,9 +107,9 @@ func runSyncAll(ctx context.Context, pull, push, rebase, dryRun bool) error {
 		DryRun: dryRun,
 	}
 
-	fmt.Printf("🔄 Synchronizing workspace: %s\n", workspace.Name)
+	output.PrintHeader("Synchronizing workspace: %s", workspace.Name)
 	if dryRun {
-		fmt.Println("📋 Dry run mode - no changes will be made")
+		output.PrintInfo("Dry run mode - no changes will be made")
 	}
 
 	results, err := syncOps.SyncWorkspace(ctx, options)
@@ -133,9 +134,9 @@ func runSyncPull(ctx context.Context, rebase, dryRun bool) error {
 		DryRun: dryRun,
 	}
 
-	fmt.Printf("📥 Pulling changes for workspace: %s\n", workspace.Name)
+	output.PrintHeader("Pulling changes for workspace: %s", workspace.Name)
 	if dryRun {
-		fmt.Println("📋 Dry run mode - no changes will be made")
+		output.PrintInfo("Dry run mode - no changes will be made")
 	}
 
 	results, err := syncOps.SyncWorkspace(ctx, options)
@@ -160,9 +161,9 @@ func runSyncPush(ctx context.Context, dryRun bool) error {
 		DryRun: dryRun,
 	}
 
-	fmt.Printf("📤 Pushing changes for workspace: %s\n", workspace.Name)
+	output.PrintHeader("📤 Pushing changes for workspace: %s", workspace.Name)
 	if dryRun {
-		fmt.Println("📋 Dry run mode - no changes will be made")
+		output.PrintInfo("Dry run mode - no changes will be made")
 	}
 
 	results, err := syncOps.SyncWorkspace(ctx, options)
@@ -175,7 +176,7 @@ func runSyncPush(ctx context.Context, dryRun bool) error {
 
 func printSyncResults(results []wsm.SyncResult, dryRun bool) error {
 	if len(results) == 0 {
-		fmt.Println("No repositories to sync.")
+		output.PrintInfo("No repositories to sync.")
 		return nil
 	}
 
@@ -237,14 +238,10 @@ func printSyncResults(results []wsm.SyncResult, dryRun bool) error {
 	fmt.Fprintln(w)
 
 	// Summary
-	fmt.Printf("Summary: %d/%d repositories synced successfully", successCount, len(results))
+	output.PrintSuccess("Summary: %d/%d repositories synced successfully", successCount, len(results))
 	if conflictCount > 0 {
-		fmt.Printf(", %d with conflicts", conflictCount)
-	}
-	fmt.Println()
-
-	if conflictCount > 0 {
-		fmt.Println("\n⚠️  Some repositories have conflicts. Resolve them manually and run sync again.")
+		output.PrintWarning("⚠️  %d repositories have conflicts", conflictCount)
+		output.PrintInfo("Resolve conflicts manually and run sync again.")
 	}
 
 	return nil

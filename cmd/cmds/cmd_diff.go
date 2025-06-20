@@ -3,6 +3,7 @@ package cmds
 import (
 	"context"
 	"fmt"
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 
 	"github.com/pkg/errors"
@@ -39,12 +40,12 @@ func runDiff(ctx context.Context, staged bool, repoFilter string) error {
 
 	gitOps := wsm.NewGitOperations(workspace)
 
-	fmt.Printf("📄 Showing diff for workspace: %s\n", workspace.Name)
+	output.PrintHeader("📄 Showing diff for workspace: %s", workspace.Name)
 	if staged {
-		fmt.Println("   (staged changes only)")
+		output.PrintInfo("   (staged changes only)")
 	}
 	if repoFilter != "" {
-		fmt.Printf("   (repository: %s)\n", repoFilter)
+		output.PrintInfo("   (repository: %s)", repoFilter)
 	}
 	fmt.Println()
 
@@ -54,7 +55,7 @@ func runDiff(ctx context.Context, staged bool, repoFilter string) error {
 	}
 
 	if diff == "" || diff == "No changes found in workspace." {
-		fmt.Println("No changes found in workspace.")
+		output.PrintInfo("No changes found in workspace.")
 		return nil
 	}
 
@@ -94,9 +95,9 @@ func runLog(ctx context.Context, since string, oneline bool, limit int) error {
 
 	syncOps := wsm.NewSyncOperations(workspace)
 
-	fmt.Printf("📜 Commit history for workspace: %s\n", workspace.Name)
+	output.PrintHeader("📜 Commit history for workspace: %s", workspace.Name)
 	if since != "" {
-		fmt.Printf("   (since: %s)\n", since)
+		output.PrintInfo("   (since: %s)", since)
 	}
 	fmt.Println()
 
@@ -106,7 +107,7 @@ func runLog(ctx context.Context, since string, oneline bool, limit int) error {
 	}
 
 	if len(logs) == 0 {
-		fmt.Println("No commits found in workspace.")
+		output.PrintInfo("No commits found in workspace.")
 		return nil
 	}
 
@@ -115,7 +116,7 @@ func runLog(ctx context.Context, since string, oneline bool, limit int) error {
 			continue
 		}
 
-		fmt.Printf("=== Repository: %s ===\n", repoName)
+		output.PrintHeader("=== Repository: %s ===", repoName)
 		fmt.Println(log)
 		fmt.Println()
 	}

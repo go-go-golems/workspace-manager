@@ -3,13 +3,14 @@ package cmds
 import (
 	"context"
 	"fmt"
-	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
+	"github.com/go-go-golems/workspace-manager/pkg/output"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -85,13 +86,13 @@ func runRebase(ctx context.Context, repository, targetBranch string, interactive
 	}
 
 	if repository != "" {
-		fmt.Printf("🔄 Rebasing repository '%s' onto '%s'\n", repository, targetBranch)
+		output.PrintHeader("🔄 Rebasing repository '%s' onto '%s'", repository, targetBranch)
 	} else {
-		fmt.Printf("🔄 Rebasing all repositories onto '%s'\n", targetBranch)
+		output.PrintHeader("🔄 Rebasing all repositories onto '%s'", targetBranch)
 	}
 
 	if dryRun {
-		fmt.Println("📋 Dry run mode - no changes will be made")
+		output.PrintInfo("Dry run mode - no changes will be made")
 	}
 
 	var results []RebaseResult
@@ -181,12 +182,14 @@ func rebaseRepository(ctx context.Context, workspace *wsm.Workspace, repoName, t
 	}
 	result.CommitsAfter = commitsAfter
 
-	log.Info().
-		Str("repository", repoName).
-		Str("target", targetBranch).
-		Int("commits_before", result.CommitsBefore).
-		Int("commits_after", result.CommitsAfter).
-		Msg("Repository rebase completed")
+	output.LogInfo(
+		fmt.Sprintf("Repository %s rebase completed", repoName),
+		"Repository rebase completed",
+		"repository", repoName,
+		"target", targetBranch,
+		"commits_before", result.CommitsBefore,
+		"commits_after", result.CommitsAfter,
+	)
 
 	return result
 }
@@ -281,7 +284,7 @@ func hasRebaseConflicts(ctx context.Context, repoPath string) bool {
 
 func printRebaseResults(results []RebaseResult, dryRun bool) error {
 	if len(results) == 0 {
-		fmt.Println("No repositories to rebase.")
+		output.PrintInfo("No repositories to rebase.")
 		return nil
 	}
 
@@ -339,14 +342,10 @@ func printRebaseResults(results []RebaseResult, dryRun bool) error {
 	fmt.Fprintln(w)
 
 	// Summary
-	fmt.Printf("Summary: %d/%d repositories rebased successfully", successCount, len(results))
+	output.PrintSuccess("Summary: %d/%d repositories rebased successfully", successCount, len(results))
 	if conflictCount > 0 {
-		fmt.Printf(", %d with conflicts", conflictCount)
-	}
-	fmt.Println()
-
-	if conflictCount > 0 {
-		fmt.Println("\n⚠️  Some repositories have conflicts. Resolve them manually with:")
+		output.PrintWarning("%d repositories have conflicts", conflictCount)
+		output.PrintInfo("Resolve conflicts manually with:")
 		fmt.Println("  - Fix conflicts in the affected files")
 		fmt.Println("  - git add <resolved-files>")
 		fmt.Println("  - git rebase --continue")

@@ -3,9 +3,11 @@ package cmds
 import (
 	"context"
 	"fmt"
-	"github.com/go-go-golems/workspace-manager/pkg/wsm"
-	"strings"
 
+
+	"github.com/charmbracelet/huh"
+	"github.com/go-go-golems/workspace-manager/pkg/output"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -66,16 +68,15 @@ func runDelete(ctx context.Context, workspaceName string, force bool, forceWorkt
 	}
 
 	// Show workspace status first
-	fmt.Printf("Current workspace status:\n")
-	fmt.Printf("========================\n")
+	output.PrintHeader("Current workspace status")
 	checker := wsm.NewStatusChecker()
 	status, err := checker.GetWorkspaceStatus(ctx, workspace)
 	if err == nil {
 		if err := printStatusDetailed(status, false); err != nil {
-			fmt.Printf("Error showing status: %v\n", err)
+			output.PrintError("Error showing status: %v", err)
 		}
 	} else {
-		fmt.Printf("Error getting status: %v\n", err)
+		output.PrintError("Error getting status: %v", err)
 	}
 	fmt.Printf("\n")
 
@@ -84,20 +85,20 @@ func runDelete(ctx context.Context, workspaceName string, force bool, forceWorkt
 		return wsm.PrintJSON(workspace)
 	}
 
-	fmt.Printf("Workspace: %s\n", workspace.Name)
-	fmt.Printf("Path: %s\n", workspace.Path)
-	fmt.Printf("Repositories: %d\n", len(workspace.Repositories))
+	output.PrintHeader("Workspace: %s", workspace.Name)
+	fmt.Printf("  Path: %s\n", workspace.Path)
+	fmt.Printf("  Repositories: %d\n", len(workspace.Repositories))
 
-	fmt.Printf("\nThis will:\n")
+	output.PrintWarning("This will:")
 	if forceWorktrees {
 		fmt.Printf("  1. Remove git worktrees (git worktree remove --force)\n")
 	} else {
 		fmt.Printf("  1. Remove git worktrees (git worktree remove)\n")
-		fmt.Printf("     ⚠️  Will fail if there are uncommitted changes\n")
+		output.PrintWarning("     Will fail if there are uncommitted changes")
 	}
 
 	if removeFiles {
-		fmt.Printf("  2. DELETE the workspace directory and ALL its contents!\n")
+		output.PrintError("  2. DELETE the workspace directory and ALL its contents!")
 		fmt.Printf("     📁 This includes: go.work, AGENT.md, and all repository worktrees\n")
 	} else {
 		fmt.Printf("  2. Remove workspace configuration\n")
@@ -107,15 +108,23 @@ func runDelete(ctx context.Context, workspaceName string, force bool, forceWorkt
 
 	// Confirm deletion unless forced
 	if !force {
-		fmt.Printf("\nAre you sure you want to delete workspace '%s'? [y/N]: ", workspaceName)
-		var response string
-		if _, err := fmt.Scanln(&response); err != nil {
-			// If input fails, default to "no" to be safe
-			response = "n"
+		var confirmed bool
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewConfirm().
+					Title(fmt.Sprintf("Are you sure you want to delete workspace '%s'?", workspaceName)).
+					Description("This action cannot be undone.").
+					Value(&confirmed),
+			),
+		)
+
+		err := form.Run()
+		if err != nil {
+			return errors.Wrap(err, "confirmation failed")
 		}
 
-		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
-			fmt.Println("Operation cancelled.")
+		if !confirmed {
+			output.PrintInfo("Operation cancelled.")
 			return nil
 		}
 	}
@@ -126,10 +135,10 @@ func runDelete(ctx context.Context, workspaceName string, force bool, forceWorkt
 	}
 
 	if removeFiles {
-		fmt.Printf("✓ Workspace '%s' and all files deleted successfully\n", workspaceName)
+		output.PrintSuccess("Workspace '%s' and all files deleted successfully", workspaceName)
 	} else {
-		fmt.Printf("✓ Workspace configuration '%s' deleted successfully\n", workspaceName)
-		fmt.Printf("Files remain at: %s\n", workspace.Path)
+		output.PrintSuccess("Workspace configuration '%s' deleted successfully", workspaceName)
+		output.PrintInfo("Files remain at: %s", workspace.Path)
 	}
 
 	return nil

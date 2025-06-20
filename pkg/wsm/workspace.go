@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/huh"
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
@@ -236,29 +238,40 @@ func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Works
 	fmt.Printf("  Remote branch 'origin/%s' exists: %v\n", workspace.Branch, remoteBranchExists)
 
 	if branchExists {
-		// Branch exists locally - ask user what to do
-		fmt.Printf("\n⚠️  Branch '%s' already exists in repository '%s'\n", workspace.Branch, repo.Name)
-		fmt.Printf("What would you like to do?\n")
-		fmt.Printf("  [o] Overwrite the existing branch (git worktree add -B)\n")
-		fmt.Printf("  [u] Use the existing branch as-is (git worktree add)\n")
-		fmt.Printf("  [c] Cancel workspace creation\n")
-		fmt.Printf("Choice [o/u/c]: ")
-
+		// Branch exists locally - ask user what to do using huh
+		output.PrintWarning("Branch '%s' already exists in repository '%s'", workspace.Branch, repo.Name)
+		
 		var choice string
-		_, _ = fmt.Scanln(&choice)
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("How would you like to handle the existing branch?").
+					Options(
+						huh.NewOption("Overwrite the existing branch (git worktree add -B)", "overwrite"),
+						huh.NewOption("Use the existing branch as-is (git worktree add)", "use"),
+						huh.NewOption("Cancel workspace creation", "cancel"),
+					).
+					Value(&choice),
+			),
+		)
 
-		switch strings.ToLower(choice) {
-		case "o", "overwrite":
-			fmt.Printf("Overwriting branch '%s'...\n", workspace.Branch)
+		err := form.Run()
+		if err != nil {
+			return errors.Wrap(err, "failed to get user choice")
+		}
+
+		switch choice {
+		case "overwrite":
+			output.PrintInfo("Overwriting branch '%s'...", workspace.Branch)
 			if remoteBranchExists {
 				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", workspace.Branch, targetPath, "origin/"+workspace.Branch)
 			} else {
 				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", workspace.Branch, targetPath)
 			}
-		case "u", "use":
-			fmt.Printf("Using existing branch '%s'...\n", workspace.Branch)
+		case "use":
+			output.PrintInfo("Using existing branch '%s'...", workspace.Branch)
 			return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", targetPath, workspace.Branch)
-		case "c", "cancel":
+		case "cancel":
 			return errors.New("workspace creation cancelled by user")
 		default:
 			return errors.New("invalid choice, workspace creation cancelled")
@@ -266,10 +279,10 @@ func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Works
 	} else {
 		// Branch doesn't exist locally
 		if remoteBranchExists {
-			fmt.Printf("Creating worktree from remote branch origin/%s...\n", workspace.Branch)
+			output.PrintInfo("Creating worktree from remote branch origin/%s...", workspace.Branch)
 			return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", workspace.Branch, targetPath, "origin/"+workspace.Branch)
 		} else {
-			fmt.Printf("Creating new branch '%s' and worktree...\n", workspace.Branch)
+			output.PrintInfo("Creating new branch '%s' and worktree...", workspace.Branch)
 			return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", workspace.Branch, targetPath)
 		}
 	}
@@ -548,7 +561,11 @@ func (wm *WorkspaceManager) DeleteWorkspace(ctx context.Context, name string, re
 		return errors.Wrapf(err, "failed to remove workspace configuration: %s", configPath)
 	}
 
-	log.Info().Str("workspace", name).Msg("Workspace deleted successfully")
+	output.LogInfo(
+		fmt.Sprintf("Workspace '%s' deleted successfully", name),
+		"Workspace deleted successfully",
+		"workspace", name,
+	)
 	return nil
 }
 
@@ -557,20 +574,20 @@ func (wm *WorkspaceManager) removeWorktrees(ctx context.Context, workspace *Work
 	var errs []error
 
 	// First, let's list existing worktrees for debugging
-	fmt.Printf("\n=== Workspace Cleanup Debug Info ===\n")
+	output.PrintHeader("Workspace Cleanup Debug Info")
 	for _, repo := range workspace.Repositories {
-		fmt.Printf("\nRepository: %s (at %s)\n", repo.Name, repo.Path)
+		output.PrintInfo("Repository: %s (at %s)", repo.Name, repo.Path)
 
 		// List existing worktrees
 		listCmd := exec.CommandContext(ctx, "git", "worktree", "list")
 		listCmd.Dir = repo.Path
-		if output, err := listCmd.CombinedOutput(); err != nil {
-			fmt.Printf("  ⚠️  Failed to list worktrees: %v\n", err)
+		if cmdOutput, err := listCmd.CombinedOutput(); err != nil {
+			output.PrintWarning("Failed to list worktrees: %v", err)
 		} else {
-			fmt.Printf("  Current worktrees:\n%s", string(output))
+			output.PrintInfo("Current worktrees:\n%s", string(cmdOutput))
 		}
 	}
-	fmt.Printf("\n=== Starting Worktree Removal ===\n")
+	output.PrintHeader("Starting Worktree Removal")
 
 	for _, repo := range workspace.Repositories {
 		worktreePath := filepath.Join(workspace.Path, repo.Name)
@@ -884,9 +901,9 @@ func (wm *WorkspaceManager) AddRepositoryToWorkspace(ctx context.Context, worksp
 	tempWorkspace.Branch = targetBranch
 	tempWorkspace.Repositories = []Repository{repo}
 
-	fmt.Printf("Adding repository '%s' to workspace '%s'\n", repoName, workspaceName)
-	fmt.Printf("Target branch: %s\n", targetBranch)
-	fmt.Printf("Workspace path: %s\n", workspace.Path)
+	output.PrintInfo("Adding repository '%s' to workspace '%s'", repoName, workspaceName)
+	output.PrintInfo("Target branch: %s", targetBranch)
+	output.PrintInfo("Workspace path: %s", workspace.Path)
 
 	// Create worktree for the new repository
 	if err := wm.CreateWorktreeForAdd(ctx, workspace, repo, targetBranch, forceOverwrite); err != nil {
@@ -900,7 +917,7 @@ func (wm *WorkspaceManager) AddRepositoryToWorkspace(ctx context.Context, worksp
 	if workspace.GoWorkspace {
 		if err := wm.CreateGoWorkspace(workspace); err != nil {
 			log.Warn().Err(err).Msg("Failed to update go.work file, but continuing")
-			fmt.Printf("⚠️  Warning: Failed to update go.work file: %v\n", err)
+			output.PrintWarning("Failed to update go.work file: %v", err)
 		}
 	}
 

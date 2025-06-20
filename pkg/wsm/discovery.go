@@ -3,12 +3,14 @@ package wsm
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
@@ -72,7 +74,7 @@ func (rd *RepositoryDiscoverer) SaveRegistry() error {
 
 // DiscoverRepositories discovers git repositories in the given paths
 func (rd *RepositoryDiscoverer) DiscoverRepositories(ctx context.Context, paths []string, recursive bool, maxDepth int) error {
-	log.Info().Msg("Starting repository discovery")
+	output.LogInfo("Starting repository discovery", "Starting repository discovery")
 
 	var allRepos []Repository
 
@@ -88,7 +90,11 @@ func (rd *RepositoryDiscoverer) DiscoverRepositories(ctx context.Context, paths 
 	rd.registry.Repositories = rd.mergeRepositories(rd.registry.Repositories, allRepos)
 	rd.registry.LastScan = time.Now()
 
-	log.Info().Int("count", len(allRepos)).Msg("Discovery completed")
+	output.LogInfo(
+		fmt.Sprintf("Discovery completed: found %d repositories", len(allRepos)),
+		"Discovery completed",
+		"count", len(allRepos),
+	)
 
 	return rd.SaveRegistry()
 }

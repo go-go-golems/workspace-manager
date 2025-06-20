@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"os"
 	"strings"
 
@@ -58,7 +59,7 @@ func runCommit(ctx context.Context, message string, interactive, addAll, push, d
 	}
 
 	if len(allChanges) == 0 {
-		fmt.Println("No changes found in workspace.")
+		output.PrintInfo("No changes found in workspace")
 		return nil
 	}
 
@@ -83,7 +84,7 @@ func runCommit(ctx context.Context, message string, interactive, addAll, push, d
 	}
 
 	if len(selectedChanges) == 0 {
-		fmt.Println("No files selected for commit.")
+		output.PrintInfo("No files selected for commit")
 		return nil
 	}
 
@@ -102,9 +103,9 @@ func runCommit(ctx context.Context, message string, interactive, addAll, push, d
 	}
 
 	if !dryRun {
-		fmt.Printf("✅ Successfully committed changes across %d repositories\n", len(selectedChanges))
+		output.PrintSuccess("Successfully committed changes across %d repositories", len(selectedChanges))
 		if push {
-			fmt.Println("📤 Changes pushed to remote repositories")
+			output.PrintInfo("Changes pushed to remote repositories")
 		}
 	}
 
@@ -135,11 +136,11 @@ func detectCurrentWorkspace() (*wsm.Workspace, error) {
 
 // selectChangesInteractively allows user to select files interactively
 func selectChangesInteractively(allChanges map[string][]wsm.FileChange, initialMessage string) (map[string][]wsm.FileChange, string, error) {
-	fmt.Println("=== Interactive Commit ===")
+	output.PrintHeader("Interactive Commit")
 	fmt.Println()
 
 	// Show all changes
-	fmt.Println("Changes found:")
+	output.PrintInfo("Changes found:")
 	repoIndex := 0
 
 	for repoName, changes := range allChanges {
@@ -172,7 +173,7 @@ func selectChangesInteractively(allChanges map[string][]wsm.FileChange, initialM
 
 	// Simple selection - for now, include all changes
 	// TODO: Implement more sophisticated interactive selection
-	fmt.Println("\nProceeding with all changes...")
+	output.PrintInfo("Proceeding with all changes...")
 
 	return allChanges, message, nil
 }

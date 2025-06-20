@@ -19,7 +19,7 @@ var (
 			Bold(true)
 
 	InfoStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("12"))
+			Foreground(lipgloss.Color("12"))
 
 	WarningStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("11")).
@@ -31,10 +31,10 @@ var (
 			Underline(true)
 
 	BoldStyle = lipgloss.NewStyle().
-		Bold(true)
+			Bold(true)
 
 	DimStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("8"))
+			Foreground(lipgloss.Color("8"))
 )
 
 // PrintError prints an error message with styling
@@ -70,7 +70,7 @@ func PrintHeader(format string, args ...interface{}) {
 // LogInfo logs at info level while also printing pretty output to user
 func LogInfo(userMsg string, logMsg string, fields ...interface{}) {
 	PrintInfo(userMsg)
-	
+
 	// Create log event with fields
 	logEvent := log.Info()
 	for i := 0; i < len(fields); i += 2 {
@@ -88,7 +88,7 @@ func Spinner(w io.Writer, msg string) func() {
 	chars := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	i := 0
 	done := make(chan bool)
-	
+
 	go func() {
 		for {
 			select {
@@ -100,7 +100,7 @@ func Spinner(w io.Writer, msg string) func() {
 			}
 		}
 	}()
-	
+
 	return func() {
 		done <- true
 		fmt.Fprintf(w, "\r%s\n", SuccessStyle.Render(msg+" completed"))

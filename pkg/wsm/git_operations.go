@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
@@ -191,7 +192,11 @@ func (gops *GitOperations) CommitChanges(ctx context.Context, operation *CommitO
 			errors = append(errors, fmt.Sprintf("%s: failed to check staged changes: %v", repoName, err))
 			continue
 		} else if !hasStaged {
-			log.Info().Str("repository", repoName).Msg("No staged changes, skipping commit")
+			output.LogInfo(
+				fmt.Sprintf("No staged changes in %s, skipping commit", repoName),
+				"No staged changes, skipping commit",
+				"repository", repoName,
+			)
 			continue
 		}
 
