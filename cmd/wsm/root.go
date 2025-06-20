@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
 	"github.com/go-go-golems/workspace-manager/cmd/cmds"
+	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
@@ -48,6 +49,7 @@ func Execute() error {
 func init() {
 	err := clay.InitViper("workspace-manager", rootCmd)
 	if err != nil {
+		output.PrintError("Failed to initialize configuration: %v", err)
 		log.Fatal().Err(err).Msg("Failed to initialize Viper")
 	}
 
