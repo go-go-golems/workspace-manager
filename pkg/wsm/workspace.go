@@ -281,6 +281,14 @@ func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Works
 
 		err := form.Run()
 		if err != nil {
+			// Check if user cancelled/aborted the form
+			errMsg := strings.ToLower(err.Error())
+			if strings.Contains(errMsg, "user aborted") ||
+				strings.Contains(errMsg, "cancelled") ||
+				strings.Contains(errMsg, "aborted") ||
+				strings.Contains(errMsg, "interrupt") {
+				return errors.New("workspace creation cancelled by user")
+			}
 			return errors.Wrap(err, "failed to get user choice")
 		}
 
