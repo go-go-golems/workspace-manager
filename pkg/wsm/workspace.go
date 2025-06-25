@@ -55,7 +55,7 @@ func NewWorkspaceManager() (*WorkspaceManager, error) {
 }
 
 // CreateWorkspace creates a new multi-repository workspace
-func (wm *WorkspaceManager) CreateWorkspace(ctx context.Context, name string, repoNames []string, branch string, agentSource string, dryRun bool) (*Workspace, error) {
+func (wm *WorkspaceManager) CreateWorkspace(ctx context.Context, name string, repoNames []string, branch string, baseBranch string, agentSource string, dryRun bool) (*Workspace, error) {
 	// Validate input
 	if name == "" {
 		return nil, errors.New("workspace name is required")
@@ -75,6 +75,7 @@ func (wm *WorkspaceManager) CreateWorkspace(ctx context.Context, name string, re
 		Path:         workspacePath,
 		Repositories: repos,
 		Branch:       branch,
+		BaseBranch:   baseBranch,
 		Created:      time.Now(),
 		GoWorkspace:  wm.shouldCreateGoWorkspace(repos),
 		AgentMD:      agentSource,
@@ -297,6 +298,9 @@ func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Works
 			output.PrintInfo("Overwriting branch '%s'...", workspace.Branch)
 			if remoteBranchExists {
 				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", workspace.Branch, targetPath, "origin/"+workspace.Branch)
+			} else if workspace.BaseBranch != "" {
+				output.PrintInfo("Creating new branch '%s' from '%s'...", workspace.Branch, workspace.BaseBranch)
+				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", workspace.Branch, targetPath, workspace.BaseBranch)
 			} else {
 				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", workspace.Branch, targetPath)
 			}
@@ -314,8 +318,13 @@ func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Works
 			output.PrintInfo("Creating worktree from remote branch origin/%s...", workspace.Branch)
 			return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", workspace.Branch, targetPath, "origin/"+workspace.Branch)
 		} else {
-			output.PrintInfo("Creating new branch '%s' and worktree...", workspace.Branch)
-			return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", workspace.Branch, targetPath)
+			if workspace.BaseBranch != "" {
+				output.PrintInfo("Creating new branch '%s' from '%s' and worktree...", workspace.Branch, workspace.BaseBranch)
+				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", workspace.Branch, targetPath, workspace.BaseBranch)
+			} else {
+				output.PrintInfo("Creating new branch '%s' and worktree...", workspace.Branch)
+				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", workspace.Branch, targetPath)
+			}
 		}
 	}
 }

@@ -18,6 +18,7 @@ func NewCreateCommand() *cobra.Command {
 		repos        []string
 		branch       string
 		branchPrefix string
+		baseBranch   string
 		agentSource  string
 		interactive  bool
 		dryRun       bool
@@ -40,16 +41,20 @@ Examples:
   workspace-manager create my-feature --repos app,lib --branch feature/new-api
 
   # Create workspace with custom branch prefix (bug/my-feature)
-  workspace-manager create my-feature --repos app,lib --branch-prefix bug`,
+  workspace-manager create my-feature --repos app,lib --branch-prefix bug
+
+  # Create workspace from specific base branch
+  workspace-manager create my-feature --repos app,lib --base-branch main`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCreate(cmd.Context(), args[0], repos, branch, branchPrefix, agentSource, interactive, dryRun)
+			return runCreate(cmd.Context(), args[0], repos, branch, branchPrefix, baseBranch, agentSource, interactive, dryRun)
 		},
 	}
 
 	cmd.Flags().StringSliceVar(&repos, "repos", nil, "Repository names to include (comma-separated)")
 	cmd.Flags().StringVar(&branch, "branch", "", "Branch name for worktrees (if not specified, uses <branch-prefix>/<workspace-name>)")
 	cmd.Flags().StringVar(&branchPrefix, "branch-prefix", "task", "Prefix for auto-generated branch names")
+	cmd.Flags().StringVar(&baseBranch, "base-branch", "", "Base branch to create new branch from (defaults to current branch)")
 	cmd.Flags().StringVar(&agentSource, "agent-source", "", "Path to AGENT.md template file")
 	cmd.Flags().BoolVar(&interactive, "interactive", false, "Interactive repository selection")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be created without actually creating")
@@ -57,7 +62,7 @@ Examples:
 	return cmd
 }
 
-func runCreate(ctx context.Context, name string, repos []string, branch, branchPrefix, agentSource string, interactive, dryRun bool) error {
+func runCreate(ctx context.Context, name string, repos []string, branch, branchPrefix, baseBranch, agentSource string, interactive, dryRun bool) error {
 	wm, err := wsm.NewWorkspaceManager()
 	if err != nil {
 		return errors.Wrap(err, "failed to create workspace manager")
@@ -94,8 +99,8 @@ func runCreate(ctx context.Context, name string, repos []string, branch, branchP
 	}
 
 	// Create workspace
-	log.Debug().Str("name", name).Strs("repos", repos).Str("branch", finalBranch).Bool("dryRun", dryRun).Msg("Creating workspace")
-	workspace, err := wm.CreateWorkspace(ctx, name, repos, finalBranch, agentSource, dryRun)
+	log.Debug().Str("name", name).Strs("repos", repos).Str("branch", finalBranch).Str("baseBranch", baseBranch).Bool("dryRun", dryRun).Msg("Creating workspace")
+	workspace, err := wm.CreateWorkspace(ctx, name, repos, finalBranch, baseBranch, agentSource, dryRun)
 	if err != nil {
 		// Check if user cancelled - handle gracefully without error
 		errMsg := strings.ToLower(err.Error())

@@ -380,6 +380,7 @@ func (m mainModel) submitWorkspaceForm() (tea.Model, tea.Cmd) {
 		m.workspaceName.Value(),
 		selectedRepoNames,
 		m.branchName.Value(),
+		"", // no base branch in TUI for now
 		m.agentPath.Value(),
 		false, // not dry run
 	)
