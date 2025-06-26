@@ -698,6 +698,42 @@ func (wm *WorkspaceManager) removeWorktrees(ctx context.Context, workspace *Work
 			fmt.Printf("✓ Worktree directory exists (type: %s)\n", map[bool]string{true: "directory", false: "file"}[stat.IsDir()])
 		}
 
+		// Check for untracked files that would preclude removal
+		untrackedFiles, err := wm.getUntrackedFiles(ctx, worktreePath)
+		if err != nil {
+			output.LogWarn(
+				fmt.Sprintf("Failed to check for untracked files in %s: %v", repo.Name, err),
+				"Unable to check for untracked files",
+				"repo", repo.Name,
+				"error", err,
+			)
+		} else if len(untrackedFiles) > 0 {
+			fmt.Printf("\n⚠️  Found untracked files in %s that would prevent worktree removal:\n", repo.Name)
+			for _, file := range untrackedFiles {
+				fmt.Printf("  - %s\n", file)
+			}
+
+			if !force {
+				fmt.Printf("\nThese files are not tracked by git and would be lost.\n")
+				fmt.Printf("Use --force-worktrees to remove them, or commit/stash them first.\n")
+				errs = append(errs, fmt.Errorf("untracked files present in %s - use --force-worktrees to override", repo.Name))
+				continue
+			}
+
+			// Even with --force, ask for confirmation
+			fmt.Printf("\nWith --force-worktrees, these untracked files will be permanently deleted.\n")
+			fmt.Printf("Do you want to proceed with %s? (y/N): ", repo.Name)
+
+			var response string
+			_, _ = fmt.Scanln(&response)
+			if response != "y" && response != "Y" && response != "yes" && response != "Yes" {
+				errs = append(errs, fmt.Errorf("operation cancelled by user for %s", repo.Name))
+				continue
+			}
+
+			fmt.Printf("Proceeding with forced removal of %s...\n", repo.Name)
+		}
+
 		// Remove worktree using git command
 		var cmd *exec.Cmd
 		var cmdStr string
@@ -1275,6 +1311,39 @@ func (wm *WorkspaceManager) removeWorktreeForRepo(ctx context.Context, repo Repo
 		fmt.Printf("✓ Worktree directory exists (type: %s)\n", map[bool]string{true: "directory", false: "file"}[stat.IsDir()])
 	}
 
+	// Check for untracked files that would preclude removal
+	untrackedFiles, err := wm.getUntrackedFiles(ctx, worktreePath)
+	if err != nil {
+		output.LogWarn(
+			fmt.Sprintf("Failed to check for untracked files: %v", err),
+			"Unable to check for untracked files",
+			"error", err,
+		)
+	} else if len(untrackedFiles) > 0 {
+		fmt.Printf("\n⚠️  Found untracked files that would prevent worktree removal:\n")
+		for _, file := range untrackedFiles {
+			fmt.Printf("  - %s\n", file)
+		}
+
+		if !force {
+			fmt.Printf("\nThese files are not tracked by git and would be lost.\n")
+			fmt.Printf("Use --force to remove them, or commit/stash them first.\n")
+			return errors.New("untracked files present - use --force to override")
+		}
+
+		// Even with --force, ask for confirmation
+		fmt.Printf("\nWith --force, these untracked files will be permanently deleted.\n")
+		fmt.Printf("Do you want to proceed? (y/N): ")
+
+		var response string
+		_, _ = fmt.Scanln(&response)
+		if response != "y" && response != "Y" && response != "yes" && response != "Yes" {
+			return errors.New("operation cancelled by user")
+		}
+
+		fmt.Printf("Proceeding with forced removal...\n")
+	}
+
 	// First, list current worktrees for debugging
 	fmt.Printf("\nCurrent worktrees for %s:\n", repo.Name)
 	listCmd := exec.CommandContext(ctx, "git", "worktree", "list")
@@ -1348,4 +1417,21 @@ func (wm *WorkspaceManager) removeWorktreeForRepo(ctx context.Context, repo Repo
 	}
 
 	return nil
+}
+
+// getUntrackedFiles gets untracked files in a repository path
+func (wm *WorkspaceManager) getUntrackedFiles(ctx context.Context, repoPath string) ([]string, error) {
+	cmd := exec.CommandContext(ctx, "git", "ls-files", "--others", "--exclude-standard")
+	cmd.Dir = repoPath
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(output) == 0 {
+		return []string{}, nil
+	}
+
+	files := strings.Split(strings.TrimSpace(string(output)), "\n")
+	return files, nil
 }
