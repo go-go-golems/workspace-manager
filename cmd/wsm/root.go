@@ -22,7 +22,7 @@ Features:
 - Track status across all repositories in a workspace
 - Commit changes across multiple repositories with consistent messaging
 - Synchronize repositories (pull, push, branch operations)
-- Interactive TUI for visual repository and workspace management
+
 - Safe workspace cleanup with proper worktree removal
 
 Examples:
@@ -36,7 +36,7 @@ Examples:
   workspace-manager status
 
   # Interactive mode
-  workspace-manager tui`,
+  `,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return logging.InitLoggerFromViper()
 	},
@@ -65,7 +65,7 @@ func init() {
 		cmds.NewStatusCommand(),
 		cmds.NewPRCommand(),
 		cmds.NewPushCommand(),
-		cmds.NewTUICommand(),
+
 		cmds.NewCommitCommand(),
 		cmds.NewSyncCommand(),
 		cmds.NewBranchCommand(),

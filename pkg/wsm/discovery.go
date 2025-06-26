@@ -240,7 +240,7 @@ func (rd *RepositoryDiscoverer) categorizeRepository(path string) []string {
 		"cmd":    "cli",
 		"web":    "web",
 		"mobile": "mobile",
-		"tui":    "tui",
+
 		"api":    "api",
 		"server": "server",
 		"client": "client",

@@ -29,6 +29,7 @@ type Workspace struct {
 	Path         string       `json:"path"`
 	Repositories []Repository `json:"repositories"`
 	Branch       string       `json:"branch"`
+	BaseBranch   string       `json:"base_branch"`
 	Created      time.Time    `json:"created"`
 	GoWorkspace  bool         `json:"go_workspace"`
 	AgentMD      string       `json:"agent_md"`
