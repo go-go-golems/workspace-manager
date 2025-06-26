@@ -11,7 +11,7 @@ Workspace Manager simplifies coordinated development across multiple related git
 - **📊 Status Tracking**: Monitor git status across all repositories in a workspace simultaneously
 - **🔄 Synchronized Operations**: Commit, push, and sync changes across multiple repositories with consistent messaging
 - **🌿 Branch Management**: Coordinate branch operations across all workspace repositories
-- **🎯 Interactive TUI**: Visual repository and workspace management with an intuitive terminal interface
+
 - **🔧 Go Integration**: Automatic `go.work` file generation for Go projects
 - **🧹 Safe Cleanup**: Proper worktree removal and workspace cleanup
 
@@ -85,11 +85,7 @@ Navigate to your workspace directory (default: `~/workspaces/YYYY-MM-DD/my-featu
 
 ### 5. Interactive Mode
 
-Launch the TUI for visual management:
 
-```bash
-workspace-manager tui
-```
 
 ## Commands Reference
 

@@ -26,7 +26,7 @@ The Workspace Manager is a command-line tool designed to manage multi-repository
 - **Git Worktree Management**: Uses git worktrees to avoid repository cloning overhead
 - **Go Workspace Integration**: Automatically creates `go.work` files for Go projects
 - **Status Tracking**: Monitors git status across all repositories in a workspace (logic in `pkg/wsm/status.go`)
-- **Interactive TUI**: Provides a terminal-based user interface for easier management (located in `cmd/cmds/tui.go`)
+
 
 ## Architecture
 
@@ -39,8 +39,7 @@ workspace-manager/
 │   │   └── main.go           # Entry point
 │   ├── cmds/                 # Command implementations
 │   │   ├── cmd_*.go          # Individual command implementations
-│   │   ├── tui.go           # Terminal UI implementation
-│   │   └── tui_models.go    # TUI models
+
 │   └── root.go              # Root command and CLI setup
 ├── pkg/
 │   └── wsm/                 # Core workspace management package
