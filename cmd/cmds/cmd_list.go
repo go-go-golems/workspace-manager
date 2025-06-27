@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/carapace-sh/carapace"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -45,6 +46,12 @@ func NewListReposCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&format, "format", "table", "Output format: table, json")
 	cmd.Flags().StringSliceVar(&tags, "tags", nil, "Filter by tags (comma-separated)")
+
+	carapace.Gen(cmd).FlagCompletion(
+		carapace.ActionMap{
+			"tags": TagCompletion(),
+		},
+	)
 
 	return cmd
 }

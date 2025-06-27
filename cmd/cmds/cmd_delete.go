@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/carapace-sh/carapace"
 	"github.com/charmbracelet/huh"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
@@ -51,6 +52,8 @@ Examples:
 	cmd.Flags().BoolVar(&forceWorktrees, "force-worktrees", false, "Force worktree removal even with uncommitted changes")
 	cmd.Flags().BoolVar(&removeFiles, "remove-files", false, "Remove workspace files and directories")
 	cmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, json)")
+
+	carapace.Gen(cmd).PositionalCompletion(WorkspaceNameCompletion())
 
 	return cmd
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/carapace-sh/carapace"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -40,6 +41,8 @@ If no workspace name is provided, attempts to detect the current workspace.`,
 	cmd.Flags().BoolVar(&short, "short", false, "Show short status format")
 	cmd.Flags().BoolVar(&untracked, "untracked", false, "Include untracked files")
 	cmd.Flags().StringVar(&workspace, "workspace", "", "Workspace name")
+
+	carapace.Gen(cmd).PositionalCompletion(WorkspaceNameCompletion())
 
 	return cmd
 }

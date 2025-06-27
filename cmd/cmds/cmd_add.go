@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"github.com/carapace-sh/carapace"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -48,6 +49,11 @@ Examples:
 
 	cmd.Flags().StringVarP(&branchName, "branch", "b", "", "Branch name to use (defaults to workspace's branch)")
 	cmd.Flags().BoolVarP(&forceOverwrite, "force", "f", false, "Force overwrite if branch already exists")
+
+	carapace.Gen(cmd).PositionalCompletion(
+		WorkspaceNameCompletion(),
+		RepositoryNameCompletion(),
+	)
 
 	return cmd
 }

@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"github.com/carapace-sh/carapace"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -48,6 +49,11 @@ Examples:
 
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force remove worktree even with uncommitted changes")
 	cmd.Flags().BoolVar(&removeFiles, "remove-files", false, "Remove the repository directory from workspace")
+
+	carapace.Gen(cmd).PositionalCompletion(
+		WorkspaceNameCompletion(),
+		WorkspaceRepositoryCompletion(),
+	)
 
 	return cmd
 }

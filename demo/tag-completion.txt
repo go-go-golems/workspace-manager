@@ -1,0 +1,18 @@
+> export PATH=$PWD:$PATH
+> source <(wsm _carapace)
+> wsm info finish-filepickfinish-filepicker
+Error: failed to load workspace 'finish-filepickfinish-filepicker': workspa
+ce not found: finish-filepickfinish-filepicker
+Usage:
+  wsm info [workspace-name] [flags]
+
+Flags:
+      --field string       Output specific field only (path, name, branch,
+repositories, created, date, time)
+  -h, --help               help for info
+  -o, --output string      Output format (table, json) (default "table")
+      --workspace string   Workspace name
+
+Global Flags:
+      --log-file string               Log file (default: stderr)
+      --log-format string             Log format (json, text) (default "tex

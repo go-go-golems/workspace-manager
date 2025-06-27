@@ -1,0 +1,18 @@
+> export PATH=$PWD:$PATH
+> source <(wsm _carapace)
+> wsm info add-dynamic-carapace-completion
+Workspace Information
+  Name:         add-dynamic-carapace-completion
+  Path:         /home/manuel/workspaces/2025-06-26/add-dynamic-carapace-com
+pletion
+  Branch:       task/add-dynamic-carapace-completion
+  Repositories: 4
+  Created:      2025-06-26 19:44:05
+  Go Workspace: true
+
+Repositories
+  - go-go-labs (git@github.com:go-go-golems/go-go-labs)
+  - workspace-manager (git@github.com:go-go-golems/workspace-manager)
+  - glazed (git@github.com:go-go-golems/glazed)
+  - clay (git@github.com:go-go-golems/clay)
+> wsm add add-dynamic-carapace-completion gla^C
