@@ -1,0 +1,17 @@
+> export PATH=$PWD:$PATH
+> source <(wsm _carapace)
+> wsm info finish-filepicker
+
+
+
+
+
+
+
+
+
+
+
+
+
+

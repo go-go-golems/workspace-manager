@@ -7,11 +7,12 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
+	"github.com/carapace-sh/carapace"
 	clay "github.com/go-go-golems/clay/pkg"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "workspace-manager",
+	Use:   "wsm",
 	Short: "A tool for managing multi-repository workspaces",
 	Long: `Workspace Manager helps you work with multiple related git repositories 
 simultaneously by automating workspace setup, git operations, and status tracking.
@@ -27,13 +28,13 @@ Features:
 
 Examples:
   # Discover repositories in your code directories
-  workspace-manager discover ~/code ~/projects --recursive
+  wsm discover ~/code ~/projects --recursive
 
   # Create a workspace for feature development
-  workspace-manager create my-feature --repos app,lib,shared --branch feature/new-api
+  wsm create my-feature --repos app,lib,shared --branch feature/new-api
 
   # Check status across all workspace repositories
-  workspace-manager status
+  wsm status
 
   # Interactive mode
   `,
@@ -52,6 +53,8 @@ func init() {
 		output.PrintError("Failed to initialize configuration: %v", err)
 		log.Fatal().Err(err).Msg("Failed to initialize Viper")
 	}
+
+	carapace.Gen(rootCmd).Standalone()
 
 	// Add all subcommands
 	rootCmd.AddCommand(

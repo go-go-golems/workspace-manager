@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/carapace-sh/carapace"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -60,6 +61,8 @@ Examples:
 	cmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, json)")
 	cmd.Flags().StringVar(&outputField, "field", "", "Output specific field only (path, name, branch, repositories, created, date, time)")
 	cmd.Flags().StringVar(&workspace, "workspace", "", "Workspace name")
+
+	carapace.Gen(cmd).PositionalCompletion(WorkspaceNameCompletion())
 
 	return cmd
 }

@@ -42,6 +42,35 @@ cd workspace-manager
 go build ./cmd/workspace-manager
 ```
 
+## Shell Completion
+
+Workspace Manager supports intelligent shell completion via [carapace](https://github.com/carapace-sh/carapace), providing context-aware suggestions for commands, workspace names, repository names, and tags.
+
+### Setup
+
+**Prerequisites**: Install [carapace](https://github.com/carapace-sh/carapace) for your shell.
+
+**Enable completion:**
+```bash
+# For permanent setup, add to your shell configuration
+source <(wsm _carapace)
+```
+
+### Features
+
+- **Workspace Names**: Auto-complete workspace names for `info`, `delete`, `add`, `remove`, etc.
+- **Repository Names**: 
+  - For `add` command: Complete from all available repositories in registry
+  - For `remove` command: Complete from repositories currently in the workspace
+- **Tags**: Auto-complete repository tags for the `--tags` flag in `list repos`
+- **Dynamic Context**: Completions adapt based on your actual data (workspaces, repositories, tags)
+
+### Demo
+
+See the completion in action:
+
+![Completion Demo](demo/completion-demo.gif)
+
 ## Quick Start
 
 ### 1. Discover Repositories
