@@ -23,6 +23,7 @@ The Workspace Manager is a command-line tool designed to manage multi-repository
 
 - **Repository Discovery**: Automatically discovers and catalogs git repositories
 - **Workspace Creation**: Creates workspaces with synchronized branches across multiple repositories
+- **Fork & Merge Workflow**: Fork existing workspaces for feature development and merge back to parent branches
 - **Git Worktree Management**: Uses git worktrees to avoid repository cloning overhead
 - **Go Workspace Integration**: Automatically creates `go.work` files for Go projects
 - **Status Tracking**: Monitors git status across all repositories in a workspace (logic in `pkg/wsm/status.go`)
@@ -154,6 +155,7 @@ type Workspace struct {
     Path         string       `json:"path"`
     Repositories []Repository `json:"repositories"`
     Branch       string       `json:"branch"`
+    BaseBranch   string       `json:"base_branch"`  // Base branch for forked workspaces
     Created      time.Time    `json:"created"`
     GoWorkspace  bool         `json:"go_workspace"`
     AgentMD      string       `json:"agent_md"`
@@ -183,6 +185,67 @@ All commands follow a consistent pattern using Cobra:
 3. **Manager Initialization**: Create `WorkspaceManager` instance
 4. **Operation Execution**: Call appropriate manager method
 5. **Error Handling**: Wrap and return errors with context
+
+### Fork and Merge Commands
+
+The newly implemented fork and merge commands provide a complete workflow for feature development:
+
+#### Fork Command Implementation
+
+The `fork` command in [`cmd_fork.go`](file:///home/manuel/code/wesen/corporate-headquarters/workspace-manager/cmd/cmds/cmd_fork.go) creates a new workspace by forking an existing one:
+
+```go
+func runFork(ctx context.Context, newWorkspaceName, sourceWorkspaceName, branch, branchPrefix, agentSource string, dryRun bool) error {
+    // 1. Detect or load source workspace
+    if sourceWorkspaceName == "" {
+        detected, err := detectWorkspace(cwd)
+        if err != nil {
+            return errors.Wrap(err, "failed to detect workspace")
+        }
+        sourceWorkspaceName = detected
+    }
+
+    // 2. Get current branch status to use as base branch
+    checker := wsm.NewStatusChecker()
+    status, err := checker.GetWorkspaceStatus(ctx, sourceWorkspace)
+    
+    // 3. Use current branch as base branch for new workspace
+    baseBranch := status.Repositories[0].CurrentBranch
+    
+    // 4. Create new workspace with base branch set
+    workspace, err := wm.CreateWorkspace(ctx, newWorkspaceName, repoNames, finalBranch, baseBranch, finalAgentSource, dryRun)
+}
+```
+
+#### Merge Command Implementation
+
+The `merge` command in [`cmd_merge.go`](file:///home/manuel/code/wesen/corporate-headquarters/workspace-manager/cmd/cmds/cmd_merge.go) merges a forked workspace back to its parent:
+
+```go
+func runMerge(ctx context.Context, workspaceName string, dryRun, force, keepWorkspace bool) error {
+    // 1. Validate workspace is a fork
+    if workspace.BaseBranch == "" {
+        return errors.New("workspace is not a fork (no base branch specified)")
+    }
+
+    // 2. Check all repositories are clean
+    if err := validateRepositoriesClean(status); err != nil {
+        return err
+    }
+
+    // 3. Merge each repository
+    for _, repoStatus := range status.Repositories {
+        if err := mergeRepository(ctx, repoStatus, workspace); err != nil {
+            return err
+        }
+    }
+
+    // 4. Optionally delete workspace after merge
+    if !keepWorkspace {
+        return wm.DeleteWorkspace(ctx, workspace.Name)
+    }
+}
+```
 
 ### Example Command Implementation
 
@@ -346,6 +409,25 @@ func (wm *WorkspaceManager) checkRemoteBranchExists(ctx context.Context, repoPat
 6. **Agent Configuration**: Copy `AGENT.md` file if specified
 7. **Configuration Persistence**: Save workspace metadata
 
+### Fork Process
+
+1. **Source Workspace Detection**: Detect current workspace or load specified source
+2. **Branch Status Validation**: Verify all repositories in source are on same branch
+3. **Base Branch Capture**: Use current branch of source workspace as base branch
+4. **Repository Replication**: Copy repository list from source workspace
+5. **New Workspace Creation**: Create new workspace with base branch metadata
+6. **Configuration Inheritance**: Inherit AGENT.md and other settings from source
+
+### Merge Process
+
+1. **Fork Validation**: Verify workspace has BaseBranch field (is a fork)
+2. **Clean State Check**: Ensure all repositories have no uncommitted changes
+3. **Branch Consistency**: Verify all repositories are on workspace branch
+4. **Base Branch Switching**: Switch each repository to its base branch
+5. **Merge Operation**: Merge workspace branch into base branch for each repository
+6. **Push Changes**: Push merged changes to remote repositories
+7. **Workspace Cleanup**: Optionally delete workspace after successful merge
+
 ### Adding Repositories
 
 1. **Workspace Loading**: Load existing workspace configuration
@@ -496,8 +578,17 @@ To add a new command:
 
 1. **Create Command File**: `cmd/cmds/cmd_<name>.go`
 2. **Implement Command Function**: `func New<Name>Command() *cobra.Command`
-3. **Add to Root Command**: Add to `rootCmd.AddCommand()` in `cmd/root.go`
+3. **Add to Root Command**: Add to `rootCmd.AddCommand()` in `cmd/wsm/root.go`
 4. **Implement Business Logic**: Add methods to `WorkspaceManager` in `pkg/wsm/` if needed
+
+**Example: Fork and Merge Commands**
+
+The fork and merge commands demonstrate advanced command implementation:
+
+- **Fork Command**: Leverages existing workspace detection logic from `cmd_status.go`
+- **Merge Command**: Implements complex git operations with rollback capabilities
+- **Shared Logic**: Both commands use common workspace loading and validation patterns
+- **Error Handling**: Comprehensive error handling with user-friendly messages
 
 ### Testing Strategy
 
@@ -535,5 +626,16 @@ func TestWorkspaceCreation(t *testing.T) {
 2. **Branch State**: Check both local and remote branch existence
 3. **Permission Issues**: Ensure proper file permissions for configuration directories
 4. **Git Repository State**: Verify repositories are clean before operations
+5. **Fork Validation**: Ensure proper BaseBranch field validation for merge operations
+6. **Branch Consistency**: Verify all repositories are on expected branches before fork/merge
+7. **Merge Conflicts**: Handle git merge conflicts gracefully with proper user feedback
 
-This implementation guide provides the foundation for understanding and extending the workspace manager. For specific implementation details, refer to the source code files mentioned throughout this document.
+### Fork/Merge Workflow Best Practices
+
+1. **Always Use Dry-Run**: Test fork and merge operations with `--dry-run` first
+2. **Clean Repository State**: Ensure all changes are committed before fork/merge operations
+3. **Consistent Branching**: Maintain consistent branch naming across all repositories
+4. **Base Branch Tracking**: Keep track of base branches for proper merge targets
+5. **Rollback Planning**: Understand rollback procedures for failed merge operations
+
+This implementation guide provides the foundation for understanding and extending the workspace manager, including the new fork and merge functionality. For specific implementation details, refer to the source code files mentioned throughout this document.

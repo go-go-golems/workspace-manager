@@ -8,10 +8,10 @@ Workspace Manager simplifies coordinated development across multiple related git
 
 - **🔍 Repository Discovery**: Automatically discover and catalog git repositories across your development environment
 - **🏗️ Workspace Creation**: Create coordinated workspaces with git worktrees for multi-repo development
+- **🔀 Fork & Merge Workflow**: Fork existing workspaces for feature development and merge back to parent branches
 - **📊 Status Tracking**: Monitor git status across all repositories in a workspace simultaneously
 - **🔄 Synchronized Operations**: Commit, push, and sync changes across multiple repositories with consistent messaging
 - **🌿 Branch Management**: Coordinate branch operations across all workspace repositories
-
 - **🔧 Go Integration**: Automatic `go.work` file generation for Go projects
 - **🧹 Safe Cleanup**: Proper worktree removal and workspace cleanup
 
@@ -71,6 +71,21 @@ workspace-manager create my-feature --repos app,lib,shared --branch feature/new-
 workspace-manager create my-feature --interactive
 ```
 
+### 2a. Fork an Existing Workspace
+
+Create a new workspace by forking an existing one:
+
+```bash
+# Fork the current workspace
+workspace-manager fork my-feature-branch
+
+# Fork a specific workspace
+workspace-manager fork my-feature-branch source-workspace
+
+# Fork with custom branch name
+workspace-manager fork my-feature-branch --branch feature/custom-name
+```
+
 ### 3. Check Status
 
 Monitor the status of all repositories in your workspace:
@@ -83,7 +98,22 @@ workspace-manager status
 
 Navigate to your workspace directory (default: `~/workspaces/YYYY-MM-DD/my-feature/`) and start coding. Each repository is available as a git worktree on your specified branch.
 
-### 5. Interactive Mode
+### 5. Merge and Clean Up
+
+When you're done with your work, merge the fork back to its parent branch:
+
+```bash
+# Merge current fork back to base branch and delete workspace
+workspace-manager merge
+
+# Merge but keep the workspace
+workspace-manager merge --keep-workspace
+
+# Preview merge without executing
+workspace-manager merge --dry-run
+```
+
+### 6. Interactive Mode
 
 
 
@@ -105,6 +135,12 @@ workspace-manager discover . --recursive --max-depth 3
 ```bash
 # Create a new workspace
 workspace-manager create <workspace-name> --repos <repo1,repo2,repo3>
+
+# Fork an existing workspace
+workspace-manager fork <new-workspace-name> [source-workspace-name]
+
+# Merge fork back to parent branch
+workspace-manager merge [workspace-name]
 
 # List all workspaces and repositories
 workspace-manager list
@@ -193,6 +229,9 @@ workspace-manager commit -m "Add OAuth integration across services"
 
 # Push all branches
 workspace-manager push origin
+
+# Merge back to main when done
+workspace-manager merge
 ```
 
 ### Go Project Development
@@ -230,6 +269,25 @@ go build ./cmd/cli
 
 ## Advanced Usage
 
+### Fork-Based Development Workflow
+
+```bash
+# Start with a main workspace
+workspace-manager create main-project --repos app,lib,api --branch main
+
+# Fork for feature development
+workspace-manager fork feature-auth main-project
+# Creates: task/feature-auth branch from main
+
+# Work on the feature...
+cd ~/workspaces/2025-01-15/feature-auth/
+# ... make changes ...
+
+# When done, merge back
+workspace-manager merge feature-auth
+# Merges task/feature-auth → main and deletes feature-auth workspace
+```
+
 ### Custom Branch Prefixes
 
 ```bash
@@ -239,6 +297,10 @@ workspace-manager create db-fix --repos backend,migrations --branch-prefix bug
 
 workspace-manager create new-api --repos api,client --branch-prefix feature  
 # Creates branch: feature/new-api
+
+# Fork with custom branch prefix
+workspace-manager fork hotfix-issue --branch-prefix hotfix
+# Creates branch: hotfix/hotfix-issue
 ```
 
 ### Agent Configuration
@@ -251,10 +313,17 @@ workspace-manager create my-workspace --repos app,lib --agent-source ~/templates
 
 ### Dry Run Mode
 
-Preview workspace creation without making changes:
+Preview operations without making changes:
 
 ```bash
+# Preview workspace creation
 workspace-manager create test-workspace --repos app,lib --dry-run
+
+# Preview fork operation
+workspace-manager fork new-feature --dry-run
+
+# Preview merge operation
+workspace-manager merge --dry-run
 ```
 
 ## How It Works
@@ -263,10 +332,11 @@ Workspace Manager leverages **git worktrees** to create efficient multi-reposito
 
 1. **Discovery**: Scans directories to build a registry of available repositories
 2. **Workspace Creation**: Creates a workspace directory with git worktrees for each repository
-3. **Branch Coordination**: Ensures all repositories are on the same branch (creates if needed)
-4. **Go Integration**: Automatically generates `go.work` files for Go projects
-5. **Status Tracking**: Monitors git status across all workspace repositories
-6. **Safe Operations**: Provides rollback mechanisms and proper cleanup
+3. **Fork & Merge**: Fork workspaces for feature development and merge back to parent branches
+4. **Branch Coordination**: Ensures all repositories are on the same branch (creates if needed)
+5. **Go Integration**: Automatically generates `go.work` files for Go projects
+6. **Status Tracking**: Monitors git status across all workspace repositories
+7. **Safe Operations**: Provides rollback mechanisms and proper cleanup
 
 ### Why Git Worktrees?
 
