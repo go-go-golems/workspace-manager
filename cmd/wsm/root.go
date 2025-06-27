@@ -58,6 +58,7 @@ func init() {
 		cmds.NewDiscoverCommand(),
 		cmds.NewListCommand(),
 		cmds.NewCreateCommand(),
+		cmds.NewForkCommand(),
 		cmds.NewAddCommand(),
 		cmds.NewRemoveCommand(),
 		cmds.NewDeleteCommand(),
