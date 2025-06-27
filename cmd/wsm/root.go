@@ -54,8 +54,6 @@ func init() {
 		log.Fatal().Err(err).Msg("Failed to initialize Viper")
 	}
 
-	carapace.Gen(rootCmd).Standalone()
-
 	// Add all subcommands
 	rootCmd.AddCommand(
 		cmds.NewDiscoverCommand(),
@@ -78,4 +76,6 @@ func init() {
 		cmds.NewDiffCommand(),
 		cmds.NewLogCommand(),
 	)
+
+	carapace.Gen(rootCmd)
 }
