@@ -31,7 +31,7 @@ sudo mv workspace-manager /usr/local/bin/
 ### Using Go Install
 
 ```bash
-go install github.com/go-go-golems/workspace-manager/cmd/workspace-manager@latest
+go install github.com/go-go-golems/workspace-manager/cmd/wsm@latest
 ```
 
 ### Build from Source
