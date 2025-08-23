@@ -5,6 +5,7 @@ import (
     "fmt"
     "os/exec"
     "path/filepath"
+    "strings"
     "testing"
 )
 
@@ -20,16 +21,31 @@ func (s *Sandbox) InitBareRepo(t *testing.T, name string) string {
 func (s *Sandbox) InitRepo(t *testing.T, name string, remoteURL string) string {
     t.Helper()
     path := filepath.Join(s.ReposDir, name)
-    run(t, s, s.BaseDir, nil, "mkdir", "-p", path)
-    run(t, s, path, nil, "git", "init")
-    run(t, s, path, nil, "git", "config", "user.name", "WSM Test")
-    run(t, s, path, nil, "git", "config", "user.email", "wsm@example.com")
     if remoteURL != "" {
-        run(t, s, path, nil, "git", "remote", "add", "origin", remoteURL)
-        // Establish main branch
-        run(t, s, path, nil, "git", "checkout", "-b", "main")
-        s.CommitFile(t, path, "README.md", "initial", "initial commit")
-        run(t, s, path, nil, "git", "push", "-u", "origin", "main")
+        // Prefer cloning when a remote is provided to avoid pushing an initial branch over existing history
+        run(t, s, s.BaseDir, nil, "mkdir", "-p", path)
+        run(t, s, s.BaseDir, nil, "bash", "-lc", fmt.Sprintf("git clone %q %q", remoteURL, path))
+        run(t, s, path, nil, "git", "config", "user.name", "WSM Test")
+        run(t, s, path, nil, "git", "config", "user.email", "wsm@example.com")
+
+        // Detect if remote has main already
+        out := run(t, s, path, nil, "bash", "-lc", "git ls-remote --heads origin main | wc -l")
+        hasMain := strings.TrimSpace(out) != "0"
+        if hasMain {
+            // Ensure we are on main tracking origin/main
+            run(t, s, path, nil, "git", "fetch", "origin", "main")
+            run(t, s, path, nil, "git", "checkout", "-B", "main", "origin/main")
+        } else {
+            // Create initial main and push it
+            run(t, s, path, nil, "git", "checkout", "-b", "main")
+            s.CommitFile(t, path, "README.md", "initial", "initial commit")
+            run(t, s, path, nil, "git", "push", "-u", "origin", "main")
+        }
+    } else {
+        run(t, s, s.BaseDir, nil, "mkdir", "-p", path)
+        run(t, s, path, nil, "git", "init")
+        run(t, s, path, nil, "git", "config", "user.name", "WSM Test")
+        run(t, s, path, nil, "git", "config", "user.email", "wsm@example.com")
     }
     return path
 }

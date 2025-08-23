@@ -3,3 +3,5 @@ workspace-manager
 .git-commit-message.yaml
 dist
 bootstrap.js
+.out
+dagger
