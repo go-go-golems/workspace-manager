@@ -272,6 +272,7 @@ if err := g.Wait(); err != nil { return err }
 - Keep `worktree` and complex sync (rebase) on CLI initially.
 - Golden tests comparing outputs across backends.
 - Feature flags and per-command `--git-backend` override.
+- See `ttmp/2025-08-23/03-status-and-design-of-wsm-rebase-and-conflict-management.md` for the rebase/conflict handling plan and TODOs.
 
 **Conclusion:**
 - The hybrid strategy de-risks the transition while delivering immediate benefits.

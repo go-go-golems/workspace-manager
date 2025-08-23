@@ -9,6 +9,8 @@ import (
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm/gitclient"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 // GitOperations handles git operations across workspace repositories
@@ -261,4 +263,74 @@ func (gops *GitOperations) GetDiff(ctx context.Context, staged bool, repoFilter 
 	}
 
 	return strings.Join(allDiffs, "\n"), nil
+}
+
+// DiffOptions configures diff collection behavior.
+type DiffOptions struct {
+	MaxJobs int
+}
+
+// GetDiffWithOptions gets unified diff across repositories, with concurrency options.
+func (gops *GitOperations) GetDiffWithOptions(ctx context.Context, staged bool, repoFilter string, opts DiffOptions) (string, error) {
+	maxJobs := opts.MaxJobs
+	if maxJobs < 1 { maxJobs = 1 }
+
+	repos := make([]Repository, 0, len(gops.workspace.Repositories))
+	for _, r := range gops.workspace.Repositories {
+		if repoFilter != "" && r.Name != repoFilter { continue }
+		repos = append(repos, r)
+	}
+
+	if len(repos) == 0 {
+		return "No changes found in workspace.", nil
+	}
+
+	gc, _ := BuildGitBackends(ctx)
+	parts := make([]string, 0, len(repos)*2)
+
+	if maxJobs == 1 || len(repos) <= 1 {
+		for _, repo := range repos {
+			repoPath := filepath.Join(gops.workspace.Path, repo.Name)
+			h, err := gc.Open(ctx, repoPath)
+			if err != nil { return "", errors.Wrapf(err, "open repo %s", repo.Name) }
+			d, err := gc.Diff(ctx, h, staged)
+			if err != nil { return "", errors.Wrapf(err, "failed to get diff for %s", repo.Name) }
+			if d != "" {
+				parts = append(parts, fmt.Sprintf("=== Repository: %s ===", repo.Name), d)
+			}
+		}
+	} else {
+		sem := semaphore.NewWeighted(int64(maxJobs))
+		g, gctx := errgroup.WithContext(ctx)
+		results := make([]struct{ header string; body string }, len(repos))
+		for i := range repos {
+			i := i
+			if err := sem.Acquire(gctx, 1); err != nil { return "", err }
+			g.Go(func() error {
+				defer sem.Release(1)
+				repo := repos[i]
+				repoPath := filepath.Join(gops.workspace.Path, repo.Name)
+				h, err := gc.Open(gctx, repoPath)
+				if err != nil { return errors.Wrapf(err, "open repo %s", repo.Name) }
+				d, err := gc.Diff(gctx, h, staged)
+				if err != nil { return errors.Wrapf(err, "failed to get diff for %s", repo.Name) }
+				if d != "" {
+					results[i].header = fmt.Sprintf("=== Repository: %s ===", repo.Name)
+					results[i].body = d
+				}
+				return nil
+			})
+		}
+		if err := g.Wait(); err != nil { return "", err }
+		for _, r := range results {
+			if r.body != "" {
+				parts = append(parts, r.header, r.body)
+			}
+		}
+	}
+
+	if len(parts) == 0 {
+		return "No changes found in workspace.", nil
+	}
+	return strings.Join(parts, "\n"), nil
 }

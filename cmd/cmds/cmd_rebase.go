@@ -13,6 +13,8 @@ import (
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 // NewRebaseCommand creates the rebase command
@@ -22,6 +24,8 @@ func NewRebaseCommand() *cobra.Command {
 		repository   string
 		dryRun       bool
 		interactive  bool
+		jobs         int
+		manual       bool
 	)
 
 	cmd := &cobra.Command{
@@ -55,13 +59,15 @@ Examples:
 			if len(args) > 0 {
 				repository = args[0]
 			}
-			return runRebase(cmd.Context(), repository, targetBranch, interactive, dryRun)
+			return runRebase(cmd.Context(), repository, targetBranch, interactive, dryRun, jobs, manual)
 		},
 	}
 
 	cmd.Flags().StringVar(&targetBranch, "target", "main", "Target branch to rebase onto")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without actually rebasing")
 	cmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "Interactive rebase")
+	cmd.Flags().IntVar(&jobs, "jobs", 1, "Maximum concurrent repositories to process")
+	cmd.Flags().BoolVar(&manual, "manual", false, "Manual mode: show suggested commands, do not execute rebase")
 
 	return cmd
 }
@@ -78,7 +84,7 @@ type RebaseResult struct {
 	TargetBranch  string `json:"target_branch"`
 }
 
-func runRebase(ctx context.Context, repository, targetBranch string, interactive, dryRun bool) error {
+func runRebase(ctx context.Context, repository, targetBranch string, interactive, dryRun bool, jobs int, manual bool) error {
 	workspace, err := detectCurrentWorkspace()
 	if err != nil {
 		return errors.Wrap(err, "failed to detect current workspace")
@@ -94,6 +100,10 @@ func runRebase(ctx context.Context, repository, targetBranch string, interactive
 		output.PrintInfo("Dry run mode - no changes will be made")
 	}
 
+	if manual {
+		return printManualRebasePlan(workspace, repository, targetBranch)
+	}
+
 	var results []RebaseResult
 
 	if repository != "" {
@@ -101,14 +111,48 @@ func runRebase(ctx context.Context, repository, targetBranch string, interactive
 		result := rebaseRepository(ctx, workspace, repository, targetBranch, interactive, dryRun)
 		results = append(results, result)
 	} else {
-		// Rebase all repositories
-		for _, repo := range workspace.Repositories {
-			result := rebaseRepository(ctx, workspace, repo.Name, targetBranch, interactive, dryRun)
-			results = append(results, result)
+		// Rebase all repositories, possibly in parallel
+		repos := workspace.Repositories
+		if jobs <= 1 || len(repos) <= 1 {
+			for _, repo := range repos {
+				result := rebaseRepository(ctx, workspace, repo.Name, targetBranch, interactive, dryRun)
+				results = append(results, result)
+			}
+		} else {
+			results = make([]RebaseResult, len(repos))
+			sem := semaphore.NewWeighted(int64(jobs))
+			g, gctx := errgroup.WithContext(ctx)
+			for i := range repos {
+				i := i
+				if err := sem.Acquire(gctx, 1); err != nil { return err }
+				g.Go(func() error {
+					defer sem.Release(1)
+					repo := repos[i]
+					results[i] = rebaseRepository(gctx, workspace, repo.Name, targetBranch, interactive, dryRun)
+					return nil
+				})
+			}
+			if err := g.Wait(); err != nil { return err }
 		}
 	}
 
 	return printRebaseResults(results, dryRun)
+}
+
+func printManualRebasePlan(workspace *wsm.Workspace, repository, targetBranch string) error {
+	fmt.Println("Manual mode: use the following commands.")
+	if repository != "" {
+		repoPath := filepath.Join(workspace.Path, repository)
+		fmt.Printf("\n# %s\n", repository)
+		fmt.Printf("(cd %s && git fetch --all && git rebase %s)\n", repoPath, targetBranch)
+		return nil
+	}
+	for _, repo := range workspace.Repositories {
+		repoPath := filepath.Join(workspace.Path, repo.Name)
+		fmt.Printf("\n# %s\n", repo.Name)
+		fmt.Printf("(cd %s && git fetch --all && git rebase %s)\n", repoPath, targetBranch)
+	}
+	return nil
 }
 
 func rebaseRepository(ctx context.Context, workspace *wsm.Workspace, repoName, targetBranch string, interactive, dryRun bool) RebaseResult {

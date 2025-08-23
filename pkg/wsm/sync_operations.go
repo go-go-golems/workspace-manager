@@ -168,7 +168,7 @@ func (so *SyncOperations) syncRepository(ctx context.Context, repoName, repoPath
 
 // pullRepository pulls changes from remote
 func (so *SyncOperations) pullRepository(ctx context.Context, repoPath string, rebase bool) error {
-	// Use GitClient.Fetch for non-destructive update; merge/rebase not performed here.
+	// Use GitClient.Fetch for non-destructive update; perform optional rebase via CLI helper.
 	gc, _ := BuildGitBackends(ctx)
 	h, err := gc.Open(ctx, repoPath)
 	if err != nil {
@@ -177,8 +177,12 @@ func (so *SyncOperations) pullRepository(ctx context.Context, repoPath string, r
 	if err := gc.Fetch(ctx, h, ""); err != nil {
 		return errors.Wrap(err, "fetch")
 	}
-	if rebase {
-		output.LogWarn("Rebase requested but not implemented in current backend", "rebase not implemented")
+	if !rebase {
+		return nil
+	}
+	// Perform CLI rebase via helper
+	if err := Start(ctx, repoPath, "", RebaseOptions{}); err != nil {
+		return err
 	}
 	return nil
 }

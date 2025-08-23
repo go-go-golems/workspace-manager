@@ -14,6 +14,7 @@ func NewDiffCommand() *cobra.Command {
 	var (
 		staged bool
 		repo   string
+		jobs   int
 	)
 
 	cmd := &cobra.Command{
@@ -22,17 +23,18 @@ func NewDiffCommand() *cobra.Command {
 		Long: `Show unified diff of changes across all repositories in the workspace.
 This provides a consolidated view of all modifications in your multi-repository development.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDiff(cmd.Context(), staged, repo)
+			return runDiff(cmd.Context(), staged, repo, jobs)
 		},
 	}
 
 	cmd.Flags().BoolVar(&staged, "staged", false, "Show staged changes only")
 	cmd.Flags().StringVar(&repo, "repo", "", "Show diff for specific repository only")
+	cmd.Flags().IntVar(&jobs, "jobs", 1, "Maximum concurrent repositories to process")
 
 	return cmd
 }
 
-func runDiff(ctx context.Context, staged bool, repoFilter string) error {
+func runDiff(ctx context.Context, staged bool, repoFilter string, jobs int) error {
 	workspace, err := detectCurrentWorkspace()
 	if err != nil {
 		return errors.Wrap(err, "failed to detect current workspace")
@@ -49,7 +51,7 @@ func runDiff(ctx context.Context, staged bool, repoFilter string) error {
 	}
 	fmt.Println()
 
-	diff, err := gitOps.GetDiff(ctx, staged, repoFilter)
+	diff, err := gitOps.GetDiffWithOptions(ctx, staged, repoFilter, wsm.DiffOptions{MaxJobs: jobs})
 	if err != nil {
 		return errors.Wrap(err, "failed to get diff")
 	}
