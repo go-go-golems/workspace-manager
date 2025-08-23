@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-go-golems/workspace-manager/pkg/wsm/gitclient"
 	"github.com/pkg/errors"
 )
 
@@ -22,9 +23,10 @@ func NewStatusChecker() *StatusChecker {
 func (sc *StatusChecker) GetWorkspaceStatus(ctx context.Context, workspace *Workspace) (*WorkspaceStatus, error) {
 	var repoStatuses []RepositoryStatus
 
+	gc, _ := BuildGitBackends(ctx)
 	for _, repo := range workspace.Repositories {
 		repoPath := filepath.Join(workspace.Path, repo.Name)
-		status, err := sc.getRepositoryStatus(ctx, repo, repoPath)
+		status, err := sc.getRepositoryStatusWithClient(ctx, repo, repoPath, gc)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get status for repository %s", repo.Name)
 		}
@@ -242,4 +244,36 @@ func (sc *StatusChecker) calculateOverallStatus(repoStatuses []RepositoryStatus)
 	}
 
 	return "clean"
+}
+
+// getRepositoryStatusWithClient uses the GitClient to compute repository status
+func (sc *StatusChecker) getRepositoryStatusWithClient(ctx context.Context, repo Repository, repoPath string, gc gitclient.GitClient) (*RepositoryStatus, error) {
+	status := &RepositoryStatus{Repository: repo}
+
+	handle, err := gc.Open(ctx, repoPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "open repository")
+	}
+
+	st, err := gc.Status(ctx, handle)
+	if err != nil {
+		return nil, errors.Wrap(err, "git status")
+	}
+
+	status.CurrentBranch = st.CurrentBranch
+	status.ModifiedFiles = st.ModifiedFiles
+	status.StagedFiles = st.StagedFiles
+	status.UntrackedFiles = st.UntrackedFiles
+	status.HasChanges = len(st.ModifiedFiles) > 0 || len(st.StagedFiles) > 0
+
+	if ahead, behind, err := gc.AheadBehind(ctx, handle, ""); err == nil {
+		status.Ahead = ahead
+		status.Behind = behind
+	}
+
+	status.HasConflicts = false
+	status.IsMerged = false
+	status.NeedsRebase = false
+
+	return status, nil
 }
