@@ -65,7 +65,7 @@ func main() {
 		// Build wsm
 		c = c.WithExec([]string{"bash", "-lc", goBin + " build -o .out/wsm ./cmd/wsm"})
 
-		// Build test command (guard if tests folder missing)
+		// Build test command (no guard: fail loudly and capture output)
 		baseTest := goBin + " test ./test/integration/... -v -count=1"
 		if *race {
 			baseTest += " -race"
@@ -76,7 +76,7 @@ func main() {
 		if *smoke {
 			baseTest += " -run 'Test(Smoke|Status|Diff)'"
 		}
-		fullCmd := "if [ -d test/integration ]; then " + baseTest + "; else echo 'No integration tests found, skipping.'; fi > .out/test-" + be + ".log 2>&1"
+		fullCmd := "set -euo pipefail; " + baseTest + " | tee .out/test-" + be + ".log"
 
 		// Run tests (or skip) and write logs
 		c = c.WithExec([]string{"bash", "-lc", fullCmd})
