@@ -39,8 +39,9 @@ func main() {
 	// Install git and update certs
 	base = base.WithExec([]string{"bash", "-lc", "apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*"})
 
-	// Ensure output dir inside container
-	base = base.WithExec([]string{"bash", "-lc", "mkdir -p .out"})
+	// Ensure output dir inside container and setup HOME and git identity
+	base = base.WithEnvVariable("HOME", "/tmp/wsm-home")
+	base = base.WithExec([]string{"bash", "-lc", "mkdir -p .out /tmp/wsm-home/.config"})
 
 	goBin := "/usr/local/go/bin/go"
 

@@ -79,73 +79,7 @@ This document designs a full Dagger-based pipeline to run `workspace-manager` (W
 ### 8. Example Pipeline (Go)
 
 ```go
-package main
-
-import (
-	"context"
-	"flag"
-	"fmt"
-	"log"
-	"strings"
-
-	"dagger.io/dagger"
-)
-
-func main() {
-	var (
-		backendsStr = flag.String("backends", "hybrid", "comma-separated backends: hybrid,cli,gogit")
-		race       = flag.Bool("race", false, "enable -race")
-		coverage   = flag.Bool("cover", false, "enable coverage")
-		smoke      = flag.Bool("smoke", false, "run a smaller subset with -run")
-	)
-	flag.Parse()
-
-	ctx := context.Background()
-	client, err := dagger.Connect(ctx, dagger.WithLogOutput(log.Writer()))
-	if err != nil { log.Fatal(err) }
-	defer client.Close()
-
-	backends := strings.Split(*backendsStr, ",")
-
-	// Host project directory
-	src := client.Host().Directory(".")
-
-	// Base container with deps
-	base := client.Container().From("golang:1.24-bullseye").
-		WithExec([]string{"bash", "-lc", "apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*"}).
-		WithMountedCache("/go/pkg/mod", client.CacheVolume("gomod")).
-		WithMountedCache("/root/.cache/go-build", client.CacheVolume("gobuild")).
-		WithWorkdir("/workspace").
-		WithMountedDirectory("/workspace", src)
-
-	// Write minimal git config
-	base = base.WithExec([]string{"bash", "-lc", "mkdir -p /tmp/wsm-home && printf '[user]\n\tname = test\n\temail = test@example.com\n' > /tmp/wsm-home/.gitconfig"}).
-	base = base.WithEnvVariable("HOME", "/tmp/wsm-home")
-
-	// Download modules once (shared across matrix)
-	base = base.WithExec([]string{"bash", "-lc", "go mod download"})
-
-	for _, be := range backends {
-		fmt.Printf("\n=== Running backend: %s ===\n", be)
-		c := base.WithEnvVariable("WSM_GIT_BACKEND", be)
-
-		// Build wsm binary (optional export)
-		build := c.WithExec([]string{"bash", "-lc", "go build -o .out/wsm ./cmd/wsm"})
-
-		// Construct go test command
-		testCmd := "go test ./test/integration/... -v -count=1"
-		if *race { testCmd += " -race" }
-		if *coverage { testCmd += " -coverprofile=.out/coverage-" + be + ".out" }
-		if *smoke { testCmd += " -run Test(Smoke|Status|Diff)" } // adjust filter
-
-		// Run tests
-		run := build.WithExec([]string{"bash", "-lc", testCmd + " | tee .out/test-" + be + ".log"})
-
-		// Export artifacts to host (optional; remove if CI collects via logs)
-		_, err := run.Directory("/workspace/.out").Export(ctx, ".out")
-		if err != nil { log.Fatalf("export artifacts: %v", err) }
-	}
-}
+// See ci/dagger/main.go in-repo for the runnable implementation.
 ```
 
 Notes:
@@ -231,10 +165,218 @@ For nightly or a separate job, run full backends with `--race` and coverage.
 
 ### 14. Implementation TODOs
 
-- [ ] Add Dagger dependency and `ci/dagger` program.
-- [ ] Implement base container (install git, caches, HOME setup).
-- [ ] Add backend matrix, build, and test steps; export `.out/` artifacts.
-- [ ] Wire Makefile targets and a GitHub Actions workflow.
+- [x] Add Dagger dependency and `ci/dagger` program.
+- [x] Implement base container (Go 1.24.x + git) and artifact export.
+- [x] Add backend matrix, build, and test steps; export `.out/` artifacts.
+- [x] Wire Makefile targets.
 - [ ] Integrate with `test/integration` helpers and scenarios from 04-design.
 - [ ] Optional: gotestsum for JUnit + coverage aggregation.
 - [ ] Pin base image digest; consider OCI cache for faster CI.
+
+---
+
+### 15. Next Integration Tests to Build (Detailed Spec)
+
+Below is a step-by-step plan for the first wave of integration tests. Each test section lists:
+- Files to create
+- Setup (fixtures)
+- Execution (CLI invocations)
+- Assertions
+- Backend coverage
+
+All tests live under `test/integration/` using the standard Go test framework.
+
+#### 15.1 Helpers and Sandbox
+
+- Files:
+  - `test/integration/helpers/sandbox.go`
+  - `test/integration/helpers/git.go`
+  - `test/integration/helpers/wsm.go`
+
+- Setup scaffolding (suggested APIs):
+```go
+// sandbox.go
+func NewSandbox(t *testing.T) *Sandbox
+func (s *Sandbox) Cleanup()
+func (s *Sandbox) SetBackend(be string)
+// Directories
+func (s *Sandbox) TempDir(parts ...string) string
+
+// git.go
+func (s *Sandbox) InitBareRepo(name string) string
+func (s *Sandbox) InitRepo(name string, remoteURL string) string
+func (s *Sandbox) CommitFile(repoPath, filename, content, message string)
+func (s *Sandbox) CreateBranch(repoPath, name, base string)
+func (s *Sandbox) Checkout(repoPath, name string)
+func (s *Sandbox) IntroduceConflict(repoPath string, filename string)
+
+// wsm.go
+type RunResult struct { Stdout, Stderr string; ExitCode int }
+func (s *Sandbox) RunWSM(ctx context.Context, args ...string) RunResult
+func (s *Sandbox) BuildWSM(ctx context.Context) string // optional, or use installed binary
+```
+
+- Environment:
+  - Set `HOME` to a temp dir; write `~/.gitconfig` with user/email.
+  - Export `WSM_GIT_BACKEND` per test.
+
+#### 15.2 Status + Diff (Smoke)
+
+- Files:
+  - `test/integration/scenarios/status_diff_test.go`
+
+- Setup:
+  - Create bare remote `remote.git`.
+  - Create `repo1`, `repo2` with remote origin.
+  - Commit files to each.
+  - Optionally create a simple workspace or run commands with `--workspace` detection.
+
+- Execution:
+  - `wsm status --workspace <ws>`
+  - `wsm diff --workspace <ws>`
+
+- Assertions:
+  - Output contains workspace header and repo entries.
+  - Diff output contains repository headers and expected file modifications.
+
+- Backends: run for `hybrid` and `cli` in CI; optionally `gogit` in nightly.
+
+#### 15.3 Commit + Push
+
+- Files:
+  - `test/integration/scenarios/commit_push_test.go`
+
+- Setup:
+  - Repos `repo1`, `repo2` with bare remote.
+  - Modify files in both.
+
+- Execution:
+  - `wsm commit --add-all -m "test commit" --push`
+
+- Assertions:
+  - HEAD advanced; remote refs updated.
+  - `wsm status` reports no pending changes.
+
+- Backends: `hybrid`, `cli`.
+
+#### 15.4 Sync (Pull/Push) and Ahead/Behind
+
+- Files:
+  - `test/integration/scenarios/sync_test.go`
+
+- Setup:
+  - Diverge local and remote by adding commits on each side for a repo.
+
+- Execution:
+  - `wsm sync all --dry-run` then `wsm sync pull` and `wsm sync push`.
+
+- Assertions:
+  - Before/after ahead/behind counts change as expected.
+  - Dry-run produces stable summary.
+
+- Backends: `hybrid`.
+
+#### 15.5 Worktree Create/Delete
+
+- Files:
+  - `test/integration/scenarios/worktree_test.go`
+
+- Setup:
+  - Registry with 2–3 repos; run `wsm create <ws> --repos ... --branch feature/x`.
+
+- Execution:
+  - Verify worktree directories exist.
+  - Run `wsm delete <ws> --remove-files`.
+
+- Assertions:
+  - Worktrees present after create; absent after delete.
+  - Use `WorktreeManager.List()` (via CLI verification output) to confirm.
+
+- Backends: `hybrid`.
+
+#### 15.6 Rebase (Happy Path)
+
+- Files:
+  - `test/integration/scenarios/rebase_happy_test.go`
+
+- Setup:
+  - Repo with upstream tracking; local commits need rebase.
+
+- Execution:
+  - `wsm sync pull --rebase`.
+
+- Assertions:
+  - Rebase completes; history linearized; ahead/behind zero when expected.
+
+- Backends: `hybrid`.
+
+#### 15.7 Rebase with Conflicts (Continue/Abort)
+
+- Files:
+  - `test/integration/scenarios/rebase_conflicts_test.go`
+
+- Setup:
+  - Create conflicting changes between local and upstream for the same files.
+
+- Execution:
+  - `wsm sync pull --rebase` → expect conflicts.
+  - `wsm rebase status --repo <r>` → `stopped-conflicts`.
+  - `wsm conflicts mark-resolved --repo <r> --all` and `wsm rebase continue` → expect completion.
+  - Repeat on a fresh branch then `wsm rebase abort` → expect rollback.
+
+- Assertions:
+  - Status reflects in-progress and conflict states.
+  - Continue leads to clean state; abort reverts.
+
+- Backends: `hybrid`.
+
+#### 15.8 Concurrency (`--jobs`)
+
+- Files:
+  - `test/integration/scenarios/jobs_test.go`
+
+- Setup:
+  - Workspace with 3–6 repos.
+
+- Execution:
+  - Run `status`, `diff`, `sync` with `--jobs=4`.
+
+- Assertions:
+  - No interleaving in final summaries (tables present and consistent).
+  - Timings improved vs serial (coarse assertion or at least no failures).
+
+- Backends: `hybrid`.
+
+#### 15.9 Smoke Gate for PRs
+
+- Files:
+  - `test/integration/scenarios/smoke_test.go`
+
+- Content:
+  - Minimal test that builds a workspace with 1–2 repos, runs `status` and `diff`.
+
+- Purpose:
+  - Very fast gating in CI (run with `--smoke`).
+
+---
+
+### 16. How to Build and Run Tests (Step-by-Step)
+
+1) Create helpers:
+   - Add `test/integration/helpers/{sandbox.go,git.go,wsm.go}` with the APIs above.
+   - Ensure `RunWSM` invokes the local built binary if present (`./.out/wsm`), else `go run ./cmd/wsm`.
+
+2) Add first smoke test:
+   - Create `test/integration/scenarios/status_diff_test.go` and implement the minimal scenario.
+   - Locally run: `go test ./test/integration/... -v -count=1 -run 'Test(Smoke|Status|Diff)'`.
+
+3) Run in Dagger:
+   - `go run ./ci/dagger --backends=hybrid --smoke` (artifacts in `./.out`).
+
+4) Expand scenarios incrementally:
+   - Add commit+push, sync, worktree, rebase tests; validate locally first, then via Dagger.
+
+5) Enable matrix in CI:
+   - Add a GitHub Actions workflow invoking `go run ./ci/dagger` for smoke on PRs; nightly full matrix.
+
+---
