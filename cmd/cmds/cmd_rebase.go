@@ -69,6 +69,11 @@ Examples:
 	cmd.Flags().IntVar(&jobs, "jobs", 1, "Maximum concurrent repositories to process")
 	cmd.Flags().BoolVar(&manual, "manual", false, "Manual mode: show suggested commands, do not execute rebase")
 
+	// Subcommands
+	cmd.AddCommand(NewRebaseStatusCommand())
+	cmd.AddCommand(NewRebaseContinueCommand())
+	cmd.AddCommand(NewRebaseAbortCommand())
+
 	return cmd
 }
 
@@ -151,6 +156,167 @@ func printManualRebasePlan(workspace *wsm.Workspace, repository, targetBranch st
 		repoPath := filepath.Join(workspace.Path, repo.Name)
 		fmt.Printf("\n# %s\n", repo.Name)
 		fmt.Printf("(cd %s && git fetch --all && git rebase %s)\n", repoPath, targetBranch)
+	}
+	return nil
+}
+
+// Subcommands: rebase status, continue, abort
+
+func NewRebaseStatusCommand() *cobra.Command {
+	var (
+		repository string
+		jobs       int
+	)
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "Show rebase status and conflicts across repositories",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRebaseStatus(cmd.Context(), repository, jobs)
+		},
+	}
+	cmd.Flags().StringVar(&repository, "repo", "", "Only show status for a specific repository")
+	cmd.Flags().IntVar(&jobs, "jobs", 1, "Maximum concurrent repositories to process")
+	return cmd
+}
+
+func runRebaseStatus(ctx context.Context, repository string, jobs int) error {
+	workspace, err := detectCurrentWorkspace()
+	if err != nil { return errors.Wrap(err, "failed to detect current workspace") }
+
+	repos := workspace.Repositories
+	if repository != "" {
+		// filter
+		filtered := []wsm.Repository{}
+		for _, r := range repos {
+			if r.Name == repository { filtered = append(filtered, r) }
+		}
+		repos = filtered
+	}
+
+	type row struct { repo string; state wsm.RebaseState; conflicts int; err string }
+	rows := make([]row, len(repos))
+
+	printTable := func() error {
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		defer w.Flush()
+		fmt.Fprintln(w, "REPOSITORY\tSTATE\tCONFLICTS\tERROR")
+		fmt.Fprintln(w, "----------\t-----\t---------\t-----")
+		for _, r := range rows {
+			errStr := r.err
+			if len(errStr) > 60 { errStr = errStr[:57] + "..." }
+			fmt.Fprintf(w, "%s\t%s\t%d\t%s\n", r.repo, string(r.state), r.conflicts, errStr)
+		}
+		return nil
+	}
+
+	if jobs <= 1 || len(repos) <= 1 {
+		for i, r := range repos {
+			state, conflicts, err := wsm.Status(ctx, filepath.Join(workspace.Path, r.Name))
+			errStr := ""
+			if err != nil { errStr = err.Error() }
+			rows[i] = row{repo: r.Name, state: state, conflicts: len(conflicts), err: errStr}
+		}
+		return printTable()
+	}
+
+	sem := semaphore.NewWeighted(int64(jobs))
+	g, gctx := errgroup.WithContext(ctx)
+	for i := range repos {
+		i := i
+		if err := sem.Acquire(gctx, 1); err != nil { return err }
+		g.Go(func() error {
+			defer sem.Release(1)
+			r := repos[i]
+			state, conflicts, err := wsm.Status(gctx, filepath.Join(workspace.Path, r.Name))
+			errStr := ""
+			if err != nil { errStr = err.Error() }
+			rows[i] = row{repo: r.Name, state: state, conflicts: len(conflicts), err: errStr}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil { return err }
+	return printTable()
+}
+
+func NewRebaseContinueCommand() *cobra.Command {
+	var (
+		repository string
+		jobs       int
+	)
+	cmd := &cobra.Command{
+		Use:   "continue",
+		Short: "Continue in-progress rebases across repositories",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRebaseAction(cmd.Context(), repository, jobs, wsm.Continue, "continue")
+		},
+	}
+	cmd.Flags().StringVar(&repository, "repo", "", "Only continue for a specific repository")
+	cmd.Flags().IntVar(&jobs, "jobs", 1, "Maximum concurrent repositories to process")
+	return cmd
+}
+
+func NewRebaseAbortCommand() *cobra.Command {
+	var (
+		repository string
+		jobs       int
+	)
+	cmd := &cobra.Command{
+		Use:   "abort",
+		Short: "Abort in-progress rebases across repositories",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRebaseAction(cmd.Context(), repository, jobs, wsm.Abort, "abort")
+		},
+	}
+	cmd.Flags().StringVar(&repository, "repo", "", "Only abort for a specific repository")
+	cmd.Flags().IntVar(&jobs, "jobs", 1, "Maximum concurrent repositories to process")
+	return cmd
+}
+
+// runRebaseAction runs a function (Continue/Abort) over repos
+func runRebaseAction(ctx context.Context, repository string, jobs int, action func(context.Context, string) error, label string) error {
+	workspace, err := detectCurrentWorkspace()
+	if err != nil { return errors.Wrap(err, "failed to detect current workspace") }
+	repos := workspace.Repositories
+	if repository != "" {
+		filtered := []wsm.Repository{}
+		for _, r := range repos { if r.Name == repository { filtered = append(filtered, r) } }
+		repos = filtered
+	}
+
+	type row struct { repo string; ok bool; err string }
+	rows := make([]row, len(repos))
+	do := func(i int) {
+		r := repos[i]
+		repoPath := filepath.Join(workspace.Path, r.Name)
+		err := action(ctx, repoPath)
+		rows[i] = row{repo: r.Name, ok: err == nil}
+		if err != nil { rows[i].err = err.Error() }
+	}
+
+	if jobs <= 1 || len(repos) <= 1 {
+		for i := range repos { do(i) }
+	} else {
+		sem := semaphore.NewWeighted(int64(jobs))
+		g, gctx := errgroup.WithContext(ctx)
+		for i := range repos {
+			i := i
+			if err := sem.Acquire(gctx, 1); err != nil { return err }
+			g.Go(func() error { defer sem.Release(1); do(i); return nil })
+		}
+		if err := g.Wait(); err != nil { return err }
+	}
+
+	// Print summary
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	defer w.Flush()
+	fmt.Fprintf(w, "\nREPOSITORY\t%s\tERROR\n", strings.ToUpper(label))
+	fmt.Fprintln(w, "----------\t-----\t-----")
+	for _, r := range rows {
+		status := "✅"
+		if !r.ok { status = "❌" }
+		errStr := r.err
+		if len(errStr) > 60 { errStr = errStr[:57] + "..." }
+		fmt.Fprintf(w, "%s\t%s\t%s\n", r.repo, status, errStr)
 	}
 	return nil
 }

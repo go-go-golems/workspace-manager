@@ -181,16 +181,16 @@ Recommendation:
 
 ### 12. Implementation TODOs (Phase A)
 
-- [ ] Add `pkg/wsm/rebase_operations.go` encapsulating CLI helpers (detect upstream, start, continue, abort, status).
-- [ ] Wire `sync pull --rebase` to use `RebaseOperations` (fetch + rebase, non-interactive; set `SyncResult.Conflicts`).
-- [ ] Enhance `rebase` command:
-  - [ ] Add `--jobs` for parallel per-repo execution.
-  - [ ] Add `--manual` to print suggested commands and skip automation.
-  - [ ] Add subcommands: `rebase status`, `rebase continue`, `rebase abort` (support `--repo`, `--jobs`).
-- [ ] Add standard helpers (initial CLI):
-  - [ ] `conflicts list [--repo]` (UU/AA/DD parsing and summary).
-  - [ ] `conflicts open [--repo] [--tool]` (launch editor/mergetool).
-  - [ ] `conflicts mark-resolved [--repo] [--all]` (stage resolved files).
+- [x] Add `pkg/wsm/rebase_operations.go` encapsulating CLI helpers (detect upstream, start, continue, abort, status).
+- [x] Wire `sync pull --rebase` to use `RebaseOperations` (fetch + rebase, non-interactive; set `SyncResult.Conflicts`).
+- [x] Enhance `rebase` command:
+  - [x] Add `--jobs` for parallel per-repo execution.
+  - [x] Add `--manual` to print suggested commands and skip automation.
+  - [x] Add subcommands: `rebase status`, `rebase continue`, `rebase abort` (support `--repo`, `--jobs`).
+- [x] Add standard helpers (initial CLI):
+  - [x] `conflicts list [--repo]` (UU/AA/DD parsing and summary).
+  - [x] `conflicts open [--repo] [--tool]` (launch editor/mergetool).
+  - [x] `conflicts mark-resolved [--repo] [--all]` (stage resolved files).
 - [ ] Optional: scaffold `tui conflicts` (list/select, open, stage, continue/abort).
 - [ ] Documentation: update README with manual vs automated modes, flows, and troubleshooting.
 - [ ] Tests: unit + integration for start/continue/abort/status across small fixture repos.

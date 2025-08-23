@@ -151,3 +151,47 @@ func Status(ctx context.Context, repoPath string) (RebaseState, []ConflictInfo, 
 
 	return RebaseStateNone, conflicts, nil
 }
+
+// ListConflicts lists conflicted files using porcelain parsing.
+func ListConflicts(ctx context.Context, repoPath string) ([]ConflictInfo, error) {
+	_, conflicts, err := Status(ctx, repoPath)
+	return conflicts, err
+}
+
+// OpenMergetool opens a mergetool/editor for the given files (or all when files is empty).
+func OpenMergetool(ctx context.Context, repoPath string, tool string, files []string) error {
+	args := []string{"mergetool"}
+	if tool != "" {
+		args = append(args, "--tool", tool)
+	}
+	if len(files) > 0 {
+		args = append(args, files...)
+	}
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = repoPath
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// StageResolved stages resolved files. If all=true and files empty, it stages all.
+func StageResolved(ctx context.Context, repoPath string, all bool, files []string) error {
+	if all {
+		cmd := exec.CommandContext(ctx, "git", "add", "-A")
+		cmd.Dir = repoPath
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return errors.Wrapf(err, "git add -A failed: %s", string(out))
+		}
+		return nil
+	}
+	if len(files) == 0 {
+		return errors.New("no files specified; use --all to stage all")
+	}
+	args := append([]string{"add"}, files...)
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = repoPath
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return errors.Wrapf(err, "git add failed: %s", string(out))
+	}
+	return nil
+}

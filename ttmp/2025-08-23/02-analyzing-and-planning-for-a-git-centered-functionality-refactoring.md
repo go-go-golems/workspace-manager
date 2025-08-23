@@ -354,6 +354,11 @@ if err := g.Wait(); err != nil { return err }
   - [x] Add `--jobs` to relevant verbs (`status`, `diff`, `commit` with `--add-all`, `push`, `sync`).
   - [x] Implement `errgroup` + semaphore with sensible default (e.g., 6); ensure ordered, readable summaries. (Initial default wired as `--jobs`, core can choose default later.)
   - [ ] Add `--non-interactive`/`--assume-yes` and policy flags to CLI where needed; plumb into core as enum/policy instead of prompting.
+- Rebase and conflicts (see `ttmp/2025-08-23/03-status-and-design-of-wsm-rebase-and-conflict-management.md`):
+  - [x] CLI-backed rebase helpers (`start|continue|abort|status`) and `sync --rebase` wiring.
+  - [x] `rebase` command: `--jobs`, `--manual`, and `status|continue|abort` subcommands.
+  - [x] `conflicts` command: `list|open|mark-resolved` helpers.
+  - [ ] Optional `tui conflicts` and tests/documentation follow-up.
 - Testing and documentation:
   - [ ] Add unit tests for `gogit_client` (status, add, commit, push, ahead/behind) using temp repos + local bare remotes.
   - [ ] Add integration tests across a small temp workspace (2–3 repos); compare outputs between backends (CLI vs go-git) where feasible.
