@@ -14,7 +14,7 @@ func TestRebaseConflictsContinueAbort(t *testing.T) {
     remote := s.InitBareRepo(t, "remote")
     r1 := s.InitRepo(t, "repo1", remote)
 
-    _ = s.RunWSM(t, nil, s.ReposDir, "discover", "--recursive=false")
+    _ = s.RunWSM(t, nil, s.ReposDir, "discover", s.ReposDir)
     wsName := "ws-rbc"
     res := s.RunWSM(t, nil, "", "create", wsName, "--repos", "repo1", "--branch", "feature/rbc")
     if res.ExitCode != 0 { t.Fatalf("create failed: %s\n%s", res.Stdout, res.Stderr) }

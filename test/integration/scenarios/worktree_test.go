@@ -16,7 +16,7 @@ func TestWorktreeCreateDelete(t *testing.T) {
     _ = s.InitRepo(t, "repo1", remote)
     _ = s.InitRepo(t, "repo2", remote)
 
-    _ = s.RunWSM(t, nil, s.ReposDir, "discover", "--recursive=false")
+    _ = s.RunWSM(t, nil, s.ReposDir, "discover", s.ReposDir)
     wsName := "ws-wt"
     res := s.RunWSM(t, nil, "", "create", wsName, "--repos", "repo1,repo2", "--branch", "feature/wt")
     if res.ExitCode != 0 { t.Fatalf("create failed: %s\n%s", res.Stdout, res.Stderr) }

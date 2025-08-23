@@ -14,7 +14,7 @@ func TestSyncAheadBehind(t *testing.T) {
     _ = s.InitRepo(t, "repo1", remote)
 
     // Discover and create workspace with a single repo
-    _ = s.RunWSM(t, nil, s.ReposDir, "discover", "--recursive=false")
+    _ = s.RunWSM(t, nil, s.ReposDir, "discover", s.ReposDir)
     wsName := "ws-sync"
     res := s.RunWSM(t, nil, "", "create", wsName, "--repos", "repo1", "--branch", "feature/sync")
     if res.ExitCode != 0 { t.Fatalf("create failed: %s\n%s", res.Stdout, res.Stderr) }

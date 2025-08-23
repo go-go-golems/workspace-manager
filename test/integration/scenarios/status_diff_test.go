@@ -22,7 +22,7 @@ func TestSmokeStatusDiff(t *testing.T) {
 
     // Discover repos into registry limited to our sandbox repos dir
     // We run discovery pointing to s.ReposDir so WSM can find repo names 'repo1', 'repo2'
-    _ = s.RunWSM(t, nil, s.ReposDir, "discover", "--recursive=false")
+    _ = s.RunWSM(t, nil, s.ReposDir, "discover", s.ReposDir)
 
     // Create workspace using those repos
     wsName := "ws1"

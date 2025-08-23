@@ -16,7 +16,7 @@ func TestCommitPush(t *testing.T) {
     _ = s.InitRepo(t, "repo2", remote)
 
     // Discover and create workspace
-    _ = s.RunWSM(t, nil, s.ReposDir, "discover", "--recursive=false")
+    _ = s.RunWSM(t, nil, s.ReposDir, "discover", s.ReposDir)
     wsName := "ws2"
     res := s.RunWSM(t, nil, "", "create", wsName, "--repos", "repo1,repo2", "--branch", "feature/commit")
     if res.ExitCode != 0 { t.Fatalf("create failed: %s\n%s", res.Stdout, res.Stderr) }
