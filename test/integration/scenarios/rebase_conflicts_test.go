@@ -14,9 +14,11 @@ func TestRebaseConflictsContinueAbort(t *testing.T) {
     remote := s.InitBareRepo(t, "remote")
     r1 := s.InitRepo(t, "repo1", remote)
 
-    _ = s.RunWSM(t, nil, s.ReposDir, "discover", s.ReposDir)
+    t.Logf("[debug] running discover in %s", s.ReposDir)
+    res := s.RunWSM(t, nil, s.ReposDir, "discover", s.ReposDir)
+    t.Logf("[debug] discover exit=%d\nstdout:\n%s\nstderr:\n%s", res.ExitCode, res.Stdout, res.Stderr)
     wsName := "ws-rbc"
-    res := s.RunWSM(t, nil, "", "create", wsName, "--repos", "repo1", "--branch", "feature/rbc")
+    res = s.RunWSM(t, nil, "", "create", wsName, "--repos", "repo1", "--branch", "feature/rbc")
     if res.ExitCode != 0 { t.Fatalf("create failed: %s\n%s", res.Stdout, res.Stderr) }
     wsPath := s.LoadWorkspacePath(t, wsName)
 
