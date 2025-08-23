@@ -32,6 +32,16 @@ build:
 	go generate ./...
 	go build ./...
 
+.PHONY: dagger dagger-test dagger-test-backends
+dagger:
+	go run ./ci/dagger --backends=hybrid
+
+dagger-test:
+	go run ./ci/dagger --backends=hybrid,cli,gogit --race
+
+dagger-test-smoke:
+	go run ./ci/dagger --backends=hybrid --smoke
+
 goreleaser:
 	goreleaser release --skip=sign --snapshot --clean
 
