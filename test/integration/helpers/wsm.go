@@ -32,12 +32,22 @@ func (s *Sandbox) RunWSM(t *testing.T, ctx context.Context, workDir string, args
     // Prefer prebuilt binary under module root .out from the Dagger build step
     bin := filepath.Join(moduleRoot, ".out", "wsm")
     var cmd *exec.Cmd
-    if _, err := os.Stat(bin); err == nil {
-        cmd = exec.CommandContext(ctx, bin, args...)
+    if ctx == nil {
+        // Don't use CommandContext when ctx is nil (it panics)
+        if _, err := os.Stat(bin); err == nil {
+            cmd = exec.Command(bin, args...)
+        } else {
+            cmd = exec.Command("go", append([]string{"run", "./cmd/wsm"}, args...)...)
+            cmd.Dir = moduleRoot
+        }
     } else {
-        // fall back to go run
-        cmd = exec.CommandContext(ctx, "go", append([]string{"run", "./cmd/wsm"}, args...)...)
-        cmd.Dir = moduleRoot
+        if _, err := os.Stat(bin); err == nil {
+            cmd = exec.CommandContext(ctx, bin, args...)
+        } else {
+            // fall back to go run
+            cmd = exec.CommandContext(ctx, "go", append([]string{"run", "./cmd/wsm"}, args...)...)
+            cmd.Dir = moduleRoot
+        }
     }
     if workDir != "" {
         cmd.Dir = workDir
@@ -47,27 +57,6 @@ func (s *Sandbox) RunWSM(t *testing.T, ctx context.Context, workDir string, args
     var stdout, stderr bytes.Buffer
     cmd.Stdout = &stdout
     cmd.Stderr = &stderr
-    // exec.CommandContext panics on nil ctx. Use Command if nil.
-    if ctx == nil {
-        if cmd.Path == bin {
-            cmd = exec.Command(bin, args...)
-        } else {
-            cmd = exec.Command("go", append([]string{"run", "./cmd/wsm"}, args...)...)
-            cmd.Dir = moduleRoot
-        }
-        cmd.Env = s.Env(nil)
-        var stdout2, stderr2 bytes.Buffer
-        cmd.Stdout = &stdout2
-        cmd.Stderr = &stderr2
-        if workDir != "" { cmd.Dir = workDir }
-        err := cmd.Run()
-        code := 0
-        if err != nil {
-            if exitErr, ok := err.(*exec.ExitError); ok { code = exitErr.ExitCode() } else { code = 1 }
-        }
-        return RunResult{Stdout: stdout2.String(), Stderr: stderr2.String(), ExitCode: code}
-    }
-
     err := cmd.Run()
     code := 0
     if err != nil {
