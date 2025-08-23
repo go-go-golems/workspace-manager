@@ -26,23 +26,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	backends := strings.Split(*backendsStr, ",")
 
 	src := client.Host().Directory(".", dagger.HostDirectoryOpts{
-		Include: []string{
-			"cmd/**",
-			"pkg/**",
-			"test/**",
-			"ci/**",
-			"go.mod",
-			"go.sum",
-			"Makefile",
-		},
+		Include: []string{"**/*"},
 		Exclude: []string{
-			".git",
-			"**/.git",
+			".git/**",
+			"**/.git/**",
 			"**/.cache/**",
 			"**/.out/**",
 		},
@@ -57,9 +49,12 @@ func main() {
 	// Install git and update certs
 	base = base.WithExec([]string{"bash", "-lc", "apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*"})
 
-	// Ensure output dir inside container and setup HOME and git identity
+	// Ensure output dir inside container and setup HOME
 	base = base.WithEnvVariable("HOME", "/tmp/wsm-home")
 	base = base.WithExec([]string{"bash", "-lc", "mkdir -p .out /tmp/wsm-home/.config"})
+
+	// Diagnostics: capture directory and test visibility
+	base = base.WithExec([]string{"bash", "-lc", `pwd; ls -la; echo '--- dirs depth=2 ---'; find . -maxdepth 2 -type d -print | sort; echo '--- tests ---'; (find test -maxdepth 4 -type f -name '*_test.go' -print || true) | sort | tee .out/diag.txt`})
 
 	goBin := "/usr/local/go/bin/go"
 
