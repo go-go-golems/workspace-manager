@@ -14,21 +14,39 @@ import (
 func main() {
 	var (
 		backendsStr = flag.String("backends", "hybrid", "comma-separated backends: hybrid,cli,gogit")
-		race       = flag.Bool("race", false, "enable -race")
-		coverage   = flag.Bool("cover", false, "enable coverage")
-		smoke      = flag.Bool("smoke", false, "run a smaller subset with -run")
-		outDir     = flag.String("out", ".out", "host artifacts directory")
+		race        = flag.Bool("race", false, "enable -race")
+		coverage    = flag.Bool("cover", false, "enable coverage")
+		smoke       = flag.Bool("smoke", false, "run a smaller subset with -run")
+		outDir      = flag.String("out", ".out", "host artifacts directory")
 	)
 	flag.Parse()
 
 	ctx := context.Background()
 	client, err := dagger.Connect(ctx, dagger.WithLogOutput(log.Writer()))
-	if err != nil { log.Fatal(err) }
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer client.Close()
 
 	backends := strings.Split(*backendsStr, ",")
 
-	src := client.Host().Directory(".")
+	src := client.Host().Directory(".", dagger.HostDirectoryOpts{
+		Include: []string{
+			"cmd/**",
+			"pkg/**",
+			"test/**",
+			"ci/**",
+			"go.mod",
+			"go.sum",
+			"Makefile",
+		},
+		Exclude: []string{
+			".git",
+			"**/.git",
+			"**/.cache/**",
+			"**/.out/**",
+		},
+	})
 
 	base := client.Container().From("golang:1.24.4").
 		WithMountedCache("/go/pkg/mod", client.CacheVolume("gomod")).
@@ -54,9 +72,15 @@ func main() {
 
 		// Build test command (guard if tests folder missing)
 		baseTest := goBin + " test ./test/integration/... -v -count=1"
-		if *race { baseTest += " -race" }
-		if *coverage { baseTest += " -coverprofile=.out/coverage-" + be + ".out" }
-		if *smoke { baseTest += " -run 'Test(Smoke|Status|Diff)'" }
+		if *race {
+			baseTest += " -race"
+		}
+		if *coverage {
+			baseTest += " -coverprofile=.out/coverage-" + be + ".out"
+		}
+		if *smoke {
+			baseTest += " -run 'Test(Smoke|Status|Diff)'"
+		}
 		fullCmd := "if [ -d test/integration ]; then " + baseTest + "; else echo 'No integration tests found, skipping.'; fi > .out/test-" + be + ".log 2>&1"
 
 		// Run tests (or skip) and write logs
