@@ -182,29 +182,42 @@ func (rd *RepositoryDiscoverer) analyzeRepository(ctx context.Context, path stri
 		Categories:  rd.categorizeRepository(path),
 	}
 
-	// Get remote URL
-	if remoteURL, err := rd.getGitRemoteURL(ctx, path); err == nil {
-		repo.RemoteURL = remoteURL
+	// Prefer GitClient when available; fallback to CLI helpers
+	if gc, wt := BuildGitBackends(ctx); gc != nil || wt != nil {
+		if handle, err := gc.Open(ctx, path); err == nil {
+			if remoteURL, err := gc.RemoteURL(ctx, handle, "origin"); err == nil {
+				repo.RemoteURL = remoteURL
+			}
+			if branch, err := gc.CurrentBranch(ctx, handle); err == nil {
+				repo.CurrentBranch = branch
+			}
+			if branches, err := gc.ListBranches(ctx, handle); err == nil {
+				repo.Branches = branches
+			}
+			if tags, err := gc.ListTags(ctx, handle); err == nil {
+				repo.Tags = tags
+			}
+			if lastCommit, err := gc.LastCommit(ctx, handle); err == nil {
+				repo.LastCommit = lastCommit
+			}
+		}
 	}
 
-	// Get current branch
-	if branch, err := rd.getGitCurrentBranch(ctx, path); err == nil {
-		repo.CurrentBranch = branch
+	// Fallbacks for any missing fields
+	if repo.RemoteURL == "" {
+		if v, err := rd.getGitRemoteURL(ctx, path); err == nil { repo.RemoteURL = v }
 	}
-
-	// Get all branches
-	if branches, err := rd.getGitBranches(ctx, path); err == nil {
-		repo.Branches = branches
+	if repo.CurrentBranch == "" {
+		if v, err := rd.getGitCurrentBranch(ctx, path); err == nil { repo.CurrentBranch = v }
 	}
-
-	// Get tags
-	if tags, err := rd.getGitTags(ctx, path); err == nil {
-		repo.Tags = tags
+	if len(repo.Branches) == 0 {
+		if v, err := rd.getGitBranches(ctx, path); err == nil { repo.Branches = v }
 	}
-
-	// Get last commit
-	if lastCommit, err := rd.getGitLastCommit(ctx, path); err == nil {
-		repo.LastCommit = lastCommit
+	if len(repo.Tags) == 0 {
+		if v, err := rd.getGitTags(ctx, path); err == nil { repo.Tags = v }
+	}
+	if repo.LastCommit == "" {
+		if v, err := rd.getGitLastCommit(ctx, path); err == nil { repo.LastCommit = v }
 	}
 
 	return repo, nil
