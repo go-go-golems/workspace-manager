@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/huh"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm/gitclient"
 	"github.com/pkg/errors"
 )
 
@@ -250,6 +250,7 @@ func (wm *WorkspaceManager) createWorkspaceStructure(ctx context.Context, worksp
 // createWorktree creates a git worktree for a repository
 func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Workspace, repo Repository) error {
 	targetPath := filepath.Join(workspace.Path, repo.Name)
+	gc, wtm := BuildGitBackends(ctx)
 
 	output.LogInfo(
 		fmt.Sprintf("Creating worktree for '%s' on branch '%s'", repo.Name, workspace.Branch),
@@ -259,160 +260,77 @@ func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Works
 		"target", targetPath,
 	)
 
+	// No specific branch, create a detached worktree from current branch
 	if workspace.Branch == "" {
-		// No specific branch, create worktree from current branch
-		return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", targetPath)
+		return wtm.Add(ctx, repo.Path, "", targetPath, gitclient.WorktreeAddOptions{})
 	}
 
-	// Check if branch exists locally
-	branchExists, err := wm.CheckBranchExists(ctx, repo.Path, workspace.Branch)
+	// Determine local branch existence via GitClient
+	h, err := gc.Open(ctx, repo.Path)
 	if err != nil {
-		return errors.Wrapf(err, "failed to check if branch %s exists", workspace.Branch)
+		return errors.Wrap(err, "open repository")
+	}
+	branches, _ := gc.ListBranches(ctx, h)
+	branchExists := false
+	for _, b := range branches {
+		if b == workspace.Branch {
+			branchExists = true
+			break
+		}
 	}
 
-	// Check if branch exists remotely
-	remoteBranchExists, err := wm.CheckRemoteBranchExists(ctx, repo.Path, workspace.Branch)
-	if err != nil {
-		output.LogWarn(
-			fmt.Sprintf("Could not check if remote branch '%s' exists", workspace.Branch),
-			"Could not check remote branch existence",
-			"branch", workspace.Branch,
-			"error", err,
-		)
-	}
+	// Remote existence (keep CLI-based check for now)
+	remoteBranchExists, _ := wm.CheckRemoteBranchExists(ctx, repo.Path, workspace.Branch)
 
-	fmt.Printf("\nBranch status for %s:\n", repo.Name)
-	fmt.Printf("  Local branch '%s' exists: %v\n", workspace.Branch, branchExists)
-	fmt.Printf("  Remote branch 'origin/%s' exists: %v\n", workspace.Branch, remoteBranchExists)
-
+	opts := gitclient.WorktreeAddOptions{}
 	if branchExists {
-		// Branch exists locally - ask user what to do using huh
-		output.PrintWarning("Branch '%s' already exists in repository '%s'", workspace.Branch, repo.Name)
-
-		var choice string
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewSelect[string]().
-					Title("How would you like to handle the existing branch?").
-					Options(
-						huh.NewOption("Overwrite the existing branch (git worktree add -B)", "overwrite"),
-						huh.NewOption("Use the existing branch as-is (git worktree add)", "use"),
-						huh.NewOption("Cancel workspace creation", "cancel"),
-					).
-					Value(&choice),
-			),
-		)
-
-		err := form.Run()
-		if err != nil {
-			// Check if user cancelled/aborted the form
-			errMsg := strings.ToLower(err.Error())
-			if strings.Contains(errMsg, "user aborted") ||
-				strings.Contains(errMsg, "cancelled") ||
-				strings.Contains(errMsg, "aborted") ||
-				strings.Contains(errMsg, "interrupt") {
-				return errors.New("workspace creation cancelled by user")
-			}
-			return errors.Wrap(err, "failed to get user choice")
-		}
-
-		switch choice {
-		case "overwrite":
-			output.PrintInfo("Overwriting branch '%s'...", workspace.Branch)
-			if remoteBranchExists {
-				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", workspace.Branch, targetPath, "origin/"+workspace.Branch)
-			} else if workspace.BaseBranch != "" {
-				output.PrintInfo("Creating new branch '%s' from '%s'...", workspace.Branch, workspace.BaseBranch)
-				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", workspace.Branch, targetPath, workspace.BaseBranch)
-			} else {
-				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", workspace.Branch, targetPath)
-			}
-		case "use":
-			output.PrintInfo("Using existing branch '%s'...", workspace.Branch)
-			return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", targetPath, workspace.Branch)
-		case "cancel":
-			return errors.New("workspace creation cancelled by user")
-		default:
-			return errors.New("invalid choice, workspace creation cancelled")
-		}
-	} else {
-		// Branch doesn't exist locally
-		if remoteBranchExists {
-			output.PrintInfo("Creating worktree from remote branch origin/%s...", workspace.Branch)
-			return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", workspace.Branch, targetPath, "origin/"+workspace.Branch)
-		} else {
-			if workspace.BaseBranch != "" {
-				output.PrintInfo("Creating new branch '%s' from '%s' and worktree...", workspace.Branch, workspace.BaseBranch)
-				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", workspace.Branch, targetPath, workspace.BaseBranch)
-			} else {
-				output.PrintInfo("Creating new branch '%s' and worktree...", workspace.Branch)
-				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", workspace.Branch, targetPath)
-			}
-		}
+		// Use existing branch as-is (non-destructive default)
+		return wtm.Add(ctx, repo.Path, workspace.Branch, targetPath, opts)
 	}
+
+	// Branch doesn't exist locally
+	if remoteBranchExists {
+		opts.RemoteBranch = "origin/" + workspace.Branch
+		return wtm.Add(ctx, repo.Path, workspace.Branch, targetPath, opts)
+	}
+	if workspace.BaseBranch != "" {
+		opts.BaseRef = workspace.BaseBranch
+		return wtm.Add(ctx, repo.Path, workspace.Branch, targetPath, opts)
+	}
+	// Create new local branch from HEAD
+	return wtm.Add(ctx, repo.Path, workspace.Branch, targetPath, opts)
 }
 
 // checkBranchExists checks if a local branch exists
 func (wm *WorkspaceManager) CheckBranchExists(ctx context.Context, repoPath, branch string) (bool, error) {
-	cmd := exec.CommandContext(ctx, "git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
-	cmd.Dir = repoPath
-	err := cmd.Run()
-	return err == nil, nil
+	gc, _ := BuildGitBackends(ctx)
+	h, err := gc.Open(ctx, repoPath)
+	if err != nil {
+		return false, errors.Wrap(err, "open repository")
+	}
+	branches, _ := gc.ListBranches(ctx, h)
+	for _, b := range branches {
+		if b == branch {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // checkRemoteBranchExists checks if a remote branch exists
 func (wm *WorkspaceManager) CheckRemoteBranchExists(ctx context.Context, repoPath, branch string) (bool, error) {
-	cmd := exec.CommandContext(ctx, "git", "show-ref", "--verify", "--quiet", "refs/remotes/origin/"+branch)
-	cmd.Dir = repoPath
-	err := cmd.Run()
-	return err == nil, nil
-}
-
-// executeWorktreeCommand executes a git worktree command with proper logging and error handling
-func (wm *WorkspaceManager) ExecuteWorktreeCommand(ctx context.Context, repoPath string, args ...string) error {
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-	cmd.Dir = repoPath
-
-	cmdStr := strings.Join(args, " ")
-	fmt.Printf("Executing: %s (in %s)\n", cmdStr, repoPath)
-
-	output.LogInfo(
-		fmt.Sprintf("Executing git worktree command: %s", cmdStr),
-		"Executing git worktree command",
-		"command", cmdStr,
-		"repoPath", repoPath,
-	)
-
-	cmdOutput, err := cmd.CombinedOutput()
+	gc, _ := BuildGitBackends(ctx)
+	h, err := gc.Open(ctx, repoPath)
 	if err != nil {
-		fmt.Printf("❌ Command failed: %s\n", cmdStr)
-		fmt.Printf("   Error: %v\n", err)
-		fmt.Printf("   Output: %s\n", string(cmdOutput))
-
-		output.LogError(
-			fmt.Sprintf("Git worktree command failed: %s", cmdStr),
-			"Git worktree command failed",
-			"error", err,
-			"output", string(cmdOutput),
-			"command", cmdStr,
-		)
-
-		return errors.Wrapf(err, "git command failed: %s", string(cmdOutput))
+		return false, errors.Wrap(err, "open repository")
 	}
-
-	fmt.Printf("✓ Successfully executed: %s\n", cmdStr)
-	if len(cmdOutput) > 0 {
-		fmt.Printf("  Output: %s\n", string(cmdOutput))
+	branches, _ := gc.ListBranches(ctx, h)
+	for _, b := range branches {
+		if strings.HasPrefix(b, "origin/") && strings.TrimPrefix(b, "origin/") == branch {
+			return true, nil
+		}
 	}
-
-	output.LogInfo(
-		fmt.Sprintf("Git worktree command succeeded: %s", cmdStr),
-		"Git worktree command succeeded",
-		"output", string(cmdOutput),
-		"command", cmdStr,
-	)
-
-	return nil
+	return false, nil
 }
 
 // createGoWorkspace creates a go.work file
@@ -679,8 +597,8 @@ func (wm *WorkspaceManager) DeleteWorkspace(ctx context.Context, name string, re
 // removeWorktrees removes git worktrees for a workspace
 func (wm *WorkspaceManager) removeWorktrees(ctx context.Context, workspace *Workspace, force bool) error {
 	var errs []error
+	_, wtm := BuildGitBackends(ctx)
 
-	// First, let's list existing worktrees for debugging
 	output.PrintHeader("Workspace Cleanup Debug Info")
 	for _, repo := range workspace.Repositories {
 		output.PrintInfo("Repository: %s (at %s)", repo.Name, repo.Path)
@@ -730,86 +648,32 @@ func (wm *WorkspaceManager) removeWorktrees(ctx context.Context, workspace *Work
 				"repo", repo.Name,
 				"error", err,
 			)
-		} else if len(untrackedFiles) > 0 {
-			fmt.Printf("\n⚠️  Found untracked files in %s that would prevent worktree removal:\n", repo.Name)
+		} else if len(untrackedFiles) > 0 && !force {
+			fmt.Printf("\n⚠️  Found untracked files in %s that would prevent worktree removal (use --force-worktrees to override):\n", repo.Name)
 			for _, file := range untrackedFiles {
 				fmt.Printf("  - %s\n", file)
 			}
-
-			if !force {
-				fmt.Printf("\nThese files are not tracked by git and would be lost.\n")
-				fmt.Printf("Use --force-worktrees to remove them, or commit/stash them first.\n")
-				errs = append(errs, fmt.Errorf("untracked files present in %s - use --force-worktrees to override", repo.Name))
-				continue
-			}
-
-			// Even with --force, ask for confirmation
-			fmt.Printf("\nWith --force-worktrees, these untracked files will be permanently deleted.\n")
-			fmt.Printf("Do you want to proceed with %s? (y/N): ", repo.Name)
-
-			var response string
-			_, _ = fmt.Scanln(&response)
-			if response != "y" && response != "Y" && response != "yes" && response != "Yes" {
-				errs = append(errs, fmt.Errorf("operation cancelled by user for %s", repo.Name))
-				continue
-			}
-
-			fmt.Printf("Proceeding with forced removal of %s...\n", repo.Name)
+			errs = append(errs, fmt.Errorf("untracked files present in %s - use --force-worktrees to override", repo.Name))
+			continue
 		}
 
-		// Remove worktree using git command
-		var cmd *exec.Cmd
-		var cmdStr string
-		if force {
-			cmd = exec.CommandContext(ctx, "git", "worktree", "remove", "--force", worktreePath)
-			cmdStr = fmt.Sprintf("git worktree remove --force %s", worktreePath)
-		} else {
-			cmd = exec.CommandContext(ctx, "git", "worktree", "remove", worktreePath)
-			cmdStr = fmt.Sprintf("git worktree remove %s", worktreePath)
-		}
-		cmd.Dir = repo.Path
-
-		output.LogInfo(
-			fmt.Sprintf("Executing git worktree remove command: %s", cmdStr),
-			"Executing git worktree remove command",
-			"repo", repo.Name,
-			"repoPath", repo.Path,
-			"worktreePath", worktreePath,
-			"command", cmdStr,
-		)
-
-		fmt.Printf("Executing: %s (in %s)\n", cmdStr, repo.Path)
-
-		if cmdOutput, err := cmd.CombinedOutput(); err != nil {
+		// Remove worktree using WorktreeManager (no interactive prompt)
+		if err := wtm.Remove(ctx, repo.Path, worktreePath, force); err != nil {
 			output.LogError(
 				fmt.Sprintf("Failed to remove worktree for repository '%s'", repo.Name),
-				"Failed to remove worktree with git command",
+				"Failed to remove worktree",
 				"error", err,
-				"output", string(cmdOutput),
 				"repo", repo.Name,
 				"repoPath", repo.Path,
 				"worktree", worktreePath,
-				"command", cmdStr,
 			)
-
-			fmt.Printf("❌ Command failed: %s\n", cmdStr)
-			fmt.Printf("   Error: %v\n", err)
-			fmt.Printf("   Output: %s\n", string(cmdOutput))
-
-			errs = append(errs, errors.Wrapf(err, "failed to remove worktree for %s: %s", repo.Name, string(cmdOutput)))
+			errs = append(errs, errors.Wrapf(err, "failed to remove worktree for %s", repo.Name))
 		} else {
 			output.LogInfo(
 				fmt.Sprintf("Successfully removed worktree for '%s'", repo.Name),
 				"Successfully removed worktree",
-				"output", string(cmdOutput),
 				"repo", repo.Name,
-				"command", cmdStr,
 			)
-
-			fmt.Printf("✓ Successfully executed: %s\n", cmdStr)
-			if len(cmdOutput) > 0 {
-				fmt.Printf("  Output: %s\n", string(cmdOutput))
-			}
 		}
 	}
 
@@ -1165,6 +1029,7 @@ func (wm *WorkspaceManager) AddRepositoryToWorkspace(ctx context.Context, worksp
 // CreateWorktreeForAdd creates a worktree for adding a repository to an existing workspace
 func (wm *WorkspaceManager) CreateWorktreeForAdd(ctx context.Context, workspace *Workspace, repo Repository, branch string, forceOverwrite bool) error {
 	targetPath := filepath.Join(workspace.Path, repo.Name)
+	gc, wtm := BuildGitBackends(ctx)
 
 	output.LogInfo(
 		fmt.Sprintf("Creating worktree for %s at %s", repo.Name, targetPath),
@@ -1180,82 +1045,47 @@ func (wm *WorkspaceManager) CreateWorktreeForAdd(ctx context.Context, workspace 
 		return errors.Errorf("target path '%s' already exists", targetPath)
 	}
 
+	// No specific branch, create worktree from current branch
 	if branch == "" {
-		// No specific branch, create worktree from current branch
-		return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", targetPath)
+		return wtm.Add(ctx, repo.Path, "", targetPath, gitclient.WorktreeAddOptions{})
 	}
 
-	// Check if branch exists locally
-	branchExists, err := wm.CheckBranchExists(ctx, repo.Path, branch)
+	// Local branch existence via GitClient
+	h, err := gc.Open(ctx, repo.Path)
 	if err != nil {
-		return errors.Wrapf(err, "failed to check if branch %s exists", branch)
+		return errors.Wrap(err, "open repository")
+	}
+	branches, _ := gc.ListBranches(ctx, h)
+	branchExists := false
+	for _, b := range branches {
+		if b == branch {
+			branchExists = true
+			break
+		}
 	}
 
-	// Check if branch exists remotely
-	remoteBranchExists, err := wm.CheckRemoteBranchExists(ctx, repo.Path, branch)
-	if err != nil {
-		output.LogWarn(
-			fmt.Sprintf("Could not check remote branch existence for '%s': %v", branch, err),
-			"Could not check remote branch existence",
-			"error", err,
-			"branch", branch,
-		)
-	}
+	// Remote branch existence
+	remoteBranchExists, _ := wm.CheckRemoteBranchExists(ctx, repo.Path, branch)
 
-	fmt.Printf("\nBranch status for %s:\n", repo.Name)
-	fmt.Printf("  Local branch '%s' exists: %v\n", branch, branchExists)
-	fmt.Printf("  Remote branch 'origin/%s' exists: %v\n", branch, remoteBranchExists)
-
+	opts := gitclient.WorktreeAddOptions{}
 	if branchExists {
 		if forceOverwrite {
-			fmt.Printf("Force overwriting branch '%s'...\n", branch)
-			if remoteBranchExists {
-				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", branch, targetPath, "origin/"+branch)
-			} else {
-				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", branch, targetPath)
-			}
-		} else {
-			// Branch exists locally - ask user what to do unless force is specified
-			fmt.Printf("\n⚠️  Branch '%s' already exists in repository '%s'\n", branch, repo.Name)
-			fmt.Printf("What would you like to do?\n")
-			fmt.Printf("  [o] Overwrite the existing branch (git worktree add -B)\n")
-			fmt.Printf("  [u] Use the existing branch as-is (git worktree add)\n")
-			fmt.Printf("  [c] Cancel operation\n")
-			fmt.Printf("Choice [o/u/c]: ")
-
-			var choice string
-			if _, err := fmt.Scanln(&choice); err != nil {
-				// If input fails, default to cancel to be safe
-				choice = "c"
-			}
-
-			switch strings.ToLower(choice) {
-			case "o", "overwrite":
-				fmt.Printf("Overwriting branch '%s'...\n", branch)
-				if remoteBranchExists {
-					return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", branch, targetPath, "origin/"+branch)
-				} else {
-					return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-B", branch, targetPath)
-				}
-			case "u", "use":
-				fmt.Printf("Using existing branch '%s'...\n", branch)
-				return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", targetPath, branch)
-			case "c", "cancel":
-				return errors.New("operation cancelled by user")
-			default:
-				return errors.New("invalid choice, operation cancelled")
-			}
+			opts.Overwrite = true
+			return wtm.Add(ctx, repo.Path, branch, targetPath, opts)
 		}
-	} else {
-		// Branch doesn't exist locally
-		if remoteBranchExists {
-			fmt.Printf("Creating worktree from remote branch origin/%s...\n", branch)
-			return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", branch, targetPath, "origin/"+branch)
-		} else {
-			fmt.Printf("Creating new branch '%s' and worktree...\n", branch)
-			return wm.ExecuteWorktreeCommand(ctx, repo.Path, "git", "worktree", "add", "-b", branch, targetPath)
-		}
+		return wtm.Add(ctx, repo.Path, branch, targetPath, opts)
 	}
+
+	if remoteBranchExists {
+		opts.RemoteBranch = "origin/" + branch
+		return wtm.Add(ctx, repo.Path, branch, targetPath, opts)
+	}
+
+	// New branch locally, optionally from base
+	if workspace.Branch != "" {
+		opts.BaseRef = workspace.Branch
+	}
+	return wtm.Add(ctx, repo.Path, branch, targetPath, opts)
 }
 
 // RemoveRepositoryFromWorkspace removes a repository from an existing workspace
@@ -1365,96 +1195,37 @@ func (wm *WorkspaceManager) removeWorktreeForRepo(ctx context.Context, repo Repo
 			"Unable to check for untracked files",
 			"error", err,
 		)
-	} else if len(untrackedFiles) > 0 {
-		fmt.Printf("\n⚠️  Found untracked files that would prevent worktree removal:\n")
+	} else if len(untrackedFiles) > 0 && !force {
+		fmt.Printf("\n⚠️  Found untracked files that would prevent worktree removal (use --force to override):\n")
 		for _, file := range untrackedFiles {
 			fmt.Printf("  - %s\n", file)
 		}
-
-		if !force {
-			fmt.Printf("\nThese files are not tracked by git and would be lost.\n")
-			fmt.Printf("Use --force to remove them, or commit/stash them first.\n")
-			return errors.New("untracked files present - use --force to override")
-		}
-
-		// Even with --force, ask for confirmation
-		fmt.Printf("\nWith --force, these untracked files will be permanently deleted.\n")
-		fmt.Printf("Do you want to proceed? (y/N): ")
-
-		var response string
-		_, _ = fmt.Scanln(&response)
-		if response != "y" && response != "Y" && response != "yes" && response != "Yes" {
-			return errors.New("operation cancelled by user")
-		}
-
-		fmt.Printf("Proceeding with forced removal...\n")
+		return errors.New("untracked files present - use --force to override")
 	}
 
-	// First, list current worktrees for debugging
-	fmt.Printf("\nCurrent worktrees for %s:\n", repo.Name)
-	listCmd := exec.CommandContext(ctx, "git", "worktree", "list")
-	listCmd.Dir = repo.Path
-	if output, err := listCmd.CombinedOutput(); err != nil {
-		fmt.Printf("⚠️  Failed to list worktrees: %v\n", err)
-	} else {
-		fmt.Printf("%s", string(output))
-	}
-
-	// Remove worktree using git command
-	var cmd *exec.Cmd
-	var cmdStr string
-	if force {
-		cmd = exec.CommandContext(ctx, "git", "worktree", "remove", "--force", worktreePath)
-		cmdStr = fmt.Sprintf("git worktree remove --force %s", worktreePath)
-	} else {
-		cmd = exec.CommandContext(ctx, "git", "worktree", "remove", worktreePath)
-		cmdStr = fmt.Sprintf("git worktree remove %s", worktreePath)
-	}
-	cmd.Dir = repo.Path
-
-	output.LogInfo(
-		fmt.Sprintf("Executing: %s (in %s)", cmdStr, repo.Path),
-		"Executing git worktree remove command",
-		"repo", repo.Name,
-		"repoPath", repo.Path,
-		"worktreePath", worktreePath,
-		"command", cmdStr,
-	)
-
-	fmt.Printf("Executing: %s (in %s)\n", cmdStr, repo.Path)
-
-	cmdOutput, err := cmd.CombinedOutput()
-	if err != nil {
+	// Remove worktree using WorktreeManager (no interactive prompt)
+	_, wtm := BuildGitBackends(ctx)
+	if err := wtm.Remove(ctx, repo.Path, worktreePath, force); err != nil {
 		output.LogError(
 			fmt.Sprintf("Failed to remove worktree for '%s': %v", repo.Name, err),
-			"Failed to remove worktree with git command",
+			"Failed to remove worktree",
 			"error", err,
-			"output", string(cmdOutput),
 			"repo", repo.Name,
 			"repoPath", repo.Path,
 			"worktree", worktreePath,
-			"command", cmdStr,
 		)
-
-		return errors.Wrapf(err, "failed to remove worktree: %s", string(cmdOutput))
+		return errors.Wrapf(err, "failed to remove worktree")
 	}
 
 	output.LogInfo(
 		fmt.Sprintf("Successfully removed worktree for '%s'", repo.Name),
 		"Successfully removed worktree",
-		"output", string(cmdOutput),
 		"repo", repo.Name,
-		"command", cmdStr,
 	)
-
-	fmt.Printf("✓ Successfully executed: %s\n", cmdStr)
-	if len(cmdOutput) > 0 {
-		fmt.Printf("  Output: %s\n", string(cmdOutput))
-	}
 
 	// Verify worktree was removed
 	fmt.Printf("\nVerification: Remaining worktrees for %s:\n", repo.Name)
-	listCmd = exec.CommandContext(ctx, "git", "worktree", "list")
+	listCmd := exec.CommandContext(ctx, "git", "worktree", "list")
 	listCmd.Dir = repo.Path
 	if output, err := listCmd.CombinedOutput(); err != nil {
 		fmt.Printf("⚠️  Failed to list worktrees: %v\n", err)

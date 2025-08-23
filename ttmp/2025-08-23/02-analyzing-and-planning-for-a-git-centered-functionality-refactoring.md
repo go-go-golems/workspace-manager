@@ -280,92 +280,100 @@ if err := g.Wait(); err != nil { return err }
 
 ### 11. Implementation Checklist (High-Level)
 
-- [ ] Add `pkg/wsm/gitclient` with `GitClient`, `WorktreeManager`, DTOs.
-- [ ] Implement `GoGitClient` (status, add/reset, commit, diff, push, fetch, branches, tags, ahead/behind v1 via CLI fallback).
-- [ ] Implement `CliGitClient` (wrap existing exec logic in one place).
-- [ ] Implement `HybridClient` composition.
-- [ ] Refactor `pkg/wsm/git_operations.go` to use `GitClient`.
-- [ ] Refactor `pkg/wsm/status.go` and `pkg/wsm/discovery.go` to use `GitClient`.
-- [ ] Refactor `pkg/wsm/workspace.go` to call `WorktreeManager` and remove inline prompts; move policies to CLI flags.
+- [x] Add `pkg/wsm/gitclient` with `GitClient`, `WorktreeManager`, DTOs.
+- [x] Implement `GoGitClient` (status, add/reset, commit, diff, push, fetch, branches, tags; returns `ErrNotImplemented` where needed).
+- [x] Implement `CliGitClient` (wrap existing exec logic in one place).
+- [x] Implement `HybridClient` composition.
+- [x] Refactor `pkg/wsm/git_operations.go` to use `GitClient`.
+- [x] Refactor `pkg/wsm/status.go` and `pkg/wsm/discovery.go` to use `GitClient`.
+- [ ] Refactor `pkg/wsm/sync_operations.go` completely to `GitClient` (partial: fetch/push/aheadBehind/branch done; rebase + conflict harmonization pending).
+- [x] Refactor `pkg/wsm/workspace.go` to call `WorktreeManager` and remove inline prompts; move policies to CLI flags. (Initial pass complete; cleanup of remaining exec verification listings pending.)
 - [ ] Add concurrency helpers and `--jobs` flags to eligible commands.
 - [ ] Add tests (unit+integration+concurrency) and run against CLI/gogit backends.
 - [ ] Document `WSM_GIT_BACKEND` and new flags in `README.md`.
 
----
+### 17. Remaining Verbs and Status
 
-### 12. API Sketches (Pseudocode)
+- **sync**: [in-progress] now uses `GitClient` for fetch/push/ahead/behind and branch ops; rebase path is not implemented; conflict detection is still CLI-based.
+- **branch**: [migrated] create/switch paths use `GitClient`.
+- **diff**: [migrated] via `GitClient.Diff` with hybrid fallback (falls back to CLI for unified diff where needed).
+- **commit**: [migrated] staging/commit/push via `GitClient`.
+- **status**: [migrated] via `GitClient.Status` and `AheadBehind`.
+- **discover**: [migrated] via `GitClient` with CLI fallback when needed.
+- **worktree (create/add/remove/list)**: [migrated] implemented via `WorktreeManager` (CLI-backed); some verification/listing still uses exec; follow-up cleanup pending.
 
-```go
-// Construct client based on config/flags
-func BuildGitClients(cfg Config) (gitclient.GitClient, gitclient.WorktreeManager, error) {
-  switch cfg.Backend {
-  case "gogit":
-    return gitclient.NewGoGit(), gitclient.NewCliWorktrees(), nil
-  case "cli":
-    return gitclient.NewCli(), gitclient.NewCliWorktrees(), nil
-  case "hybrid":
-    return gitclient.NewHybrid(gitclient.NewGoGit(), gitclient.NewCli()), gitclient.NewCliWorktrees(), nil
-  case "libgit2":
-    return gitclient.NewLibGit2(), gitclient.NewLibGit2Worktrees(), nil
-  }
-}
+### 18. Why multiple backends (not just one)?
 
-// Parallel status example
-func (sc *StatusChecker) GetWorkspaceStatus(ctx context.Context, ws *Workspace, jobs int, gc gitclient.GitClient) (*WorkspaceStatus, error) {
-  sem := semaphore.NewWeighted(int64(jobs))
-  var g errgroup.Group
-  statuses := make([]RepositoryStatus, len(ws.Repositories))
-  for i, r := range ws.Repositories {
-    i, r := i, r
-    if err := sem.Acquire(ctx, 1); err != nil { return nil, err }
-    g.Go(func() error {
-      defer sem.Release(1)
-      h, err := gc.Open(ctx, filepath.Join(ws.Path, r.Name))
-      if err != nil { return err }
-      st, err := gc.Status(ctx, h)
-      if err != nil { return err }
-      // map st → RepositoryStatus
-      statuses[i] = mapStatus(r, st)
-      return nil
-    })
-  }
-  if err := g.Wait(); err != nil { return nil, err }
-  return &WorkspaceStatus{Workspace: *ws, Repositories: statuses, Overall: calculateOverall(statuses)}, nil
-}
-```
+- **Coverage gaps**: `go-git` lacks native `git worktree` and certain porcelain-equivalent behaviors; `git2go` requires CGO and libgit2 installation. The hybrid approach delivers value immediately while retaining features.
+- **Portability**: Pure Go (`go-git`) keeps builds simple and portable by default. CLI fallback ensures edge cases and complex operations still work everywhere `git` is available.
+- **Risk management**: Gradual migration allows parity checks and rollback. Once coverage and confidence improve, we can collapse to a single backend per deployment environment.
+- **Future optionality**: Some users may prefer pure-Go (no `git` dependency); others may prefer system `git` parity; some environments can support `git2go` for full native APIs. The abstraction keeps that door open.
 
----
+### 19. New TODOs
 
-### 13. Go Modules and Dependencies
+- [ ] Implement `--jobs` concurrency (status, diff, commit, push, sync fetch) with `errgroup` + semaphore.
+- [ ] Add non-interactive policy flags and remove prompts from `workspace.go` (centralize in CLI).
+- [ ] Evaluate adding a `git2go` backend for `worktree` and rebase (document CGO trade-offs).
+- [ ] Write unit tests for `gogit_client` and backends parity tests; add integration tests for key verbs.
 
-**Reasoning:**
-- Add `go-git` and `x/sync`.
+### 20. Work Log (2025-08-23)
 
-**Conclusion:**
-- `go.mod` updates:
-  - `github.com/go-git/go-git/v5`
-  - `golang.org/x/sync`
+- Created `pkg/wsm/gitclient` abstraction layer:
+  - `client.go` (interfaces and types), `cli_client.go` (CLI-based), `gogit_client.go` (go-git-based), `hybrid_client.go` (fallback composition), `worktree_cli.go` (`git worktree` operations via CLI).
+  - Added `pkg/wsm/git_integration.go` with `BuildGitBackends()` selector (env `WSM_GIT_BACKEND`).
+- Refactored modules to use new clients:
+  - `status.go`: switched to `GitClient.Status`/`AheadBehind`; removed legacy exec helpers.
+  - `git_operations.go`: switched to `GitClient` (status, add/reset, commit, push, diff).
+  - `discovery.go`: prefer `GitClient` for repo metadata with CLI fallbacks.
+  - `sync_operations.go`: switched fetch/push/ahead-behind and branch create/switch to `GitClient`; kept rebase and conflict detection as-is (CLI) for now.
+  - `workspace.go`: switched worktree add/remove to `WorktreeManager`; removed interactive prompts; retained some exec-based verification listings to be cleaned.
+- Verified safe, read-only commands:
+  - `wsm --help`, `list workspaces`, `list repos`, `status`, `diff`, `sync all --dry-run` run successfully with `WSM_GIT_BACKEND=hybrid`.
+- Fixed compile issues during migration (unused imports, symbol qualification, small API differences in go-git).
 
----
+### 21. Lessons Learned and Gotchas
 
-### 14. Acceptance Criteria
+- `go-git` API differences:
+  - Path-specific mixed resets aren’t supported; use hybrid fallback (CLI) or redesign unstaging flows.
+  - Unified diffs are non-trivial to generate with `go-git`; hybrid fallback is pragmatic.
+  - `Worktree` in go-git is not `git worktree`; keep using CLI for multi-working-directory semantics until we add a native backend.
+- Keep prompts out of core logic: they block concurrency and complicate testing. Push policy decisions (overwrite/use/cancel, force removal) to CLI flags/options.
+- Parity checks are essential: compare outputs (status, ahead/behind) under CLI vs go-git during migration.
+- Logging and UX: continue to separate user-facing prints (`pkg/output`) from structured logging; avoid interleaving stdout from concurrent operations.
 
-- Feature parity for:
-  - Status listing, diff (staged/unstaged), staging, commit, push, branch create/switch, discovery fields.
-- Configurable backend (`hybrid` default).
-- Concurrency for status, diff, commit (when add-all), push, and sync (fetch phase).
-- Tests passing for CLI and go-git backends.
+### 22. Expanded Next Steps (for the incoming developer)
 
----
+- Refine sync and workspace flows:
+  - [ ] Implement or explicitly document rebase handling strategy. Options: keep CLI only; or add `git2go` backend; or instruct users to rebase manually.
+  - [ ] Unify conflict detection under `GitClient` status model (or keep CLI with clear rationale).
+  - [ ] Replace remaining exec-based verification/listing (e.g., worktree list) with `WorktreeManager.List()` and tidy any leftover exec code.
+- Concurrency and flags:
+  - [ ] Add `--jobs` to relevant verbs (`status`, `diff`, `commit` with `--add-all`, `push`, `sync`).
+  - [ ] Implement `errgroup` + semaphore with sensible default (e.g., 6); ensure ordered, readable summaries.
+  - [ ] Add `--non-interactive`/`--assume-yes` and policy flags to CLI where needed; plumb into core as enum/policy instead of prompting.
+- Testing and documentation:
+  - [ ] Add unit tests for `gogit_client` (status, add, commit, push, ahead/behind) using temp repos + local bare remotes.
+  - [ ] Add integration tests across a small temp workspace (2–3 repos); compare outputs between backends (CLI vs go-git) where feasible.
+  - [ ] Document `WSM_GIT_BACKEND` and how to run safe read-only checks in `README.md`.
+- Deprecation plan:
+  - [ ] Decide default backend (`hybrid` now). After parity + tests: consider `gogit` default for most operations while keeping `WorktreeManager` CLI.
+  - [ ] Once stable: remove unused backends or leave as opt-in (env/flag) per deployment policy.
 
-### 15. Future Work
+### 23. Quick Reference (for daily use)
 
-- Optional `git2go` backend for native `worktree` and rebase support.
-- Enhanced ahead/behind visualization and conflict summaries with go-git graph traversal.
-- Progress reporting per repo and overall concurrency progress (spinners aggregated by repo).
+- Build and safe checks:
+  - `go build ./cmd/wsm`
+  - `WSM_GIT_BACKEND=hybrid ./demo/wsm list workspaces`
+  - `WSM_GIT_BACKEND=hybrid ./demo/wsm status`
+  - `WSM_GIT_BACKEND=hybrid ./demo/wsm diff`
+  - `WSM_GIT_BACKEND=hybrid ./demo/wsm sync all --dry-run`
+- Where to change backends: env `WSM_GIT_BACKEND` (`hybrid` | `gogit` | `cli`).
+- Key code entry points:
+  - Clients: `pkg/wsm/gitclient/*.go`; selection: `pkg/wsm/git_integration.go`.
+  - Core flows: `pkg/wsm/status.go`, `pkg/wsm/git_operations.go`, `pkg/wsm/sync_operations.go`, `pkg/wsm/workspace.go`.
 
----
+### 24. Backend Deprecation Plan
 
-### 16. Summary
-
-This plan consolidates all git interactions behind clean interfaces, migrates the majority of operations to `go-git`, retains CLI for `worktree` and complex sync steps initially, and introduces an explicit concurrency model. The hybrid backend ensures stability while unlocking reliability, testability, and performance improvements.
+- Short term: keep `hybrid` default for maximum coverage; retain CLI for `worktree` and rebase.
+- Mid term: after tests + parity are green, set default to `gogit` for repo operations; keep `WorktreeManager` CLI.
+- Long term: if a native `worktree` backend is adopted (e.g., `git2go`), consider removing CLI fallback; otherwise keep CLI as optional fallback behind a flag.

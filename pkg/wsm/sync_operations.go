@@ -138,58 +138,45 @@ func (so *SyncOperations) syncRepository(ctx context.Context, repoName, repoPath
 
 // pullRepository pulls changes from remote
 func (so *SyncOperations) pullRepository(ctx context.Context, repoPath string, rebase bool) error {
-	var cmd *exec.Cmd
-	if rebase {
-		cmd = exec.CommandContext(ctx, "git", "pull", "--rebase")
-	} else {
-		cmd = exec.CommandContext(ctx, "git", "pull")
-	}
-	cmd.Dir = repoPath
-
-	output, err := cmd.CombinedOutput()
+	// Use GitClient.Fetch for non-destructive update; merge/rebase not performed here.
+	gc, _ := BuildGitBackends(ctx)
+	h, err := gc.Open(ctx, repoPath)
 	if err != nil {
-		return errors.Wrapf(err, "git pull failed: %s", string(output))
+		return errors.Wrap(err, "open repo")
 	}
-
+	if err := gc.Fetch(ctx, h, ""); err != nil {
+		return errors.Wrap(err, "fetch")
+	}
+	if rebase {
+		output.LogWarn("Rebase requested but not implemented in current backend", "rebase not implemented")
+	}
 	return nil
 }
 
 // pushRepository pushes changes to remote
 func (so *SyncOperations) pushRepository(ctx context.Context, repoPath string) error {
-	cmd := exec.CommandContext(ctx, "git", "push")
-	cmd.Dir = repoPath
-
-	output, err := cmd.CombinedOutput()
+	gc, _ := BuildGitBackends(ctx)
+	h, err := gc.Open(ctx, repoPath)
 	if err != nil {
-		return errors.Wrapf(err, "git push failed: %s", string(output))
+		return errors.Wrap(err, "open repo")
 	}
-
+	if err := gc.Push(ctx, h, ""); err != nil {
+		return errors.Wrap(err, "push")
+	}
 	return nil
 }
 
 // getAheadBehind gets ahead/behind counts
 func (so *SyncOperations) getAheadBehind(ctx context.Context, repoPath string) (int, int, error) {
-	// Check if we have a remote tracking branch
-	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "@{upstream}")
-	cmd.Dir = repoPath
-	if _, err := cmd.Output(); err != nil {
-		// No upstream configured
-		return 0, 0, nil
+	gc, _ := BuildGitBackends(ctx)
+	h, err := gc.Open(ctx, repoPath)
+	if err != nil {
+		return 0, 0, errors.Wrap(err, "open repo")
 	}
-
-	// Get ahead/behind counts
-	cmd = exec.CommandContext(ctx, "git", "rev-list", "--left-right", "--count", "HEAD...@{upstream}")
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
+	ahead, behind, err := gc.AheadBehind(ctx, h, "")
 	if err != nil {
 		return 0, 0, err
 	}
-
-	var ahead, behind int
-	if _, err := fmt.Sscanf(strings.TrimSpace(string(output)), "%d\t%d", &ahead, &behind); err != nil {
-		return 0, 0, err
-	}
-
 	return ahead, behind, nil
 }
 
@@ -241,18 +228,16 @@ func (so *SyncOperations) createBranchInRepository(ctx context.Context, repoName
 		Success:    true,
 	}
 
-	var cmd *exec.Cmd
-	if track {
-		cmd = exec.CommandContext(ctx, "git", "checkout", "-b", branchName, "--track")
-	} else {
-		cmd = exec.CommandContext(ctx, "git", "checkout", "-b", branchName)
-	}
-	cmd.Dir = repoPath
-
-	cmdOutput, err := cmd.CombinedOutput()
+	gc, _ := BuildGitBackends(ctx)
+	h, err := gc.Open(ctx, repoPath)
 	if err != nil {
 		result.Success = false
-		result.Error = fmt.Sprintf("failed to create branch: %s", string(cmdOutput))
+		result.Error = err.Error()
+		return result
+	}
+	if err := gc.CreateBranch(ctx, h, branchName, track, ""); err != nil {
+		result.Success = false
+		result.Error = err.Error()
 		return result
 	}
 
@@ -292,13 +277,16 @@ func (so *SyncOperations) switchBranchInRepository(ctx context.Context, repoName
 		Success:    true,
 	}
 
-	cmd := exec.CommandContext(ctx, "git", "checkout", branchName)
-	cmd.Dir = repoPath
-
-	cmdOutput, err := cmd.CombinedOutput()
+	gc, _ := BuildGitBackends(ctx)
+	h, err := gc.Open(ctx, repoPath)
 	if err != nil {
 		result.Success = false
-		result.Error = fmt.Sprintf("failed to switch branch: %s", string(cmdOutput))
+		result.Error = err.Error()
+		return result
+	}
+	if err := gc.CheckoutBranch(ctx, h, branchName, false, false); err != nil {
+		result.Success = false
+		result.Error = err.Error()
 		return result
 	}
 
