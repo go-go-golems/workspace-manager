@@ -35,6 +35,7 @@ func NewSyncAllCommand() *cobra.Command {
 		push   bool
 		rebase bool
 		dryRun bool
+		jobs   int
 	)
 
 	cmd := &cobra.Command{
@@ -42,7 +43,7 @@ func NewSyncAllCommand() *cobra.Command {
 		Short: "Sync all repositories (pull and push)",
 		Long:  "Synchronize all repositories by pulling latest changes and pushing local commits.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSyncAll(cmd.Context(), pull, push, rebase, dryRun)
+			return runSyncAll(cmd.Context(), pull, push, rebase, dryRun, jobs)
 		},
 	}
 
@@ -50,6 +51,7 @@ func NewSyncAllCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&push, "push", true, "Push local commits")
 	cmd.Flags().BoolVar(&rebase, "rebase", false, "Use rebase when pulling")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done")
+	cmd.Flags().IntVar(&jobs, "jobs", 1, "Maximum concurrent repositories to process")
 
 	return cmd
 }
@@ -58,6 +60,7 @@ func NewSyncPullCommand() *cobra.Command {
 	var (
 		rebase bool
 		dryRun bool
+		jobs   int
 	)
 
 	cmd := &cobra.Command{
@@ -65,34 +68,39 @@ func NewSyncPullCommand() *cobra.Command {
 		Short: "Pull latest changes from all repositories",
 		Long:  "Pull latest changes from remote repositories in the workspace.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSyncPull(cmd.Context(), rebase, dryRun)
+			return runSyncPull(cmd.Context(), rebase, dryRun, jobs)
 		},
 	}
 
 	cmd.Flags().BoolVar(&rebase, "rebase", false, "Use rebase instead of merge")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done")
+	cmd.Flags().IntVar(&jobs, "jobs", 1, "Maximum concurrent repositories to process")
 
 	return cmd
 }
 
 func NewSyncPushCommand() *cobra.Command {
-	var dryRun bool
+	var (
+		dryRun bool
+		jobs   int
+	)
 
 	cmd := &cobra.Command{
 		Use:   "push",
 		Short: "Push local commits from all repositories",
 		Long:  "Push local commits to remote repositories in the workspace.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSyncPush(cmd.Context(), dryRun)
+			return runSyncPush(cmd.Context(), dryRun, jobs)
 		},
 	}
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done")
+	cmd.Flags().IntVar(&jobs, "jobs", 1, "Maximum concurrent repositories to process")
 
 	return cmd
 }
 
-func runSyncAll(ctx context.Context, pull, push, rebase, dryRun bool) error {
+func runSyncAll(ctx context.Context, pull, push, rebase, dryRun bool, jobs int) error {
 	workspace, err := detectCurrentWorkspace()
 	if err != nil {
 		return errors.Wrap(err, "failed to detect current workspace")
@@ -100,10 +108,11 @@ func runSyncAll(ctx context.Context, pull, push, rebase, dryRun bool) error {
 
 	syncOps := wsm.NewSyncOperations(workspace)
 	options := &wsm.SyncOptions{
-		Pull:   pull,
-		Push:   push,
-		Rebase: rebase,
-		DryRun: dryRun,
+		Pull:    pull,
+		Push:    push,
+		Rebase:  rebase,
+		DryRun:  dryRun,
+		MaxJobs: jobs,
 	}
 
 	output.PrintHeader("Synchronizing workspace: %s", workspace.Name)
@@ -119,7 +128,7 @@ func runSyncAll(ctx context.Context, pull, push, rebase, dryRun bool) error {
 	return printSyncResults(results, dryRun)
 }
 
-func runSyncPull(ctx context.Context, rebase, dryRun bool) error {
+func runSyncPull(ctx context.Context, rebase, dryRun bool, jobs int) error {
 	workspace, err := detectCurrentWorkspace()
 	if err != nil {
 		return errors.Wrap(err, "failed to detect current workspace")
@@ -127,10 +136,11 @@ func runSyncPull(ctx context.Context, rebase, dryRun bool) error {
 
 	syncOps := wsm.NewSyncOperations(workspace)
 	options := &wsm.SyncOptions{
-		Pull:   true,
-		Push:   false,
-		Rebase: rebase,
-		DryRun: dryRun,
+		Pull:    true,
+		Push:    false,
+		Rebase:  rebase,
+		DryRun:  dryRun,
+		MaxJobs: jobs,
 	}
 
 	output.PrintHeader("Pulling changes for workspace: %s", workspace.Name)
@@ -146,7 +156,7 @@ func runSyncPull(ctx context.Context, rebase, dryRun bool) error {
 	return printSyncResults(results, dryRun)
 }
 
-func runSyncPush(ctx context.Context, dryRun bool) error {
+func runSyncPush(ctx context.Context, dryRun bool, jobs int) error {
 	workspace, err := detectCurrentWorkspace()
 	if err != nil {
 		return errors.Wrap(err, "failed to detect current workspace")
@@ -154,10 +164,11 @@ func runSyncPush(ctx context.Context, dryRun bool) error {
 
 	syncOps := wsm.NewSyncOperations(workspace)
 	options := &wsm.SyncOptions{
-		Pull:   false,
-		Push:   true,
-		Rebase: false,
-		DryRun: dryRun,
+		Pull:    false,
+		Push:    true,
+		Rebase:  false,
+		DryRun:  dryRun,
+		MaxJobs: jobs,
 	}
 
 	output.PrintHeader("📤 Pushing changes for workspace: %s", workspace.Name)

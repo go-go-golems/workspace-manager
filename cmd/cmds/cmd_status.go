@@ -21,6 +21,7 @@ func NewStatusCommand() *cobra.Command {
 		short     bool
 		untracked bool
 		workspace string
+		jobs      int
 	)
 
 	cmd := &cobra.Command{
@@ -34,20 +35,21 @@ If no workspace name is provided, attempts to detect the current workspace.`,
 			if len(args) > 0 {
 				workspaceName = args[0]
 			}
-			return runStatus(cmd.Context(), workspaceName, short, untracked)
+			return runStatus(cmd.Context(), workspaceName, short, untracked, jobs)
 		},
 	}
 
 	cmd.Flags().BoolVar(&short, "short", false, "Show short status format")
 	cmd.Flags().BoolVar(&untracked, "untracked", false, "Include untracked files")
 	cmd.Flags().StringVar(&workspace, "workspace", "", "Workspace name")
+	cmd.Flags().IntVar(&jobs, "jobs", 1, "Maximum concurrent repositories to process")
 
 	carapace.Gen(cmd).PositionalCompletion(WorkspaceNameCompletion())
 
 	return cmd
 }
 
-func runStatus(ctx context.Context, workspaceName string, short, untracked bool) error {
+func runStatus(ctx context.Context, workspaceName string, short, untracked bool, jobs int) error {
 	// If no workspace specified, try to detect current workspace
 	if workspaceName == "" {
 		cwd, err := os.Getwd()
@@ -70,7 +72,7 @@ func runStatus(ctx context.Context, workspaceName string, short, untracked bool)
 
 	// Get status
 	checker := wsm.NewStatusChecker()
-	status, err := checker.GetWorkspaceStatus(ctx, workspace)
+	status, err := checker.GetWorkspaceStatusWithOptions(ctx, workspace, wsm.StatusOptions{MaxJobs: jobs})
 	if err != nil {
 		return errors.Wrap(err, "failed to get workspace status")
 	}

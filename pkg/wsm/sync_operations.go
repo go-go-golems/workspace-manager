@@ -9,6 +9,8 @@ import (
 
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 // SyncOperations handles synchronization operations across repositories
@@ -43,6 +45,7 @@ type SyncOptions struct {
 	Push   bool `json:"push"`
 	Rebase bool `json:"rebase"`
 	DryRun bool `json:"dry_run"`
+	MaxJobs int  `json:"max_jobs"`
 }
 
 // SyncWorkspace synchronizes all repositories in the workspace
@@ -59,10 +62,37 @@ func (so *SyncOperations) SyncWorkspace(ctx context.Context, options *SyncOption
 		"dry_run", options.DryRun,
 	)
 
-	for _, repo := range so.workspace.Repositories {
-		repoPath := filepath.Join(so.workspace.Path, repo.Name)
-		result := so.syncRepository(ctx, repo.Name, repoPath, options)
-		results = append(results, result)
+	maxJobs := options.MaxJobs
+	if maxJobs < 1 {
+		maxJobs = 1
+	}
+
+	if maxJobs == 1 || len(so.workspace.Repositories) <= 1 {
+		for _, repo := range so.workspace.Repositories {
+			repoPath := filepath.Join(so.workspace.Path, repo.Name)
+			result := so.syncRepository(ctx, repo.Name, repoPath, options)
+			results = append(results, result)
+		}
+	} else {
+		results = make([]SyncResult, len(so.workspace.Repositories))
+		sem := semaphore.NewWeighted(int64(maxJobs))
+		g, gctx := errgroup.WithContext(ctx)
+		for i := range so.workspace.Repositories {
+			i := i
+			if err := sem.Acquire(gctx, 1); err != nil {
+				return nil, err
+			}
+			g.Go(func() error {
+				defer sem.Release(1)
+				repo := so.workspace.Repositories[i]
+				repoPath := filepath.Join(so.workspace.Path, repo.Name)
+				results[i] = so.syncRepository(gctx, repo.Name, repoPath, options)
+				return nil
+			})
+		}
+		if err := g.Wait(); err != nil {
+			return results, err
+		}
 	}
 
 	return results, nil

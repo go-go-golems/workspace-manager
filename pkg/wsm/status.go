@@ -6,6 +6,8 @@ import (
 
 	"github.com/go-go-golems/workspace-manager/pkg/wsm/gitclient"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 // StatusChecker handles workspace status operations
@@ -16,18 +18,61 @@ func NewStatusChecker() *StatusChecker {
 	return &StatusChecker{}
 }
 
+// StatusOptions configures workspace status collection.
+type StatusOptions struct {
+	MaxJobs int
+}
+
 // GetWorkspaceStatus gets the status of a workspace
 func (sc *StatusChecker) GetWorkspaceStatus(ctx context.Context, workspace *Workspace) (*WorkspaceStatus, error) {
-	var repoStatuses []RepositoryStatus
+	return sc.GetWorkspaceStatusWithOptions(ctx, workspace, StatusOptions{MaxJobs: 1})
+}
+
+// GetWorkspaceStatusWithOptions gets the status of a workspace with options (e.g., concurrency)
+func (sc *StatusChecker) GetWorkspaceStatusWithOptions(ctx context.Context, workspace *Workspace, opts StatusOptions) (*WorkspaceStatus, error) {
+	maxJobs := opts.MaxJobs
+	if maxJobs < 1 {
+		maxJobs = 1
+	}
+
+	repoCount := len(workspace.Repositories)
+	repoStatuses := make([]RepositoryStatus, repoCount)
 
 	gc, _ := BuildGitBackends(ctx)
-	for _, repo := range workspace.Repositories {
-		repoPath := filepath.Join(workspace.Path, repo.Name)
-		status, err := sc.getRepositoryStatusWithClient(ctx, repo, repoPath, gc)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get status for repository %s", repo.Name)
+
+	if maxJobs == 1 || repoCount <= 1 {
+		for i, repo := range workspace.Repositories {
+			repoPath := filepath.Join(workspace.Path, repo.Name)
+			status, err := sc.getRepositoryStatusWithClient(ctx, repo, repoPath, gc)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get status for repository %s", repo.Name)
+			}
+			repoStatuses[i] = *status
 		}
-		repoStatuses = append(repoStatuses, *status)
+	} else {
+		sem := semaphore.NewWeighted(int64(maxJobs))
+		g, gctx := errgroup.WithContext(ctx)
+
+		for i := range workspace.Repositories {
+			i := i
+			if err := sem.Acquire(gctx, 1); err != nil {
+				return nil, err
+			}
+			g.Go(func() error {
+				defer sem.Release(1)
+				repo := workspace.Repositories[i]
+				repoPath := filepath.Join(workspace.Path, repo.Name)
+				status, err := sc.getRepositoryStatusWithClient(gctx, repo, repoPath, gc)
+				if err != nil {
+					return errors.Wrapf(err, "failed to get status for repository %s", repo.Name)
+				}
+				repoStatuses[i] = *status
+				return nil
+			})
+		}
+		if err := g.Wait(); err != nil {
+			return nil, err
+		}
 	}
 
 	overall := sc.calculateOverallStatus(repoStatuses)

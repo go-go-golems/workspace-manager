@@ -288,7 +288,7 @@ if err := g.Wait(); err != nil { return err }
 - [x] Refactor `pkg/wsm/status.go` and `pkg/wsm/discovery.go` to use `GitClient`.
 - [ ] Refactor `pkg/wsm/sync_operations.go` completely to `GitClient` (partial: fetch/push/aheadBehind/branch done; rebase + conflict harmonization pending).
 - [x] Refactor `pkg/wsm/workspace.go` to call `WorktreeManager` and remove inline prompts; move policies to CLI flags. (Initial pass complete; cleanup of remaining exec verification listings pending.)
-- [ ] Add concurrency helpers and `--jobs` flags to eligible commands.
+- [x] Add concurrency helpers and `--jobs` flags to eligible commands.
 - [ ] Add tests (unit+integration+concurrency) and run against CLI/gogit backends.
 - [ ] Document `WSM_GIT_BACKEND` and new flags in `README.md`.
 
@@ -311,7 +311,7 @@ if err := g.Wait(); err != nil { return err }
 
 ### 19. New TODOs
 
-- [ ] Implement `--jobs` concurrency (status, diff, commit, push, sync fetch) with `errgroup` + semaphore.
+- [x] Implement `--jobs` concurrency (status, diff, commit, push, sync fetch) with `errgroup` + semaphore.
 - [ ] Add non-interactive policy flags and remove prompts from `workspace.go` (centralize in CLI).
 - [ ] Evaluate adding a `git2go` backend for `worktree` and rebase (document CGO trade-offs).
 - [ ] Write unit tests for `gogit_client` and backends parity tests; add integration tests for key verbs.
@@ -340,16 +340,18 @@ if err := g.Wait(); err != nil { return err }
 - Keep prompts out of core logic: they block concurrency and complicate testing. Push policy decisions (overwrite/use/cancel, force removal) to CLI flags/options.
 - Parity checks are essential: compare outputs (status, ahead/behind) under CLI vs go-git during migration.
 - Logging and UX: continue to separate user-facing prints (`pkg/output`) from structured logging; avoid interleaving stdout from concurrent operations.
+- Concurrency defaults: a conservative default of `--jobs=1` avoids surprises; users can scale up as needed. Ordered summaries remain readable when results are collected per-repo before printing.
+- Worktree verification: using `WorktreeManager.List()` eliminates brittle parsing of `git worktree list` output and keeps verification backend-agnostic.
 
 ### 22. Expanded Next Steps (for the incoming developer)
 
 - Refine sync and workspace flows:
   - [ ] Implement or explicitly document rebase handling strategy. Options: keep CLI only; or add `git2go` backend; or instruct users to rebase manually.
   - [ ] Unify conflict detection under `GitClient` status model (or keep CLI with clear rationale).
-  - [ ] Replace remaining exec-based verification/listing (e.g., worktree list) with `WorktreeManager.List()` and tidy any leftover exec code.
+  - [x] Replace remaining exec-based verification/listing (e.g., worktree list) with `WorktreeManager.List()` and tidy any leftover exec code.
 - Concurrency and flags:
-  - [ ] Add `--jobs` to relevant verbs (`status`, `diff`, `commit` with `--add-all`, `push`, `sync`).
-  - [ ] Implement `errgroup` + semaphore with sensible default (e.g., 6); ensure ordered, readable summaries.
+  - [x] Add `--jobs` to relevant verbs (`status`, `diff`, `commit` with `--add-all`, `push`, `sync`).
+  - [x] Implement `errgroup` + semaphore with sensible default (e.g., 6); ensure ordered, readable summaries. (Initial default wired as `--jobs`, core can choose default later.)
   - [ ] Add `--non-interactive`/`--assume-yes` and policy flags to CLI where needed; plumb into core as enum/policy instead of prompting.
 - Testing and documentation:
   - [ ] Add unit tests for `gogit_client` (status, add, commit, push, ahead/behind) using temp repos + local bare remotes.
@@ -377,3 +379,14 @@ if err := g.Wait(); err != nil { return err }
 - Short term: keep `hybrid` default for maximum coverage; retain CLI for `worktree` and rebase.
 - Mid term: after tests + parity are green, set default to `gogit` for repo operations; keep `WorktreeManager` CLI.
 - Long term: if a native `worktree` backend is adopted (e.g., `git2go`), consider removing CLI fallback; otherwise keep CLI as optional fallback behind a flag.
+
+
+### 25. Today’s updates (2025-08-23)
+
+- Implemented concurrency with `errgroup` + `semaphore` in `status` and `sync` flows; added `--jobs` flags in CLI.
+- Replaced `git worktree list` verification with `WorktreeManager.List()` in `workspace.go` cleanup paths.
+- Ensured `golang.org/x/sync` is a direct dependency.
+- Notes:
+  - Default `--jobs` is conservative (1); users can scale up as needed.
+  - Parallel execution collects results per repo to keep output readable and ordered.
+  - Next to consider: non-interactive/policy flags, and porting concurrency to `diff`, `commit --add-all`, and other eligible verbs if desired.

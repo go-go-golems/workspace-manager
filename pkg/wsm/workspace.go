@@ -1225,12 +1225,17 @@ func (wm *WorkspaceManager) removeWorktreeForRepo(ctx context.Context, repo Repo
 
 	// Verify worktree was removed
 	fmt.Printf("\nVerification: Remaining worktrees for %s:\n", repo.Name)
-	listCmd := exec.CommandContext(ctx, "git", "worktree", "list")
-	listCmd.Dir = repo.Path
-	if output, err := listCmd.CombinedOutput(); err != nil {
+	_, wtm = BuildGitBackends(ctx)
+	if infos, err := wtm.List(ctx, repo.Path); err != nil {
 		fmt.Printf("⚠️  Failed to list worktrees: %v\n", err)
 	} else {
-		fmt.Printf("%s", string(output))
+		if len(infos) == 0 {
+			fmt.Printf("(none)\n")
+		} else {
+			for _, wt := range infos {
+				fmt.Printf("- %s (%s)\n", wt.Path, wt.Branch)
+			}
+		}
 	}
 
 	return nil
