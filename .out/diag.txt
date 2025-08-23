@@ -1,0 +1,7 @@
+test/integration/scenarios/commit_push_test.go
+test/integration/scenarios/jobs_test.go
+test/integration/scenarios/rebase_conflicts_test.go
+test/integration/scenarios/rebase_happy_test.go
+test/integration/scenarios/status_diff_test.go
+test/integration/scenarios/sync_test.go
+test/integration/scenarios/worktree_test.go

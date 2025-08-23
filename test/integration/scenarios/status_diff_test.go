@@ -22,11 +22,13 @@ func TestSmokeStatusDiff(t *testing.T) {
 
     // Discover repos into registry limited to our sandbox repos dir
     // We run discovery pointing to s.ReposDir so WSM can find repo names 'repo1', 'repo2'
-    _ = s.RunWSM(t, nil, s.ReposDir, "discover", s.ReposDir)
+    t.Logf("[debug] running discover in %s", s.ReposDir)
+    res := s.RunWSM(t, nil, s.ReposDir, "discover", s.ReposDir)
+    t.Logf("[debug] discover exit=%d\nstdout:\n%s\nstderr:\n%s", res.ExitCode, res.Stdout, res.Stderr)
 
     // Create workspace using those repos
     wsName := "ws1"
-    res := s.RunWSM(t, nil, "", "create", wsName, "--repos", "repo1,repo2", "--branch", "feature/x")
+    res = s.RunWSM(t, nil, "", "create", wsName, "--repos", "repo1,repo2", "--branch", "feature/x")
     if res.ExitCode != 0 {
         t.Fatalf("create failed: %s\n%s", res.Stdout, res.Stderr)
     }

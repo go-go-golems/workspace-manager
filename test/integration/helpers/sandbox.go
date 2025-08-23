@@ -42,7 +42,9 @@ func NewSandbox(t *testing.T) *Sandbox {
         "GIT_COMMITTER_EMAIL": "wsm@example.com",
     }
 
-    return &Sandbox{T: t, BaseDir: base, HomeDir: home, ReposDir: repos, RemotesDir: remotes, defaultEnv: env}
+    sb := &Sandbox{T: t, BaseDir: base, HomeDir: home, ReposDir: repos, RemotesDir: remotes, defaultEnv: env}
+    sb.DebugFS(t)
+    return sb
 }
 
 // Cleanup performs any additional cleanup if needed.
@@ -94,6 +96,44 @@ func (s *Sandbox) LoadWorkspacePath(t *testing.T, name string) string {
 func (s *Sandbox) Context(t *testing.T) context.Context {
     t.Helper()
     return context.Background()
+}
+
+// DebugFS logs useful information about the current working directory and common paths.
+func (s *Sandbox) DebugFS(t *testing.T) {
+    t.Helper()
+    cwd, _ := os.Getwd()
+    t.Logf("[debug] CWD: %s", cwd)
+    t.Logf("[debug] Sandbox Base: %s | Home: %s | Repos: %s | Remotes: %s", s.BaseDir, s.HomeDir, s.ReposDir, s.RemotesDir)
+
+    // Helper to list a directory (non-recursive)
+    list := func(path string) {
+        entries, err := os.ReadDir(path)
+        if err != nil {
+            t.Logf("[debug] ls %s: %v", path, err)
+            return
+        }
+        max := 20
+        for i, e := range entries {
+            if i >= max { t.Logf("[debug] ... (%d more)", len(entries)-max); break }
+            info, _ := e.Info()
+            t.Logf("[debug] %s %10d %s", map[bool]string{true:"d", false:"-"}[e.IsDir()], info.Size(), filepath.Join(path, e.Name()))
+        }
+    }
+
+    for _, p := range []string{".", "test", filepath.Join("test", "integration"), "cmd", "pkg"} {
+        list(p)
+    }
+
+    // Count test files
+    count := 0
+    _ = filepath.WalkDir("test", func(path string, d os.DirEntry, err error) error {
+        if err != nil { return nil }
+        if !d.IsDir() && filepath.Ext(path) == ".go" && len(path) >= 8 && path[len(path)-8:] == "_test.go" {
+            count++
+        }
+        return nil
+    })
+    t.Logf("[debug] Found %d *_test.go files under ./test", count)
 }
 
 func must(err error) {

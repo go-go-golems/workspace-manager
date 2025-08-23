@@ -1,1 +1,5 @@
-No integration tests found, skipping.
+?   	github.com/go-go-golems/workspace-manager/test/integration/helpers	[no test files]
+=== RUN   TestSmokeStatusDiff
+--- PASS: TestSmokeStatusDiff (0.10s)
+PASS
+ok  	github.com/go-go-golems/workspace-manager/test/integration/scenarios	0.104s
