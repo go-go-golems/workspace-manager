@@ -28,8 +28,8 @@ func TestRebaseConflictsContinueAbort(t *testing.T) {
     other := s.InitRepo(t, "other-rbc", remote)
     h.RunForTest(t, s, other, nil, "bash", "-lc", "git checkout main && echo remote1 > f.txt && git add f.txt && git commit -m remote1 && git push")
 
-    // Pull with rebase (do not assert on exit code; CLI may return 0). Verify conflicts via rebase status.
-    _ = s.RunWSM(t, nil, wsPath, "sync", "pull", "--rebase")
+    // Perform raw git rebase inside the worktree to ensure a conflict stops the rebase
+    h.RunForTest(t, s, wsPath+"/repo1", nil, "bash", "-lc", "git fetch origin && git rebase origin/main || true")
 
     // Check rebase status should show stopped-conflicts
     res = s.RunWSM(t, nil, wsPath, "rebase", "status", "--repo", "repo1")
