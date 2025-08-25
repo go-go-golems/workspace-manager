@@ -149,7 +149,12 @@ func Status(ctx context.Context, repoPath string) (RebaseState, []ConflictInfo, 
 		return RebaseStateInProgress, nil, nil
 	}
 
-	return RebaseStateNone, conflicts, nil
+	// Fallback: if porcelain shows conflicts but no rebase dirs, still report stopped-conflicts
+	if len(conflicts) > 0 {
+		return RebaseStateStoppedConflicts, conflicts, nil
+	}
+
+	return RebaseStateNone, nil, nil
 }
 
 // ListConflicts lists conflicted files using porcelain parsing.
