@@ -32,7 +32,8 @@ test:
 
 build:
 	go generate ./...
-	go build ./...
+	mkdir -p ./dist
+	go build -o ./dist/wsm ./cmd/wsm
 
 .PHONY: dagger dagger-test dagger-test-backends
 dagger:
