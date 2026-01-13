@@ -1543,6 +1543,26 @@ func (wm *WorkspaceManager) executeSetupScripts(ctx context.Context, workspace *
 	}
 	env = append(env, fmt.Sprintf("WSM_WORKSPACE_REPOS=%s", strings.Join(repoNames, ",")))
 
+	// Execute global ~/.wsm/setup.sh first
+	home, err := os.UserHomeDir()
+	if err != nil {
+		output.LogWarn(
+			"Failed to get home directory for global setup script",
+			"Home directory lookup failed",
+			"error", err,
+		)
+	} else {
+		globalSetupScript := filepath.Join(home, ".wsm", "setup.sh")
+		if err := wm.executeSetupScript(ctx, globalSetupScript, workspace.Path, env); err != nil {
+			output.LogWarn(
+				fmt.Sprintf("Failed to execute global setup script: %s", globalSetupScript),
+				"Global setup script failed",
+				"script", globalSetupScript,
+				"error", err,
+			)
+		}
+	}
+
 	// Execute workspace root setup.sh
 	rootSetupScript := filepath.Join(workspace.Path, ".wsm", "setup.sh")
 	if err := wm.executeSetupScript(ctx, rootSetupScript, workspace.Path, env); err != nil {
@@ -1582,9 +1602,32 @@ type SetupScript struct {
 	Name       string
 }
 
-// collectSetupDScripts collects all setup.d scripts from workspace root and repository directories
+// collectSetupDScripts collects all setup.d scripts from global, workspace root, and repository directories
 func (wm *WorkspaceManager) collectSetupDScripts(workspace *Workspace) ([]SetupScript, error) {
 	var scripts []SetupScript
+
+	// Collect scripts from global ~/.wsm/setup.d/
+	home, err := os.UserHomeDir()
+	if err != nil {
+		output.LogWarn(
+			"Failed to get home directory for global setup.d scripts",
+			"Home directory lookup failed",
+			"error", err,
+		)
+	} else {
+		globalSetupDir := filepath.Join(home, ".wsm", "setup.d")
+		globalScripts, err := wm.getSetupDScripts(globalSetupDir, workspace.Path)
+		if err != nil {
+			output.LogWarn(
+				fmt.Sprintf("Failed to read global setup.d directory: %s", globalSetupDir),
+				"Failed to read global setup.d directory",
+				"dir", globalSetupDir,
+				"error", err,
+			)
+		} else {
+			scripts = append(scripts, globalScripts...)
+		}
+	}
 
 	// Collect scripts from workspace root .wsm/setup.d/
 	rootSetupDir := filepath.Join(workspace.Path, ".wsm", "setup.d")
@@ -1693,6 +1736,13 @@ func (wm *WorkspaceManager) PreviewSetupScripts(workspace *Workspace, stepNum in
 	fmt.Printf("     - %s/.wsm/wsm.json (JSON with workspace information)\n", workspace.Path)
 	fmt.Printf("  %d. Execute setup scripts:\n", stepNum+1)
 
+	// Check for global ~/.wsm/setup.sh
+	home, err := os.UserHomeDir()
+	if err == nil {
+		globalSetupScript := filepath.Join(home, ".wsm", "setup.sh")
+		fmt.Printf("     - %s (working dir: %s)\n", globalSetupScript, workspace.Path)
+	}
+
 	// Check for workspace root setup.sh
 	rootSetupScript := filepath.Join(workspace.Path, ".wsm", "setup.sh")
 	fmt.Printf("     - %s (working dir: %s)\n", rootSetupScript, workspace.Path)
@@ -1730,6 +1780,17 @@ func (wm *WorkspaceManager) PreviewSetupScripts(workspace *Workspace, stepNum in
 // collectSetupDScriptsPreview is like collectSetupDScripts but works with hypothetical workspace structure
 func (wm *WorkspaceManager) collectSetupDScriptsPreview(workspace *Workspace) ([]SetupScript, error) {
 	var scripts []SetupScript
+
+	// Add hypothetical scripts from global ~/.wsm/setup.d/
+	home, err := os.UserHomeDir()
+	if err == nil {
+		globalSetupDir := filepath.Join(home, ".wsm", "setup.d")
+		scripts = append(scripts, SetupScript{
+			Path:       filepath.Join(globalSetupDir, "*.sh"),
+			WorkingDir: workspace.Path,
+			Name:       "00-global-setup",
+		})
+	}
 
 	// Add hypothetical scripts from workspace root .wsm/setup.d/
 	rootSetupDir := filepath.Join(workspace.Path, ".wsm", "setup.d")
