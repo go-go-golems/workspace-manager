@@ -414,3 +414,43 @@ func (rd *RepositoryDiscoverer) hasAnyTag(repoTags, filterTags []string) bool {
 	}
 	return false
 }
+
+// ValidationResult contains the results of validating the registry against disk
+type ValidationResult struct {
+	StaleRepos []Repository // Repos in registry but not on disk
+	ValidRepos []Repository // Repos in registry that exist on disk
+}
+
+// ValidateRegistry checks which registered repositories still exist on disk
+func (rd *RepositoryDiscoverer) ValidateRegistry() *ValidationResult {
+	result := &ValidationResult{
+		StaleRepos: []Repository{},
+		ValidRepos: []Repository{},
+	}
+
+	for _, repo := range rd.registry.Repositories {
+		if rd.isGitRepository(repo.Path) {
+			result.ValidRepos = append(result.ValidRepos, repo)
+		} else {
+			result.StaleRepos = append(result.StaleRepos, repo)
+		}
+	}
+
+	return result
+}
+
+// RemoveRepositories removes the specified repositories from the registry
+func (rd *RepositoryDiscoverer) RemoveRepositories(repos []Repository) {
+	pathsToRemove := make(map[string]bool)
+	for _, repo := range repos {
+		pathsToRemove[repo.Path] = true
+	}
+
+	var remaining []Repository
+	for _, repo := range rd.registry.Repositories {
+		if !pathsToRemove[repo.Path] {
+			remaining = append(remaining, repo)
+		}
+	}
+	rd.registry.Repositories = remaining
+}
