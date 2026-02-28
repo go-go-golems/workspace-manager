@@ -22,7 +22,7 @@ Features:
 - Create workspaces with git worktrees for coordinated multi-repo development
 - Track status across all repositories in a workspace
 - Commit changes across multiple repositories with consistent messaging
-- Synchronize repositories (pull, push, branch operations)
+- Coordinate repository branches and rebases across a workspace
 
 - Safe workspace cleanup with proper worktree removal
 
@@ -66,18 +66,12 @@ func init() {
 		cmds.NewDeleteCommand(),
 		cmds.NewInfoCommand(),
 		cmds.NewStatusCommand(),
-		cmds.NewPRCommand(),
-		cmds.NewPushCommand(),
 
 		cmds.NewCommitCommand(),
-		cmds.NewSyncCommand(),
 		cmds.NewBranchCommand(),
 		cmds.NewRebaseCommand(),
 		cmds.NewDiffCommand(),
 		cmds.NewLogCommand(),
-		cmds.NewConflictsCommand(),
-		cmds.NewTmuxCommand(),
-		cmds.NewStarshipCommand(),
 	)
 
 	carapace.Gen(rootCmd)
