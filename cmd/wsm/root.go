@@ -74,11 +74,6 @@ func init() {
 
 	// Add legacy subcommands that have not yet migrated to cmd/wsm/cmds/<group>.
 	rootCmd.AddCommand(
-		cmds.NewCreateCommand(),
-		cmds.NewForkCommand(),
-		cmds.NewMergeCommand(),
-		cmds.NewDeleteCommand(),
-
 		cmds.NewRebaseCommand(),
 	)
 

@@ -27,6 +27,26 @@ func Register(root *cobra.Command) error {
 		return errors.Wrap(err, "failed to build status command")
 	}
 
-	root.AddCommand(infoCmd, addCmd, removeCmd, statusCmd)
+	createCmd, err := NewCreateCobraCommand()
+	if err != nil {
+		return errors.Wrap(err, "failed to build create command")
+	}
+
+	forkCmd, err := NewForkCobraCommand()
+	if err != nil {
+		return errors.Wrap(err, "failed to build fork command")
+	}
+
+	deleteCmd, err := NewDeleteCobraCommand()
+	if err != nil {
+		return errors.Wrap(err, "failed to build delete command")
+	}
+
+	mergeCmd, err := NewMergeCobraCommand()
+	if err != nil {
+		return errors.Wrap(err, "failed to build merge command")
+	}
+
+	root.AddCommand(infoCmd, addCmd, removeCmd, statusCmd, createCmd, forkCmd, deleteCmd, mergeCmd)
 	return nil
 }
