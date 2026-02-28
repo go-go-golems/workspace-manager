@@ -18,6 +18,17 @@ WSM simplifies coordinated development across multiple related git repositories 
 - **⚙️ Setup Scripts**: Automatic execution of setup scripts from `.wsm/setup.sh` and `.wsm/setup.d/` directories
 - **📝 Metadata Files**: Automatic creation of `.wsm/wsm.json` with workspace information and environment variables
 
+## Branch Resolution Model
+
+WSM now uses an explicit branch abstraction layer in `pkg/wsm/branch`:
+
+- `BranchService` is the single policy engine for branch decisions.
+- Resolution uses typed enums: `ResolutionMode`, `ResolutionStrategy`, and `RemoteRefKind`.
+- Git backend APIs are explicit primitives (`ListLocalBranches`, `ListRemoteTrackingBranches`, `LocalBranchExists`, `RemoteTrackingBranchExists`).
+- Branch policy no longer relies on ambiguous mixed branch lists or string-only heuristics.
+
+This behavior is intentionally breaking compared to older internal branch helper semantics.
+
 ## Installation
 
 ### From Releases

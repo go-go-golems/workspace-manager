@@ -51,6 +51,11 @@ workspace-manager/
 │       ├── git_operations.go # Git operation utilities
 │       ├── git_utils.go     # Additional git utilities
 │       ├── sync_operations.go # Synchronization operations
+│       ├── branch/          # Branch domain model + policy service
+│       │   ├── types.go
+│       │   ├── resolver.go
+│       │   └── service_impl.go
+│       ├── gitclient/       # Backend-agnostic git primitives
 │       └── utils.go         # General utilities
 ```
 
@@ -88,6 +93,7 @@ type WorkspaceManager struct {
     config       *WorkspaceConfig
     discoverer   *RepositoryDiscoverer
     workspaceDir string
+    branches     branchsvc.Service
 }
 ```
 
@@ -117,13 +123,13 @@ type RepositoryDiscoverer struct {
 
 ### Git Operations Layer
 
-Provides abstraction over git commands with proper error handling and logging:
+Provides abstraction over git commands with proper error handling and logging.
 
 **Key Functions:**
 - `executeWorktreeCommand()`: Executes git worktree operations
-- `checkBranchExists()`: Verifies local branch existence
-- `checkRemoteBranchExists()`: Verifies remote branch existence
-- `createWorktree()`: Creates git worktrees with branch management
+- `createWorktree()`: Creates git worktrees with branch strategy planning
+- `BranchService.Resolve()`: Centralized branch policy resolution
+- `GitClient` primitives: explicit local vs remote-tracking branch queries
 
 ## Data Models
 
@@ -377,24 +383,29 @@ func (wm *WorkspaceManager) removeWorktreeForRepo(ctx context.Context, repo Repo
 
 ### Branch Operations
 
-Branch management includes checking existence and creating tracking branches:
+Branch management is centralized in `pkg/wsm/branch` and based on typed enums:
 
 ```go
-// Check local branch existence
-func (wm *WorkspaceManager) checkBranchExists(ctx context.Context, repoPath, branch string) (bool, error) {
-    cmd := exec.CommandContext(ctx, "git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
-    cmd.Dir = repoPath
-    err := cmd.Run()
-    return err == nil, nil
-}
+type ResolutionMode int
+const (
+    ResolutionModeUnspecified ResolutionMode = iota
+    ResolutionModeCreateWorktree
+    ResolutionModeAddRepository
+    ResolutionModeSync
+)
 
-// Check remote branch existence
-func (wm *WorkspaceManager) checkRemoteBranchExists(ctx context.Context, repoPath, branch string) (bool, error) {
-    cmd := exec.CommandContext(ctx, "git", "show-ref", "--verify", "--quiet", "refs/remotes/origin/"+branch)
-    cmd.Dir = repoPath
-    err := cmd.Run()
-    return err == nil, nil
-}
+type RemoteRefKind int
+const (
+    RemoteRefKindNone RemoteRefKind = iota
+    RemoteRefKindRemoteTrackingBranch
+)
+
+plan, err := branchService.Resolve(ctx, repoPath, BranchResolutionRequest{
+    TargetBranch: "feature/foo",
+    BaseBranch:   "main",
+    Remote:       "origin",
+    Mode:         ResolutionModeCreateWorktree,
+})
 ```
 
 ## Workspace Lifecycle

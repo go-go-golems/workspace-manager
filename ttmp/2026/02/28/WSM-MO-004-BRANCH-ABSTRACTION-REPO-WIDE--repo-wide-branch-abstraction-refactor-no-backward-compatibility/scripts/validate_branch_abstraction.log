@@ -1,0 +1,101 @@
+[WSM-MO-004] branch abstraction validation
+repo: /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager
+=== RUN   TestResolveFromState
+=== RUN   TestResolveFromState/invalid_mode
+=== RUN   TestResolveFromState/empty_target_branch
+=== RUN   TestResolveFromState/use_local
+=== RUN   TestResolveFromState/track_remote
+=== RUN   TestResolveFromState/create_from_base
+=== RUN   TestResolveFromState/create_from_head
+--- PASS: TestResolveFromState (0.00s)
+    --- PASS: TestResolveFromState/invalid_mode (0.00s)
+    --- PASS: TestResolveFromState/empty_target_branch (0.00s)
+    --- PASS: TestResolveFromState/use_local (0.00s)
+    --- PASS: TestResolveFromState/track_remote (0.00s)
+    --- PASS: TestResolveFromState/create_from_base (0.00s)
+    --- PASS: TestResolveFromState/create_from_head (0.00s)
+=== RUN   TestServiceResolve_RemoteTrackingBranch
+--- PASS: TestServiceResolve_RemoteTrackingBranch (0.08s)
+=== RUN   TestServiceResolve_LocalBranchWins
+--- PASS: TestServiceResolve_LocalBranchWins (0.09s)
+PASS
+ok  	github.com/go-go-golems/workspace-manager/pkg/wsm/branch	(cached)
+=== RUN   TestHybridMutatingOps_PropagatePrimaryErrors
+=== RUN   TestHybridMutatingOps_PropagatePrimaryErrors/Add
+=== RUN   TestHybridMutatingOps_PropagatePrimaryErrors/Reset
+=== RUN   TestHybridMutatingOps_PropagatePrimaryErrors/Fetch
+=== RUN   TestHybridMutatingOps_PropagatePrimaryErrors/Push
+=== RUN   TestHybridMutatingOps_PropagatePrimaryErrors/CreateBranch
+=== RUN   TestHybridMutatingOps_PropagatePrimaryErrors/CheckoutBranch
+--- PASS: TestHybridMutatingOps_PropagatePrimaryErrors (0.00s)
+    --- PASS: TestHybridMutatingOps_PropagatePrimaryErrors/Add (0.00s)
+    --- PASS: TestHybridMutatingOps_PropagatePrimaryErrors/Reset (0.00s)
+    --- PASS: TestHybridMutatingOps_PropagatePrimaryErrors/Fetch (0.00s)
+    --- PASS: TestHybridMutatingOps_PropagatePrimaryErrors/Push (0.00s)
+    --- PASS: TestHybridMutatingOps_PropagatePrimaryErrors/CreateBranch (0.00s)
+    --- PASS: TestHybridMutatingOps_PropagatePrimaryErrors/CheckoutBranch (0.00s)
+=== RUN   TestHybridMutatingOps_FallbackOnNotImplemented
+=== RUN   TestHybridMutatingOps_FallbackOnNotImplemented/Add
+=== RUN   TestHybridMutatingOps_FallbackOnNotImplemented/Reset
+=== RUN   TestHybridMutatingOps_FallbackOnNotImplemented/Fetch
+=== RUN   TestHybridMutatingOps_FallbackOnNotImplemented/Push
+=== RUN   TestHybridMutatingOps_FallbackOnNotImplemented/CreateBranch
+=== RUN   TestHybridMutatingOps_FallbackOnNotImplemented/CheckoutBranch
+--- PASS: TestHybridMutatingOps_FallbackOnNotImplemented (0.00s)
+    --- PASS: TestHybridMutatingOps_FallbackOnNotImplemented/Add (0.00s)
+    --- PASS: TestHybridMutatingOps_FallbackOnNotImplemented/Reset (0.00s)
+    --- PASS: TestHybridMutatingOps_FallbackOnNotImplemented/Fetch (0.00s)
+    --- PASS: TestHybridMutatingOps_FallbackOnNotImplemented/Push (0.00s)
+    --- PASS: TestHybridMutatingOps_FallbackOnNotImplemented/CreateBranch (0.00s)
+    --- PASS: TestHybridMutatingOps_FallbackOnNotImplemented/CheckoutBranch (0.00s)
+=== RUN   TestHybridRemoteTrackingBranchExists_FallbackAndPropagation
+=== RUN   TestHybridRemoteTrackingBranchExists_FallbackAndPropagation/fallback_on_wrapped_not_implemented
+=== RUN   TestHybridRemoteTrackingBranchExists_FallbackAndPropagation/propagate_real_errors
+--- PASS: TestHybridRemoteTrackingBranchExists_FallbackAndPropagation (0.00s)
+    --- PASS: TestHybridRemoteTrackingBranchExists_FallbackAndPropagation/fallback_on_wrapped_not_implemented (0.00s)
+    --- PASS: TestHybridRemoteTrackingBranchExists_FallbackAndPropagation/propagate_real_errors (0.00s)
+=== RUN   TestCliRemoteTrackingBranchExists
+--- PASS: TestCliRemoteTrackingBranchExists (0.07s)
+=== RUN   TestGoGitRemoteTrackingBranchExists
+--- PASS: TestGoGitRemoteTrackingBranchExists (0.06s)
+=== RUN   TestGoGitCreateBranch_FromRemoteTrackingBaseRef
+--- PASS: TestGoGitCreateBranch_FromRemoteTrackingBaseRef (0.07s)
+PASS
+ok  	github.com/go-go-golems/workspace-manager/pkg/wsm/gitclient	(cached)
+=== RUN   TestSyncSwitchBranch_RemoteTrackingBranch_BackendMatrix
+=== RUN   TestSyncSwitchBranch_RemoteTrackingBranch_BackendMatrix/cli
+ℹ Switched to branch 'feature/remote-only' in repo
+=== RUN   TestSyncSwitchBranch_RemoteTrackingBranch_BackendMatrix/gogit
+ℹ Switched to branch 'feature/remote-only' in repo
+=== RUN   TestSyncSwitchBranch_RemoteTrackingBranch_BackendMatrix/hybrid
+ℹ Switched to branch 'feature/remote-only' in repo
+--- PASS: TestSyncSwitchBranch_RemoteTrackingBranch_BackendMatrix (0.23s)
+    --- PASS: TestSyncSwitchBranch_RemoteTrackingBranch_BackendMatrix/cli (0.09s)
+    --- PASS: TestSyncSwitchBranch_RemoteTrackingBranch_BackendMatrix/gogit (0.07s)
+    --- PASS: TestSyncSwitchBranch_RemoteTrackingBranch_BackendMatrix/hybrid (0.06s)
+=== RUN   TestSyncSwitchBranch_MissingBranchCreatesFromHead
+ℹ Switched to branch 'feature/new-local' in repo
+--- PASS: TestSyncSwitchBranch_MissingBranchCreatesFromHead (0.07s)
+=== RUN   TestBranchServiceRemoteTrackingExists_BackendMatrix
+=== RUN   TestBranchServiceRemoteTrackingExists_BackendMatrix/cli
+=== RUN   TestBranchServiceRemoteTrackingExists_BackendMatrix/gogit
+=== RUN   TestBranchServiceRemoteTrackingExists_BackendMatrix/hybrid
+--- PASS: TestBranchServiceRemoteTrackingExists_BackendMatrix (0.07s)
+    --- PASS: TestBranchServiceRemoteTrackingExists_BackendMatrix/cli (0.00s)
+    --- PASS: TestBranchServiceRemoteTrackingExists_BackendMatrix/gogit (0.00s)
+    --- PASS: TestBranchServiceRemoteTrackingExists_BackendMatrix/hybrid (0.00s)
+=== RUN   TestBranchServiceRemoteTrackingExists_MissingBranch
+=== RUN   TestBranchServiceRemoteTrackingExists_MissingBranch/cli
+=== RUN   TestBranchServiceRemoteTrackingExists_MissingBranch/gogit
+=== RUN   TestBranchServiceRemoteTrackingExists_MissingBranch/hybrid
+--- PASS: TestBranchServiceRemoteTrackingExists_MissingBranch (0.07s)
+    --- PASS: TestBranchServiceRemoteTrackingExists_MissingBranch/cli (0.00s)
+    --- PASS: TestBranchServiceRemoteTrackingExists_MissingBranch/gogit (0.00s)
+    --- PASS: TestBranchServiceRemoteTrackingExists_MissingBranch/hybrid (0.00s)
+=== RUN   TestResolveBranchState_BranchSignals
+--- PASS: TestResolveBranchState_BranchSignals (0.09s)
+PASS
+ok  	github.com/go-go-golems/workspace-manager/pkg/wsm	(cached)
+
+[WSM-MO-004] policy leakage scan
+Validation complete: no legacy branch-policy patterns found.

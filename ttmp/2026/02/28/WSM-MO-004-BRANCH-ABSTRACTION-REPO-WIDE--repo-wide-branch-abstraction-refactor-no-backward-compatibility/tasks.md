@@ -46,33 +46,33 @@
 ## Phase 5: Repo-Wide Caller Migration
 
 - [x] Audit and migrate branch-related logic in `pkg/wsm/discovery.go`
-- [ ] Audit and migrate branch-related logic in `pkg/wsm/git_utils.go`
-- [ ] Audit and migrate branch-related logic in `pkg/wsm/sync_operations.go`
-- [ ] Audit and migrate branch-related logic in `pkg/wsm/rebase_operations.go` where applicable
-- [ ] Audit command-layer branch checks in `cmd/cmds/*` and migrate to new service
-- [ ] Run `rg -n "ListBranches|CheckBranchExists|CheckRemoteBranchExists|origin/"` and eliminate policy leakage
+- [x] Audit and migrate branch-related logic in `pkg/wsm/git_utils.go`
+- [x] Audit and migrate branch-related logic in `pkg/wsm/sync_operations.go`
+- [x] Audit and migrate branch-related logic in `pkg/wsm/rebase_operations.go` where applicable
+- [x] Audit command-layer branch checks in `cmd/cmds/*` and migrate to new service
+- [x] Run `rg -n "ListBranches|CheckBranchExists|CheckRemoteBranchExists|origin/"` and eliminate policy leakage
 
 ## Phase 6: Remove Legacy Paths
 
-- [ ] Delete obsolete branch helper functions superseded by BranchService
-- [ ] Remove comments/docs encoding old ambiguous branch semantics
-- [ ] Ensure no policy branching remains in backend adapters
-- [ ] Enforce compile-time breakage completion by removing compatibility shims
+- [x] Delete obsolete branch helper functions superseded by BranchService
+- [x] Remove comments/docs encoding old ambiguous branch semantics
+- [x] Ensure no policy branching remains in backend adapters
+- [x] Enforce compile-time breakage completion by removing compatibility shims
 
 ## Phase 7: Test and Validation
 
-- [ ] Run `go test ./pkg/wsm/branch/...` (new package)
-- [ ] Run `go test ./pkg/wsm/gitclient/...`
-- [ ] Run `go test ./pkg/wsm/...`
-- [ ] Run `go test ./...` and record non-ticket blockers separately
-- [ ] Add/update reproduction scripts under ticket `scripts/` for branch matrix validation
-- [ ] Capture before/after logs demonstrating removal of ambiguous branch behavior
+- [x] Run `go test ./pkg/wsm/branch/...` (new package)
+- [x] Run `go test ./pkg/wsm/gitclient/...`
+- [x] Run `go test ./pkg/wsm/...`
+- [x] Run `go test ./...` and record non-ticket blockers separately
+- [x] Add/update reproduction scripts under ticket `scripts/` for branch matrix validation
+- [x] Capture before/after logs demonstrating removal of ambiguous branch behavior
 
 ## Phase 8: Documentation and Rollout
 
-- [ ] Update ticket design doc with implementation deltas and final API
-- [ ] Update `README.md` branch behavior notes
-- [ ] Update `IMPLEMENTATION.md` architecture section for new branch layer
-- [ ] Add changelog entry summarizing breaking branch API migration
-- [ ] Run `docmgr doctor --ticket WSM-MO-004-BRANCH-ABSTRACTION-REPO-WIDE --stale-after 30`
-- [ ] Close ticket after all tasks and validation complete
+- [x] Update ticket design doc with implementation deltas and final API
+- [x] Update `README.md` branch behavior notes
+- [x] Update `IMPLEMENTATION.md` architecture section for new branch layer
+- [x] Add changelog entry summarizing breaking branch API migration
+- [x] Run `docmgr doctor --ticket WSM-MO-004-BRANCH-ABSTRACTION-REPO-WIDE --stale-after 30`
+- [x] Close ticket after all tasks and validation complete

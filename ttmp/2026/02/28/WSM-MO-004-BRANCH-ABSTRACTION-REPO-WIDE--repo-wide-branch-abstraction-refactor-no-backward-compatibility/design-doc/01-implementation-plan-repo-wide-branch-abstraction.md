@@ -21,7 +21,7 @@ RelatedFiles:
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/git_integration.go
 ExternalSources: []
 Summary: "Breaking-change plan for introducing a repo-wide branch abstraction and removing legacy branch APIs/semantics."
-LastUpdated: 2026-02-28T14:42:00-05:00
+LastUpdated: 2026-02-28T16:35:00-05:00
 WhatFor: "Drive full repo branch-layer redesign on a clean baseline with no backwards compatibility constraints."
 WhenToUse: "Use as the execution blueprint for the branch abstraction refactor ticket."
 ---
@@ -33,6 +33,37 @@ WhenToUse: "Use as the execution blueprint for the branch abstraction refactor t
 This ticket defines a full repo-wide branch abstraction refactor with explicit **breaking changes**. The goal is to remove ambiguous branch semantics and consolidate all branch logic behind a single explicit branch domain model and service API.
 
 Backward compatibility is explicitly out of scope. We will remove old method contracts and update all callers in one coherent migration.
+
+## Implementation Delta (2026-02-28)
+
+Implemented in code:
+
+1. New branch domain package (`pkg/wsm/branch`) with typed enums:
+   - `ResolutionMode`
+   - `ResolutionStrategy`
+   - `RemoteRefKind`
+2. New branch policy service (`BranchService`) with deterministic resolver matrix.
+3. Breaking `gitclient` API migration to explicit branch primitives:
+   - `ListLocalBranches`
+   - `ListRemoteTrackingBranches`
+   - `LocalBranchExists`
+   - `RemoteTrackingBranchExists`
+4. Workspace flows (`createWorktree`, `CreateWorktreeForAdd`) migrated to `BranchService.Resolve`.
+5. Repo-wide caller migration:
+   - `sync_operations.go` branch switching now uses `BranchService.Resolve` with `ResolutionModeSync`
+   - command-layer remote branch checks (`cmd_push.go`, `cmd_pr.go`, `cmd_rebase.go`) now use `BranchService`
+   - `rebase_operations.go` and `git_utils.go` moved to typed remote-ref construction via `RemoteTrackingRef`.
+6. Legacy wrappers removed from `WorkspaceManager`:
+   - `CheckBranchExists`
+   - `CheckRemoteBranchExists`
+7. Added branch-centric tests:
+   - resolver and service tests in `pkg/wsm/branch`
+   - backend tests including go-git remote base ref creation
+   - sync branch-switch matrix tests across cli/gogit/hybrid backends
+
+Current non-ticket blocker:
+
+- `go test ./...` still fails in integration scenarios due existing sandbox/discovery path issues (`open repo: repository does not exist`) unrelated to this branch abstraction migration.
 
 ## Problem Statement
 
