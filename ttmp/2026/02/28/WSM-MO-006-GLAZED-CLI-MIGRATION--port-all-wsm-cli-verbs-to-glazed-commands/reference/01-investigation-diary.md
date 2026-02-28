@@ -26,7 +26,7 @@ ExternalSources:
     - /home/manuel/.codex/skills/diary/SKILL.md
     - /home/manuel/.codex/skills/remarkable-upload/SKILL.md
 Summary: Detailed execution diary for planning and implementing WSM-MO-006 command migration to Glazed.
-LastUpdated: 2026-02-28T20:05:00-05:00
+LastUpdated: 2026-02-28T20:20:00-05:00
 WhatFor: Track exactly how the Glazed migration plan and implementation steps were produced, validated, and committed.
 WhenToUse: Use when reviewing planning decisions or continuing implementation from this ticket.
 ---
@@ -588,3 +588,81 @@ This step also completed the transition of these two verbs away from `cmd/cmds`,
 - Data row design for this step:
   - `diff`: one row carrying command context + full diff string.
   - `log`: one row per repository carrying command context + full repo log string.
+
+## Step 9: Finish Phase 3 Command Ports with `branch create/switch/list`
+
+I completed the remaining planned Phase 3 command ports by migrating all `branch` subcommands into the new git command group. This removes another major legacy command surface and establishes the nested subcommand migration pattern for future `rebase` work.
+
+The migration keeps familiar human summaries/tables while adding structured rows for each branch operation result.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 6)
+
+**Assistant interpretation:** Continue migrating remaining medium commands in order and keep documenting/committing each checkpoint.
+
+**Inferred user intent:** Drive down legacy CLI surface quickly while preserving behavior and reviewability.
+
+**Commit (code):** `0f3b95e` — "wsm: migrate git branch subcommands to glazed"
+
+### What I did
+- Added `cmd/wsm/cmds/git/branch.go` with Glazed-backed subcommands:
+  - `branch create [branch-name] --track`
+  - `branch switch [branch-name]`
+  - `branch list`
+- Implemented dual-output behavior:
+  - human mode: preserved tabular summaries and operation summary lines,
+  - data mode: emitted structured rows per repository with success/error/status metadata.
+- Updated `cmd/wsm/cmds/git/root.go`:
+  - registered new `branch` parent command alongside `diff` and `log`.
+- Updated `cmd/wsm/root.go`:
+  - removed legacy `cmds.NewBranchCommand()` registration.
+- Validated:
+  - `gofmt -w cmd/wsm/cmds/git/branch.go cmd/wsm/cmds/git/root.go cmd/wsm/root.go`
+  - `go test ./cmd/wsm/... ./pkg/... -count=1`
+  - `go run ./cmd/wsm branch --help`
+  - `go run ./cmd/wsm branch create --help`
+- Updated ticket docs:
+  - marked branch migration tasks complete,
+  - updated changelog to include commit `0f3b95e`.
+
+### Why
+- `branch create/switch/list` were the remaining unchecked command migrations in Phase 3.
+- Completing branch now reduces future rebase/merge migration risk by consolidating related git verbs in one command group.
+
+### What worked
+- Subcommand nesting (`branch` parent + Glazed children) works cleanly.
+- All targeted command/package tests remained green.
+- Human output parity remained high by preserving legacy render helper behavior.
+
+### What didn't work
+- N/A for this step.
+
+### What I learned
+- Glazed subcommands can be introduced incrementally under plain Cobra parent commands without disrupting root-level command architecture.
+
+### What was tricky to build
+- `branch list` requires per-repo status checks and mixed failure handling; preserving readable human status symbols while generating reliable structured fields required explicit row construction.
+
+### What warrants a second pair of eyes
+- `branch list` currently does one status check per repository. If workspace sizes grow, performance could benefit from batched or concurrent status retrieval in a follow-up.
+
+### What should be done in the future
+- Add parity tests for Phase 3 commands (`status`, `diff`, `log`, `branch*`) before entering heavy `rebase`/`merge` migration.
+
+### Code review instructions
+- Review in this order:
+  - `cmd/wsm/cmds/git/branch.go`
+  - `cmd/wsm/cmds/git/root.go`
+  - `cmd/wsm/root.go`
+- Validate:
+  - `go test ./cmd/wsm/... ./pkg/... -count=1`
+  - `go run ./cmd/wsm branch --help`
+  - `go run ./cmd/wsm branch create --help`
+
+### Technical details
+- Data rows emitted by this step include:
+  - operation type (`create|switch|list`),
+  - repository identifier,
+  - success/error details,
+  - branch/status fields for list view.

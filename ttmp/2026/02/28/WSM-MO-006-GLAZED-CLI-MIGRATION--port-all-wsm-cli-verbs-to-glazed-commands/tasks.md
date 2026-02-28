@@ -53,9 +53,9 @@
 - [x] Migrate `status`
 - [x] Migrate `diff`
 - [x] Migrate `log`
-- [ ] Migrate `branch create`
-- [ ] Migrate `branch switch`
-- [ ] Migrate `branch list`
+- [x] Migrate `branch create`
+- [x] Migrate `branch switch`
+- [x] Migrate `branch list`
 - [ ] Add parity tests for status/branch/diff/log behavior
 
 ## Phase 4: Workflow-Heavy Verb Migration

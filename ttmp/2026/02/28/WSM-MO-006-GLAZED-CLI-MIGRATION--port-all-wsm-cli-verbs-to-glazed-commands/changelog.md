@@ -14,6 +14,7 @@
 - Verified root/help startup works without deprecated init warnings and validated command package tests with `go test ./cmd/wsm/... ./pkg/... -count=1`.
 - Implemented first Phase 3 medium command migration (commit `e879879`): `workspace/status` moved to Glazed command with dual output and legacy-human renderer parity.
 - Implemented additional Phase 3 medium command migrations (commit `e57bc54`): moved `git/diff` and `git/log` to Glazed commands and switched root registration away from legacy handlers.
+- Implemented remaining planned Phase 3 command migrations for branch operations (commit `0f3b95e`): moved `branch create`, `branch switch`, and `branch list` to Glazed subcommands under git group.
 
 ### Related Files
 
@@ -28,3 +29,4 @@
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/workspace/status.go — Migrated `status` Glazed command
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/diff.go — Migrated `diff` Glazed command
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/log.go — Migrated `log` Glazed command
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/branch.go — Migrated `branch create/switch/list` Glazed subcommands
