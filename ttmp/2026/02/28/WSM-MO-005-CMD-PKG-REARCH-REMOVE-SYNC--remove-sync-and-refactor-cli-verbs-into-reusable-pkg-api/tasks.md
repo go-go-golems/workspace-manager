@@ -51,3 +51,32 @@
 - [x] Run `docmgr doctor --ticket WSM-MO-005-CMD-PKG-REARCH-REMOVE-SYNC --stale-after 30`
 - [x] Upload diary to reMarkable under today’s ticket folder
 - [x] Update changelog and close completed tasks
+
+## Phase 6: pkg-First Architecture Consolidation
+
+- [x] Add `pkg/wsm/workspace_context.go` as the single workspace detection/loading service
+- [x] Remove command-local workspace detection/loading implementations from `cmd_status.go` and `cmd_commit.go`
+- [x] Add a thin shared command helper that delegates workspace resolution to `pkg/wsm/workspace_context.go`
+- [x] Extract branch operations from `pkg/wsm/sync_operations.go` into `pkg/wsm/branch_operations.go`
+- [x] Extract workspace log/history operations from `pkg/wsm/sync_operations.go` into `pkg/wsm/history_operations.go`
+- [x] Update `cmd_branch.go` to use `BranchOperations` and branch-specific result DTOs
+- [x] Update `cmd_diff.go` (`log` path) to use `HistoryOperations`
+- [x] Remove stale `SyncOperations` branch/log code and sync-only leftovers from `pkg/wsm/sync_operations.go`
+- [x] Migrate/replace `sync_operations_branch_test.go` with branch-operations tests
+- [x] Run targeted tests for `cmd/cmds`, `pkg/wsm`, and updated command help
+
+## Phase 7: Rebase/Merge Command Workflow Extraction
+
+- [x] Introduce `pkg/wsm/workflows/rebase_workflow.go` for status/action fan-out now in `cmd_rebase.go`
+- [x] Introduce `pkg/wsm/workflows/merge_workflow.go` for merge candidate planning/execution now in `cmd_merge.go`
+- [x] Refactor `cmd_rebase.go` to thin adapter over workflow service
+- [x] Refactor `cmd_merge.go` to thin adapter over workflow service
+- [x] Add unit tests for new workflow services
+- [x] Run `go test ./cmd/... ./pkg/...` and capture full results
+
+## Phase 8: Ticket Wrap-up for pkg Consolidation
+
+- [x] Update diary with per-task implementation notes and rationale
+- [x] Update changelog with architecture consolidation summary
+- [x] Run `docmgr doctor --ticket WSM-MO-005-CMD-PKG-REARCH-REMOVE-SYNC --stale-after 30`
+- [x] Commit consolidation changes in logical intervals

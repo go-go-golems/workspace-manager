@@ -366,3 +366,149 @@ After command removals, I consolidated documentation and user guidance so docs m
   - `go test ./cmd/... ./pkg/...` passed.
   - `go test ./...` failed in pre-existing integration scenarios.
   - `wsm --help` command list excludes removed verbs.
+
+## Step 7: pkg-First Consolidation Phase 6 (Workspace Context + Branch/History Split)
+
+I completed the first architecture-consolidation implementation phase after the six-command removal. This phase moved key command-layer functionality into `pkg/wsm` and removed the overloaded `SyncOperations` service entirely.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Do the consolidation and the refactor to have all the funcitonality in pkg/ in a coherent architecture. Add tasks to the ticket, work on them one by one."
+
+**Assistant interpretation:** Continue implementation beyond command removals by moving command-owned logic into package services and reducing command files to adapters.
+
+**Inferred user intent:** Make architecture coherent and reusable in `pkg/`, not only reduce command count.
+
+### What I did
+- Added `pkg/wsm/workspace_context.go` with `WorkspaceContextService`:
+  - `DetectWorkspaceName(cwd)`
+  - `DetectCurrentWorkspace(cwd)`
+  - `LoadWorkspace(name)`
+- Added command shim `cmd/cmds/workspace_context.go` that delegates:
+  - `detectWorkspace`
+  - `loadWorkspace`
+  - `detectCurrentWorkspace`
+- Removed command-local workspace resolution code from:
+  - `cmd/cmds/cmd_status.go`
+  - `cmd/cmds/cmd_commit.go`
+- Added `pkg/wsm/branch_operations.go`:
+  - `BranchOperations`
+  - `BranchOperationResult`
+  - `CreateBranch` / `SwitchBranch`
+- Added `pkg/wsm/history_operations.go`:
+  - `HistoryOperations`
+  - `GetWorkspaceLog`
+- Updated commands:
+  - `cmd/cmds/cmd_branch.go` now uses `BranchOperations`
+  - `cmd/cmds/cmd_diff.go` (`log`) now uses `HistoryOperations`
+- Removed stale overloaded sync service:
+  - deleted `pkg/wsm/sync_operations.go`
+- Migrated tests:
+  - deleted `pkg/wsm/sync_operations_branch_test.go`
+  - added `pkg/wsm/branch_operations_test.go`
+- Updated ticket tasks for new consolidation phases and checked Phase 6 completion.
+
+### Why
+- `SyncOperations` no longer aligned with command surface after `sync` removal.
+- Workspace resolution logic was duplicated in command files and needed a package-level source of truth.
+
+### What worked
+- Refactor compiled cleanly with no dangling `SyncOperations` references.
+- `go test ./cmd/...` and `go test ./pkg/...` both passed after extraction.
+
+### What didn't work
+- No new blockers in this phase.
+
+### What I learned
+- Splitting by domain (`workspace_context`, `branch_operations`, `history_operations`) made command adaptation straightforward and removed most coupling quickly.
+
+### What was tricky to build
+- Preserving old status detection heuristics while introducing a stricter `DetectCurrentWorkspace` behavior for current-workspace commands.
+
+### What warrants a second pair of eyes
+- Whether heuristic fallback in `DetectWorkspaceName` should remain or be tightened in a later cleanup.
+
+### What should be done in the future
+- Continue with Phase 7 to move `rebase` and `merge` orchestration into package workflows.
+
+### Code review instructions
+- Validate new service files:
+  - `pkg/wsm/workspace_context.go`
+  - `pkg/wsm/branch_operations.go`
+  - `pkg/wsm/history_operations.go`
+- Verify command adapters no longer depend on `SyncOperations`:
+  - `cmd/cmds/cmd_branch.go`
+  - `cmd/cmds/cmd_diff.go`
+  - `cmd/cmds/cmd_status.go`
+  - `cmd/cmds/cmd_commit.go`
+- Run:
+  - `go test ./cmd/...`
+  - `go test ./pkg/...`
+
+### Technical details
+- Removed package file: `pkg/wsm/sync_operations.go`.
+- Added branch tests replacing sync-branch tests.
+
+## Step 8: Workflow Layer Extraction for Rebase and Merge
+
+I completed a second consolidation pass by extracting rebase and merge orchestration from command files into a dedicated workflow layer under `pkg/wsm/workflows`. Commands are now primarily adapters that parse flags and render output.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 7)
+
+**Assistant interpretation:** Continue the pkg-first consolidation until high-complexity commands no longer own core orchestration.
+
+**Inferred user intent:** Make architecture coherent around reusable package services, not command files.
+
+### What I did
+- Added `pkg/wsm/workflows/rebase_workflow.go`:
+  - `RebaseWorkflow`
+  - `RebaseRequest`, `RebaseResult`, `RebaseStatusRow`, `RebaseActionRow`
+  - `Rebase`, `Status`, `Continue`, `Abort`, `ManualPlan`
+- Refactored `cmd/cmds/cmd_rebase.go` into a thin adapter over `RebaseWorkflow`.
+- Added `pkg/wsm/workflows/merge_workflow.go`:
+  - `MergeWorkflow`
+  - `MergeRequest`, `MergeCandidate`
+  - end-to-end merge orchestration including preview, confirmation, execution, and rollback
+- Refactored `cmd/cmds/cmd_merge.go` into a thin adapter over `MergeWorkflow`.
+- Added workflow-layer tests:
+  - `pkg/wsm/workflows/rebase_workflow_test.go`
+  - `pkg/wsm/workflows/merge_workflow_test.go`
+
+### Why
+- `cmd_rebase.go` and `cmd_merge.go` were the largest command-layer orchestration hotspots; moving them is high leverage for architecture coherence.
+
+### What worked
+- `go test ./cmd/...` passed after adapter refactor.
+- `go test ./pkg/...` passed including new workflow package tests.
+- Command help remained stable (`wsm --help` still shows expected retained command set).
+
+### What didn't work
+- No new blockers during this extraction step.
+
+### What I learned
+- Rebase/merge extraction is feasible without altering user-facing flags when service DTOs mirror command inputs.
+
+### What was tricky to build
+- Preserving existing merge safety checks (base workspace path enforcement, rollback behavior) while moving execution into package code.
+
+### What warrants a second pair of eyes
+- Workflow-package boundaries: confirm whether user-interaction prompts (`huh`) should remain in workflow layer or move back to command adapters in a future iteration.
+
+### What should be done in the future
+- Introduce interface-based separation for prompt/renderer dependencies to make workflows fully non-interactive-testable.
+
+### Code review instructions
+- Verify thin command adapters:
+  - `cmd/cmds/cmd_rebase.go`
+  - `cmd/cmds/cmd_merge.go`
+- Verify new workflow services:
+  - `pkg/wsm/workflows/rebase_workflow.go`
+  - `pkg/wsm/workflows/merge_workflow.go`
+- Run:
+  - `go test ./cmd/...`
+  - `go test ./pkg/...`
+
+### Technical details
+- Both high-complexity commands now delegate orchestration to package workflows.

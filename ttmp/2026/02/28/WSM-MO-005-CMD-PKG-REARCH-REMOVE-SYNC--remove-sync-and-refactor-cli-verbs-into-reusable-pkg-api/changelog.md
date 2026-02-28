@@ -27,3 +27,19 @@ Implemented six-command CLI surface reduction (removed sync, conflicts, pr, push
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/root.go — Removed six command registrations and updated root help text
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/02/28/WSM-MO-005-CMD-PKG-REARCH-REMOVE-SYNC--remove-sync-and-refactor-cli-verbs-into-reusable-pkg-api/reference/01-investigation-diary.md — Detailed implementation diary and validation notes
 
+
+## 2026-02-28
+
+Completed pkg-first architecture consolidation: added shared workspace context service, extracted branch/history services, removed SyncOperations, and moved rebase/merge orchestration into pkg/wsm/workflows with thin command adapters.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/cmds/cmd_merge.go — Now thin adapter over workflow service
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/cmds/cmd_rebase.go — Now thin adapter over workflow service
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/branch_operations.go — Branch operations extracted from deprecated sync service
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/history_operations.go — Workspace log/history operations extracted into dedicated service
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/merge_workflow.go — Merge orchestration moved from command layer
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/rebase_workflow.go — Rebase orchestration moved from command layer
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workspace_context.go — New canonical workspace detection/loading service
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/02/28/WSM-MO-005-CMD-PKG-REARCH-REMOVE-SYNC--remove-sync-and-refactor-cli-verbs-into-reusable-pkg-api/reference/01-investigation-diary.md — Detailed implementation diary for phase 6 and 7
+
