@@ -257,14 +257,29 @@ func (c *GoGitClient) CreateBranch(ctx context.Context, repo RepositoryHandle, n
 	// checkout -b name [base]
 	opts := &git.CheckoutOptions{Branch: plumbing.NewBranchReferenceName(name), Create: true}
 	if baseRef != "" {
-		// Resolve baseRef to hash
-		refName := plumbing.ReferenceName(baseRef)
-		ref, err := gr.repo.Reference(refName, true)
-		if err == nil {
-			opts.Hash = ref.Hash()
+		hash, err := resolveRevisionHash(gr.repo, baseRef)
+		if err != nil {
+			return errors.Wrapf(err, "resolve base ref %q", baseRef)
 		}
+		opts.Hash = hash
 	}
 	return errors.Wrap(wt.Checkout(opts), "checkout -b")
+}
+
+func resolveRevisionHash(repo *git.Repository, baseRef string) (plumbing.Hash, error) {
+	candidates := []plumbing.Revision{
+		plumbing.Revision(baseRef),
+		plumbing.Revision("refs/heads/" + baseRef),
+		plumbing.Revision("refs/remotes/" + baseRef),
+		plumbing.Revision("refs/tags/" + baseRef),
+	}
+	for _, rev := range candidates {
+		h, err := repo.ResolveRevision(rev)
+		if err == nil && h != nil {
+			return *h, nil
+		}
+	}
+	return plumbing.ZeroHash, plumbing.ErrReferenceNotFound
 }
 
 func (c *GoGitClient) CheckoutBranch(ctx context.Context, repo RepositoryHandle, name string, create bool, force bool) error {

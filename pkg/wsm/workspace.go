@@ -312,35 +312,6 @@ func (wm *WorkspaceManager) resolveBranchPlan(ctx context.Context, repoPath stri
 	return plan, nil
 }
 
-// checkBranchExists checks if a local branch exists
-func (wm *WorkspaceManager) CheckBranchExists(ctx context.Context, repoPath, branch string) (bool, error) {
-	if branch == "" {
-		return false, nil
-	}
-	localExists, err := wm.branchService(ctx).LocalExists(ctx, repoPath, branchsvc.BranchName(branch))
-	if err != nil {
-		return false, errors.Wrap(err, "check local branch")
-	}
-	return localExists, nil
-}
-
-// checkRemoteBranchExists checks if a remote branch exists
-func (wm *WorkspaceManager) CheckRemoteBranchExists(ctx context.Context, repoPath, branch string) (bool, error) {
-	if branch == "" {
-		return false, nil
-	}
-	remoteExists, err := wm.branchService(ctx).RemoteTrackingExists(
-		ctx,
-		repoPath,
-		branchsvc.DefaultRemoteName,
-		branchsvc.BranchName(branch),
-	)
-	if err != nil {
-		return false, errors.Wrap(err, "check remote branch")
-	}
-	return remoteExists, nil
-}
-
 // createGoWorkspace creates a go.work file
 func (wm *WorkspaceManager) CreateGoWorkspace(workspace *Workspace) error {
 	goWorkPath := filepath.Join(workspace.Path, "go.work")

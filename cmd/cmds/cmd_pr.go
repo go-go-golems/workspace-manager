@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
+	branchsvc "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -284,8 +285,10 @@ func checkIfNeedsPR(ctx context.Context, repoStatus wsm.RepositoryStatus, worksp
 }
 
 func getAheadBehindOriginMain(ctx context.Context, repoPath string) (int, int, error) {
+	originMain := branchsvc.RemoteTrackingRef(branchsvc.DefaultRemoteName, branchsvc.BranchName("main"))
+
 	// Get ahead/behind counts against origin/main
-	cmd := exec.CommandContext(ctx, "git", "rev-list", "--left-right", "--count", "HEAD...origin/main")
+	cmd := exec.CommandContext(ctx, "git", "rev-list", "--left-right", "--count", "HEAD..."+originMain)
 	cmd.Dir = repoPath
 	output, err := cmd.Output()
 	if err != nil {
@@ -314,10 +317,22 @@ func getAheadBehindOriginMain(ctx context.Context, repoPath string) (int, int, e
 }
 
 func branchExistsOnRemote(ctx context.Context, repoPath, branch string) bool {
-	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--heads", "origin", branch)
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
-	return err == nil && len(strings.TrimSpace(string(output))) > 0
+	branches := wsm.BuildBranchService(ctx)
+	exists, err := branches.RemoteTrackingExists(
+		ctx,
+		repoPath,
+		branchsvc.DefaultRemoteName,
+		branchsvc.BranchName(branch),
+	)
+	if err != nil {
+		log.Debug().
+			Err(err).
+			Str("repoPath", repoPath).
+			Str("branch", branch).
+			Msg("Failed to query remote tracking branch existence")
+		return false
+	}
+	return exists
 }
 
 func checkExistingPR(ctx context.Context, repoPath, branch string) string {
@@ -331,7 +346,7 @@ func checkExistingPR(ctx context.Context, repoPath, branch string) string {
 }
 
 func pushBranchForPR(ctx context.Context, candidate PRCandidate) error {
-	cmd := exec.CommandContext(ctx, "git", "push", "-u", "origin", candidate.Branch)
+	cmd := exec.CommandContext(ctx, "git", "push", "-u", string(branchsvc.DefaultRemoteName), candidate.Branch)
 	cmd.Dir = candidate.RepoPath
 
 	output, err := cmd.CombinedOutput()

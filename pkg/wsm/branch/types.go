@@ -83,6 +83,18 @@ func (k RemoteRefKind) String() string {
 	}
 }
 
+// RemoteTrackingRef builds "<remote>/<branch>" using typed domain values.
+func RemoteTrackingRef(remote RemoteName, branch BranchName) string {
+	if branch == "" {
+		return ""
+	}
+	r := remote
+	if r == "" {
+		r = DefaultRemoteName
+	}
+	return string(r) + "/" + string(branch)
+}
+
 // BranchSnapshot captures branch state for a repository at a point in time.
 type BranchSnapshot struct {
 	CurrentBranch          BranchName

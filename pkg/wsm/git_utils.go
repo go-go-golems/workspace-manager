@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"strings"
 
+	branchsvc "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"github.com/rs/zerolog/log"
 )
 
@@ -21,6 +22,8 @@ func getGitCurrentBranch(ctx context.Context, path string) (string, error) {
 
 // CheckBranchMerged checks if the current branch has been merged to origin/main
 func CheckBranchMerged(ctx context.Context, path string) (bool, error) {
+	originMain := branchsvc.RemoteTrackingRef(branchsvc.DefaultRemoteName, branchsvc.BranchName("main"))
+
 	// Get current branch for logging
 	currentBranch, branchErr := getGitCurrentBranch(ctx, path)
 	if branchErr != nil {
@@ -28,10 +31,10 @@ func CheckBranchMerged(ctx context.Context, path string) (bool, error) {
 		currentBranch = "unknown"
 	}
 
-	log.Debug().Str("path", path).Str("branch", currentBranch).Msg("Checking if branch is merged to origin/main")
+	log.Debug().Str("path", path).Str("branch", currentBranch).Str("upstream", originMain).Msg("Checking if branch is merged to remote main")
 
 	// First, fetch to ensure we have latest remote refs
-	fetchCmd := exec.CommandContext(ctx, "git", "fetch", "origin", "main")
+	fetchCmd := exec.CommandContext(ctx, "git", "fetch", string(branchsvc.DefaultRemoteName), "main")
 	fetchCmd.Dir = path
 	fetchErr := fetchCmd.Run()
 	if fetchErr != nil {
@@ -42,7 +45,7 @@ func CheckBranchMerged(ctx context.Context, path string) (bool, error) {
 
 	// Check if HEAD has been merged into origin/main
 	// This command returns 0 if the current HEAD is merged, non-zero otherwise
-	cmd := exec.CommandContext(ctx, "git", "merge-base", "--is-ancestor", "HEAD", "origin/main")
+	cmd := exec.CommandContext(ctx, "git", "merge-base", "--is-ancestor", "HEAD", originMain)
 	cmd.Dir = path
 	err := cmd.Run()
 
@@ -54,6 +57,8 @@ func CheckBranchMerged(ctx context.Context, path string) (bool, error) {
 
 // CheckBranchNeedsRebase checks if the current branch needs to be rebased on origin/main
 func CheckBranchNeedsRebase(ctx context.Context, path string) (bool, error) {
+	originMain := branchsvc.RemoteTrackingRef(branchsvc.DefaultRemoteName, branchsvc.BranchName("main"))
+
 	// Get current branch for logging
 	currentBranch, branchErr := getGitCurrentBranch(ctx, path)
 	if branchErr != nil {
@@ -67,10 +72,10 @@ func CheckBranchNeedsRebase(ctx context.Context, path string) (bool, error) {
 		return false, nil
 	}
 
-	log.Debug().Str("path", path).Str("branch", currentBranch).Msg("Checking if branch needs rebase on origin/main")
+	log.Debug().Str("path", path).Str("branch", currentBranch).Str("upstream", originMain).Msg("Checking if branch needs rebase on remote main")
 
 	// First, fetch to ensure we have latest remote refs
-	fetchCmd := exec.CommandContext(ctx, "git", "fetch", "origin", "main")
+	fetchCmd := exec.CommandContext(ctx, "git", "fetch", string(branchsvc.DefaultRemoteName), "main")
 	fetchCmd.Dir = path
 	fetchErr := fetchCmd.Run()
 	if fetchErr != nil {
@@ -81,7 +86,7 @@ func CheckBranchNeedsRebase(ctx context.Context, path string) (bool, error) {
 
 	// Check if origin/main has new commits compared to the merge-base
 	// This tells us if origin/main has moved forward since we branched
-	cmd := exec.CommandContext(ctx, "git", "rev-list", "--count", "HEAD..origin/main")
+	cmd := exec.CommandContext(ctx, "git", "rev-list", "--count", "HEAD.."+originMain)
 	cmd.Dir = path
 	output, err := cmd.Output()
 	if err != nil {

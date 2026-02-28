@@ -2,12 +2,12 @@ package wsm
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
+	branchsvc "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"github.com/pkg/errors"
 )
 
@@ -15,10 +15,10 @@ import (
 type RebaseState string
 
 const (
-	RebaseStateNone            RebaseState = "none"
-	RebaseStateInProgress      RebaseState = "in-progress"
+	RebaseStateNone             RebaseState = "none"
+	RebaseStateInProgress       RebaseState = "in-progress"
 	RebaseStateStoppedConflicts RebaseState = "stopped-conflicts"
-	RebaseStateCompleted       RebaseState = "completed"
+	RebaseStateCompleted        RebaseState = "completed"
 )
 
 // ConflictInfo describes a single conflicted path.
@@ -35,7 +35,7 @@ type RebaseOptions struct {
 }
 
 // DetectUpstream resolves the upstream ref for the current branch.
-// Fallback: origin/<current-branch> when @{upstream} is not set.
+// Fallback: <default-remote>/<current-branch> when @{upstream} is not set.
 func DetectUpstream(ctx context.Context, repoPath string) (string, error) {
 	// Try HEAD@{upstream}
 	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "@{upstream}")
@@ -48,7 +48,7 @@ func DetectUpstream(ctx context.Context, repoPath string) (string, error) {
 		}
 	}
 
-	// Fallback to origin/<current-branch>
+	// Fallback to <default-remote>/<current-branch>
 	branchCmd := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "HEAD")
 	branchCmd.Dir = repoPath
 	bOut, bErr := branchCmd.Output()
@@ -59,7 +59,7 @@ func DetectUpstream(ctx context.Context, repoPath string) (string, error) {
 	if branch == "" || branch == "HEAD" {
 		return "", errors.New("cannot determine current branch for upstream fallback")
 	}
-	return fmt.Sprintf("origin/%s", branch), nil
+	return branchsvc.RemoteTrackingRef(branchsvc.DefaultRemoteName, branchsvc.BranchName(branch)), nil
 }
 
 // Start performs a rebase onto the given upstream. If upstream is empty, DetectUpstream is used.
@@ -118,8 +118,12 @@ func Status(ctx context.Context, repoPath string) (RebaseState, []ConflictInfo, 
 	rebaseMergeDir := filepath.Join(repoPath, ".git", "rebase-merge")
 	rebaseApplyDir := filepath.Join(repoPath, ".git", "rebase-apply")
 	inProgress := false
-	if _, err := os.Stat(rebaseMergeDir); err == nil { inProgress = true }
-	if _, err := os.Stat(rebaseApplyDir); err == nil { inProgress = true }
+	if _, err := os.Stat(rebaseMergeDir); err == nil {
+		inProgress = true
+	}
+	if _, err := os.Stat(rebaseApplyDir); err == nil {
+		inProgress = true
+	}
 
 	// Inspect porcelain for conflicts
 	cmd := exec.CommandContext(ctx, "git", "status", "--porcelain")
@@ -132,12 +136,16 @@ func Status(ctx context.Context, repoPath string) (RebaseState, []ConflictInfo, 
 	var conflicts []ConflictInfo
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	for _, line := range lines {
-		if len(line) < 2 { continue }
+		if len(line) < 2 {
+			continue
+		}
 		xy := line[:2]
 		if xy == "UU" || xy == "AA" || xy == "DD" || xy[0] == 'U' || xy[1] == 'U' {
 			parts := strings.SplitN(line, " ", 2)
 			file := ""
-			if len(parts) == 2 { file = strings.TrimSpace(parts[1]) }
+			if len(parts) == 2 {
+				file = strings.TrimSpace(parts[1])
+			}
 			conflicts = append(conflicts, ConflictInfo{File: file, Type: xy})
 		}
 	}

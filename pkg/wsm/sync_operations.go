@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-go-golems/workspace-manager/pkg/output"
+	branchsvc "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -41,10 +42,10 @@ type SyncResult struct {
 
 // SyncOptions configures sync operations
 type SyncOptions struct {
-	Pull   bool `json:"pull"`
-	Push   bool `json:"push"`
-	Rebase bool `json:"rebase"`
-	DryRun bool `json:"dry_run"`
+	Pull    bool `json:"pull"`
+	Push    bool `json:"push"`
+	Rebase  bool `json:"rebase"`
+	DryRun  bool `json:"dry_run"`
 	MaxJobs int  `json:"max_jobs"`
 }
 
@@ -312,13 +313,38 @@ func (so *SyncOperations) switchBranchInRepository(ctx context.Context, repoName
 	}
 
 	gc, _ := BuildGitBackends(ctx)
+	branches := BuildBranchService(ctx)
 	h, err := gc.Open(ctx, repoPath)
 	if err != nil {
 		result.Success = false
 		result.Error = err.Error()
 		return result
 	}
-	if err := gc.CheckoutBranch(ctx, h, branchName, false, false); err != nil {
+
+	plan, err := branches.Resolve(ctx, repoPath, branchsvc.BranchResolutionRequest{
+		TargetBranch: branchsvc.BranchName(branchName),
+		Remote:       branchsvc.DefaultRemoteName,
+		Mode:         branchsvc.ResolutionModeSync,
+	})
+	if err != nil {
+		result.Success = false
+		result.Error = err.Error()
+		return result
+	}
+
+	switch plan.Strategy {
+	case branchsvc.ResolutionStrategyUseLocal:
+		err = gc.CheckoutBranch(ctx, h, branchName, false, false)
+	case branchsvc.ResolutionStrategyTrackRemote:
+		err = gc.CreateBranch(ctx, h, branchName, true, plan.RemoteRef)
+	case branchsvc.ResolutionStrategyCreateFromBase:
+		err = gc.CreateBranch(ctx, h, branchName, false, plan.StartPoint)
+	case branchsvc.ResolutionStrategyCreateFromHead:
+		err = gc.CreateBranch(ctx, h, branchName, false, "")
+	default:
+		err = errors.Errorf("unsupported resolution strategy: %s", plan.Strategy.String())
+	}
+	if err != nil {
 		result.Success = false
 		result.Error = err.Error()
 		return result

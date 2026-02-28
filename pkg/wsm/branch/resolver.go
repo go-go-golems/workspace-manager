@@ -1,7 +1,5 @@
 package branch
 
-import "fmt"
-
 func validateRequest(req BranchResolutionRequest) error {
 	if req.Mode == ResolutionModeUnspecified {
 		return ErrInvalidResolutionMode
@@ -44,7 +42,7 @@ func resolveFromState(req BranchResolutionRequest, defaultRemote RemoteName, loc
 	case remoteTrackingExists:
 		plan.Strategy = ResolutionStrategyTrackRemote
 		plan.RemoteRefKind = RemoteRefKindRemoteTrackingBranch
-		plan.RemoteRef = fmt.Sprintf("%s/%s", remote, req.TargetBranch)
+		plan.RemoteRef = RemoteTrackingRef(remote, req.TargetBranch)
 		return plan, nil
 	case req.BaseBranch != "":
 		plan.Strategy = ResolutionStrategyCreateFromBase

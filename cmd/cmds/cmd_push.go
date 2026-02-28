@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
+	branchsvc "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -242,7 +243,7 @@ func checkIfNeedsPush(ctx context.Context, repoStatus wsm.RepositoryStatus, work
 
 	// Check if remote branch exists
 	if candidate.RemoteExists {
-		candidate.RemoteBranchExists = checkRemoteBranchExists(ctx, candidate.RepoPath, remoteName, candidate.Branch)
+		candidate.RemoteBranchExists = checkRemoteTrackingBranchExists(ctx, candidate.RepoPath, remoteName, candidate.Branch)
 		log.Debug().Str("repository", candidate.Repository).Str("branch", candidate.Branch).Bool("remoteBranchExists", candidate.RemoteBranchExists).Msg("Checked remote branch existence")
 	}
 
@@ -297,7 +298,8 @@ func checkRemoteRepoExists(ctx context.Context, remoteName, repoFullName string)
 
 func getLocalCommits(ctx context.Context, repoPath, remoteName, branch string) (int, error) {
 	// Check if remote branch exists first
-	remoteRef := fmt.Sprintf("%s/%s", remoteName, branch)
+	remoteRef := branchsvc.RemoteTrackingRef(branchsvc.RemoteName(remoteName), branchsvc.BranchName(branch))
+	defaultMainRef := branchsvc.RemoteTrackingRef(branchsvc.DefaultRemoteName, branchsvc.BranchName("main"))
 
 	// Try to get commits ahead of remote branch (local commits that aren't on remote)
 	cmd := exec.CommandContext(ctx, "git", "rev-list", "--count", fmt.Sprintf("%s..HEAD", remoteRef))
@@ -309,8 +311,8 @@ func getLocalCommits(ctx context.Context, repoPath, remoteName, branch string) (
 		// by comparing against origin/main or just counting local commits
 		log.Debug().Err(err).Str("repoPath", repoPath).Str("remoteRef", remoteRef).Msg("Remote branch not found, checking against origin/main")
 
-		// Try to compare against origin/main
-		cmd = exec.CommandContext(ctx, "git", "rev-list", "--count", "origin/main..HEAD")
+		// Try to compare against default remote main
+		cmd = exec.CommandContext(ctx, "git", "rev-list", "--count", defaultMainRef+"..HEAD")
 		cmd.Dir = repoPath
 		output, err = cmd.Output()
 		if err != nil {
@@ -334,10 +336,27 @@ func getLocalCommits(ctx context.Context, repoPath, remoteName, branch string) (
 }
 
 func checkRemoteBranchExists(ctx context.Context, repoPath, remoteName, branch string) bool {
-	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--heads", remoteName, branch)
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
-	return err == nil && len(strings.TrimSpace(string(output))) > 0
+	return checkRemoteTrackingBranchExists(ctx, repoPath, remoteName, branch)
+}
+
+func checkRemoteTrackingBranchExists(ctx context.Context, repoPath, remoteName, branch string) bool {
+	branches := wsm.BuildBranchService(ctx)
+	exists, err := branches.RemoteTrackingExists(
+		ctx,
+		repoPath,
+		branchsvc.RemoteName(remoteName),
+		branchsvc.BranchName(branch),
+	)
+	if err != nil {
+		log.Debug().
+			Err(err).
+			Str("repoPath", repoPath).
+			Str("remote", remoteName).
+			Str("branch", branch).
+			Msg("Failed to query remote tracking branch existence")
+		return false
+	}
+	return exists
 }
 
 func pushBranch(ctx context.Context, candidate PushCandidate, remoteName string, setUpstream bool) error {

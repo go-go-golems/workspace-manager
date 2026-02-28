@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
+	branchsvc "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -129,7 +130,9 @@ func runRebase(ctx context.Context, repository, targetBranch string, interactive
 			g, gctx := errgroup.WithContext(ctx)
 			for i := range repos {
 				i := i
-				if err := sem.Acquire(gctx, 1); err != nil { return err }
+				if err := sem.Acquire(gctx, 1); err != nil {
+					return err
+				}
 				g.Go(func() error {
 					defer sem.Release(1)
 					repo := repos[i]
@@ -137,7 +140,9 @@ func runRebase(ctx context.Context, repository, targetBranch string, interactive
 					return nil
 				})
 			}
-			if err := g.Wait(); err != nil { return err }
+			if err := g.Wait(); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -181,19 +186,28 @@ func NewRebaseStatusCommand() *cobra.Command {
 
 func runRebaseStatus(ctx context.Context, repository string, jobs int) error {
 	workspace, err := detectCurrentWorkspace()
-	if err != nil { return errors.Wrap(err, "failed to detect current workspace") }
+	if err != nil {
+		return errors.Wrap(err, "failed to detect current workspace")
+	}
 
 	repos := workspace.Repositories
 	if repository != "" {
 		// filter
 		filtered := []wsm.Repository{}
 		for _, r := range repos {
-			if r.Name == repository { filtered = append(filtered, r) }
+			if r.Name == repository {
+				filtered = append(filtered, r)
+			}
 		}
 		repos = filtered
 	}
 
-	type row struct { repo string; state wsm.RebaseState; conflicts int; err string }
+	type row struct {
+		repo      string
+		state     wsm.RebaseState
+		conflicts int
+		err       string
+	}
 	rows := make([]row, len(repos))
 
 	printTable := func() error {
@@ -203,7 +217,9 @@ func runRebaseStatus(ctx context.Context, repository string, jobs int) error {
 		fmt.Fprintln(w, "----------\t-----\t---------\t-----")
 		for _, r := range rows {
 			errStr := r.err
-			if len(errStr) > 60 { errStr = errStr[:57] + "..." }
+			if len(errStr) > 60 {
+				errStr = errStr[:57] + "..."
+			}
 			fmt.Fprintf(w, "%s\t%s\t%d\t%s\n", r.repo, string(r.state), r.conflicts, errStr)
 		}
 		return nil
@@ -213,7 +229,9 @@ func runRebaseStatus(ctx context.Context, repository string, jobs int) error {
 		for i, r := range repos {
 			state, conflicts, err := wsm.Status(ctx, filepath.Join(workspace.Path, r.Name))
 			errStr := ""
-			if err != nil { errStr = err.Error() }
+			if err != nil {
+				errStr = err.Error()
+			}
 			rows[i] = row{repo: r.Name, state: state, conflicts: len(conflicts), err: errStr}
 		}
 		return printTable()
@@ -223,18 +241,24 @@ func runRebaseStatus(ctx context.Context, repository string, jobs int) error {
 	g, gctx := errgroup.WithContext(ctx)
 	for i := range repos {
 		i := i
-		if err := sem.Acquire(gctx, 1); err != nil { return err }
+		if err := sem.Acquire(gctx, 1); err != nil {
+			return err
+		}
 		g.Go(func() error {
 			defer sem.Release(1)
 			r := repos[i]
 			state, conflicts, err := wsm.Status(gctx, filepath.Join(workspace.Path, r.Name))
 			errStr := ""
-			if err != nil { errStr = err.Error() }
+			if err != nil {
+				errStr = err.Error()
+			}
 			rows[i] = row{repo: r.Name, state: state, conflicts: len(conflicts), err: errStr}
 			return nil
 		})
 	}
-	if err := g.Wait(); err != nil { return err }
+	if err := g.Wait(); err != nil {
+		return err
+	}
 	return printTable()
 }
 
@@ -275,35 +299,53 @@ func NewRebaseAbortCommand() *cobra.Command {
 // runRebaseAction runs a function (Continue/Abort) over repos
 func runRebaseAction(ctx context.Context, repository string, jobs int, action func(context.Context, string) error, label string) error {
 	workspace, err := detectCurrentWorkspace()
-	if err != nil { return errors.Wrap(err, "failed to detect current workspace") }
+	if err != nil {
+		return errors.Wrap(err, "failed to detect current workspace")
+	}
 	repos := workspace.Repositories
 	if repository != "" {
 		filtered := []wsm.Repository{}
-		for _, r := range repos { if r.Name == repository { filtered = append(filtered, r) } }
+		for _, r := range repos {
+			if r.Name == repository {
+				filtered = append(filtered, r)
+			}
+		}
 		repos = filtered
 	}
 
-	type row struct { repo string; ok bool; err string }
+	type row struct {
+		repo string
+		ok   bool
+		err  string
+	}
 	rows := make([]row, len(repos))
 	do := func(i int) {
 		r := repos[i]
 		repoPath := filepath.Join(workspace.Path, r.Name)
 		err := action(ctx, repoPath)
 		rows[i] = row{repo: r.Name, ok: err == nil}
-		if err != nil { rows[i].err = err.Error() }
+		if err != nil {
+			rows[i].err = err.Error()
+		}
 	}
 
 	if jobs <= 1 || len(repos) <= 1 {
-		for i := range repos { do(i) }
+		for i := range repos {
+			do(i)
+		}
 	} else {
 		sem := semaphore.NewWeighted(int64(jobs))
 		g, gctx := errgroup.WithContext(ctx)
 		for i := range repos {
 			i := i
-			if err := sem.Acquire(gctx, 1); err != nil { return err }
+			if err := sem.Acquire(gctx, 1); err != nil {
+				return err
+			}
 			g.Go(func() error { defer sem.Release(1); do(i); return nil })
 		}
-		if err := g.Wait(); err != nil { return err }
+		if err := g.Wait(); err != nil {
+			return err
+		}
 	}
 
 	// Print summary
@@ -313,9 +355,13 @@ func runRebaseAction(ctx context.Context, repository string, jobs int, action fu
 	fmt.Fprintln(w, "----------\t-----\t-----")
 	for _, r := range rows {
 		status := "✅"
-		if !r.ok { status = "❌" }
+		if !r.ok {
+			status = "❌"
+		}
 		errStr := r.err
-		if len(errStr) > 60 { errStr = errStr[:57] + "..." }
+		if len(errStr) > 60 {
+			errStr = errStr[:57] + "..."
+		}
 		fmt.Fprintf(w, "%s\t%s\t%s\n", r.repo, status, errStr)
 	}
 	return nil
@@ -370,7 +416,12 @@ func rebaseRepository(ctx context.Context, workspace *wsm.Workspace, repoName, t
 	}
 
 	// Check if target branch exists
-	if !branchExists(ctx, repoPath, targetBranch) {
+	if !localBranchExists(ctx, repoPath, targetBranch) {
+		if !remoteTrackingBranchExists(ctx, repoPath, targetBranch) {
+			result.Success = false
+			result.Error = fmt.Sprintf("target branch '%s' not found locally or on remote", targetBranch)
+			return result
+		}
 		// Try to fetch it from remote
 		if err := fetchBranch(ctx, repoPath, targetBranch); err != nil {
 			result.Success = false
@@ -423,15 +474,21 @@ func getCurrentBranch(ctx context.Context, repoPath string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-func branchExists(ctx context.Context, repoPath, branch string) bool {
-	cmd := exec.CommandContext(ctx, "git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
-	cmd.Dir = repoPath
-	return cmd.Run() == nil
+func localBranchExists(ctx context.Context, repoPath, branch string) bool {
+	branches := wsm.BuildBranchService(ctx)
+	exists, err := branches.LocalExists(ctx, repoPath, branchsvc.BranchName(branch))
+	return err == nil && exists
+}
+
+func remoteTrackingBranchExists(ctx context.Context, repoPath, branch string) bool {
+	branches := wsm.BuildBranchService(ctx)
+	exists, err := branches.RemoteTrackingExists(ctx, repoPath, branchsvc.DefaultRemoteName, branchsvc.BranchName(branch))
+	return err == nil && exists
 }
 
 func fetchBranch(ctx context.Context, repoPath, branch string) error {
-	// Try to fetch the branch from origin
-	cmd := exec.CommandContext(ctx, "git", "fetch", "origin", branch+":"+branch)
+	// Try to fetch the branch from default remote.
+	cmd := exec.CommandContext(ctx, "git", "fetch", string(branchsvc.DefaultRemoteName), branch+":"+branch)
 	cmd.Dir = repoPath
 	return cmd.Run()
 }

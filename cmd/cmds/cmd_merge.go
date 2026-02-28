@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
+	branchsvc "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -436,7 +437,8 @@ func rollbackMerges(ctx context.Context, workspace *wsm.Workspace, successfulMer
 			continue
 		}
 
-		if err := executeGitCommand(ctx, repoPath, "git", "reset", "--hard", "origin/"+workspace.BaseBranch); err != nil {
+		remoteBaseRef := branchsvc.RemoteTrackingRef(branchsvc.DefaultRemoteName, branchsvc.BranchName(workspace.BaseBranch))
+		if err := executeGitCommand(ctx, repoPath, "git", "reset", "--hard", remoteBaseRef); err != nil {
 			output.PrintWarning("    Failed to reset %s: %v", workspace.BaseBranch, err)
 			continue
 		}

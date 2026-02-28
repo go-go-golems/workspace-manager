@@ -107,3 +107,32 @@ func TestGoGitRemoteTrackingBranchExists(t *testing.T) {
 		t.Fatalf("expected missing branch to return false")
 	}
 }
+
+func TestGoGitCreateBranch_FromRemoteTrackingBaseRef(t *testing.T) {
+	clientPath := createRemoteBranchFixture(t)
+	c := NewGoGit()
+	ctx := context.Background()
+
+	h, err := c.Open(ctx, clientPath)
+	if err != nil {
+		t.Fatalf("open repo: %v", err)
+	}
+
+	if err := c.CreateBranch(ctx, h, "feature/from-remote", false, "origin/feature/remote-only"); err != nil {
+		t.Fatalf("create branch from remote tracking ref failed: %v", err)
+	}
+
+	current, err := c.CurrentBranch(ctx, h)
+	if err != nil {
+		t.Fatalf("current branch failed: %v", err)
+	}
+	if current != "feature/from-remote" {
+		t.Fatalf("expected current branch feature/from-remote, got %s", current)
+	}
+
+	headHash := runGitOrFail(t, clientPath, "rev-parse", "HEAD")
+	remoteHash := runGitOrFail(t, clientPath, "rev-parse", "origin/feature/remote-only")
+	if headHash != remoteHash {
+		t.Fatalf("expected HEAD %s to match origin/feature/remote-only %s", headHash, remoteHash)
+	}
+}
