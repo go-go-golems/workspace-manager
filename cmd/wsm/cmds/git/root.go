@@ -17,6 +17,11 @@ func Register(root *cobra.Command) error {
 		return errors.Wrap(err, "failed to build log command")
 	}
 
-	root.AddCommand(diffCmd, logCmd)
+	branchCmd, err := NewBranchCobraCommand()
+	if err != nil {
+		return errors.Wrap(err, "failed to build branch command")
+	}
+
+	root.AddCommand(diffCmd, logCmd, branchCmd)
 	return nil
 }

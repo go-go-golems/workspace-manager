@@ -80,7 +80,6 @@ func init() {
 		cmds.NewDeleteCommand(),
 
 		cmds.NewCommitCommand(),
-		cmds.NewBranchCommand(),
 		cmds.NewRebaseCommand(),
 	)
 
