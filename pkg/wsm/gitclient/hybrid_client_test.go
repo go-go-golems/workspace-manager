@@ -341,3 +341,22 @@ func TestHybridRemoteTrackingBranchExists_FallbackAndPropagation(t *testing.T) {
 		}
 	})
 }
+
+func TestHybridPush_FallbackOnRemoteNotFound(t *testing.T) {
+	ctx := context.Background()
+	repo := &hybridTestRepo{path: "/tmp/repo"}
+
+	primary := &hybridTestClient{
+		pushErr: errors.New("push: remote not found"),
+	}
+	fallback := &hybridTestClient{}
+	h := NewHybrid(primary, fallback)
+
+	err := h.Push(ctx, repo, "origin")
+	if err != nil {
+		t.Fatalf("expected nil fallback result, got: %v", err)
+	}
+	if fallback.pushCalls != 1 {
+		t.Fatalf("expected fallback push call count 1, got %d", fallback.pushCalls)
+	}
+}

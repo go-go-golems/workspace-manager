@@ -3,6 +3,7 @@ package gitclient
 import (
 	"context"
 	stderrors "errors"
+	"strings"
 )
 
 // HybridClient uses a primary client and falls back to a secondary client when
@@ -18,6 +19,17 @@ func NewHybrid(primary GitClient, fallback GitClient) *HybridClient {
 
 func shouldFallback(err error) bool {
 	return stderrors.Is(err, ErrNotImplemented)
+}
+
+func shouldFallbackPush(err error) bool {
+	if shouldFallback(err) {
+		return true
+	}
+	if err == nil {
+		return false
+	}
+	// go-git can fail to resolve remotes in worktree paths; CLI backend handles this reliably.
+	return strings.Contains(strings.ToLower(err.Error()), "remote not found")
 }
 
 func (h *HybridClient) Open(ctx context.Context, repoPath string) (RepositoryHandle, error) {
@@ -128,7 +140,7 @@ func (h *HybridClient) Fetch(ctx context.Context, repo RepositoryHandle, remote 
 }
 func (h *HybridClient) Push(ctx context.Context, repo RepositoryHandle, remote string) error {
 	err := h.primary.Push(ctx, repo, remote)
-	if shouldFallback(err) {
+	if shouldFallbackPush(err) {
 		return h.fallback.Push(ctx, repo, remote)
 	}
 	return err

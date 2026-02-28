@@ -202,6 +202,26 @@ func (c *CliGitClient) Push(ctx context.Context, repo RepositoryHandle, remote s
 		remote = "origin"
 	}
 	_, err := runGit(ctx, repo.Path(), "push", remote)
+	if err == nil {
+		return nil
+	}
+
+	// First push of a freshly created branch can fail under push.default=simple when no upstream exists.
+	// In that case, retry with explicit upstream setup.
+	lowerErr := strings.ToLower(err.Error())
+	if strings.Contains(lowerErr, "has no upstream branch") ||
+		strings.Contains(lowerErr, "no upstream branch") {
+		branch, branchErr := c.CurrentBranch(ctx, repo)
+		if branchErr != nil || branch == "" {
+			return err
+		}
+		_, upErr := runGit(ctx, repo.Path(), "push", "--set-upstream", remote, branch)
+		if upErr == nil {
+			return nil
+		}
+		return upErr
+	}
+
 	return err
 }
 
