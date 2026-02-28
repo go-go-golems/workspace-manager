@@ -28,6 +28,23 @@ The Workspace Manager is a command-line tool designed to manage multi-repository
 - **Go Workspace Integration**: Automatically creates `go.work` files for Go projects
 - **Status Tracking**: Monitors git status across all repositories in a workspace (logic in `pkg/wsm/status.go`)
 
+### Removed Command Surface (No Backward Compatibility)
+
+The following commands were intentionally removed from the CLI surface:
+
+- `sync`
+- `conflicts`
+- `pr`
+- `push`
+- `tmux`
+- `starship`
+
+Migration guidance:
+
+- Use `status`, `branch`, `rebase`, `commit --push`, `diff`, and `log` for retained workspace workflows.
+- Use direct `git`/`gh` commands for repository hosting and pull request operations.
+- Use external environment tooling for tmux and shell prompt configuration.
+
 
 ## Architecture
 
@@ -50,7 +67,7 @@ workspace-manager/
 │       ├── status.go        # Status checking operations
 │       ├── git_operations.go # Git operation utilities
 │       ├── git_utils.go     # Additional git utilities
-│       ├── sync_operations.go # Synchronization operations
+│       ├── sync_operations.go # Internal operations currently used by branch/log paths (subject to further split)
 │       ├── branch/          # Branch domain model + policy service
 │       │   ├── types.go
 │       │   ├── resolver.go

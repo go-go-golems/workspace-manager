@@ -10,11 +10,10 @@ WSM simplifies coordinated development across multiple related git repositories 
 - **🏗️ Workspace Creation**: Create coordinated workspaces with git worktrees for multi-repo development
 - **🔀 Fork & Merge Workflow**: Fork existing workspaces for feature development and merge back to parent branches
 - **📊 Status Tracking**: Monitor git status across all repositories in a workspace simultaneously
-- **🔄 Synchronized Operations**: Commit, push, and sync changes across multiple repositories with consistent messaging
+- **🔄 Workspace Git Operations**: Commit, diff, log, branch, and rebase across repositories
 - **🌿 Branch Management**: Coordinate branch operations across all workspace repositories
 - **🔧 Go Integration**: Automatic `go.work` file generation for Go projects
 - **🧹 Safe Cleanup**: Proper worktree removal and workspace cleanup
-- **💻 Tmux Integration**: Create and manage tmux sessions with profile-based configuration for each workspace
 - **⚙️ Setup Scripts**: Automatic execution of setup scripts from `.wsm/setup.sh` and `.wsm/setup.d/` directories
 - **📝 Metadata Files**: Automatic creation of `.wsm/wsm.json` with workspace information and environment variables
 
@@ -135,22 +134,7 @@ wsm status
 
 Navigate to your workspace directory (default: `~/workspaces/YYYY-MM-DD/my-feature/`) and start coding. Each repository is available as a git worktree on your specified branch.
 
-### 5. Start a Tmux Session
-
-Create or attach to a tmux session for your workspace:
-
-```bash
-# Create/attach to tmux session for current workspace
-wsm tmux
-
-# Create/attach to tmux session for specific workspace
-wsm tmux my-feature
-
-# Use a specific profile configuration
-wsm tmux my-feature --profile development
-```
-
-### 6. Merge and Clean Up
+### 5. Merge and Clean Up
 
 When you're done with your work, merge the fork back to its parent branch:
 
@@ -219,33 +203,11 @@ wsm remove <workspace-name> <repo-name>
 wsm status [workspace-name]
 ```
 
-### Tmux Integration
-
-```bash
-# Create or attach to tmux session for current workspace
-wsm tmux
-
-# Create or attach to tmux session for specific workspace
-wsm tmux <workspace-name>
-
-# Use specific profile configuration
-wsm tmux [workspace-name] --profile <profile-name>
-```
-
 ### Git Operations
 
 ```bash
 # Commit changes across workspace repositories
 wsm commit -m "Your commit message"
-
-# Push workspace branches
-wsm push [remote]
-
-# Sync repositories (pull latest changes)
-wsm sync
-wsm sync all
-wsm sync pull
-wsm sync push
 
 # Show diff across repositories
 wsm diff
@@ -263,12 +225,23 @@ wsm branch list
 wsm rebase
 ```
 
-### Pull Request Management
+### Removed Commands and Migration
 
-```bash
-# Create pull requests for workspace branches
-wsm pr
-```
+The following commands were intentionally removed with no backward compatibility:
+
+- `wsm sync`
+- `wsm conflicts`
+- `wsm push`
+- `wsm pr`
+- `wsm tmux`
+- `wsm starship`
+
+Use these replacements:
+
+- For workspace-wide coordination: `wsm status`, `wsm branch`, `wsm rebase`, `wsm commit --push`
+- For conflict handling: `wsm rebase status|continue|abort`, plus `git mergetool` and `git add`
+- For pull requests and remote push workflows: use `gh` and `git` directly
+- For tmux and shell prompt setup: use your environment/tooling directly
 
 ## Configuration
 
@@ -285,8 +258,6 @@ Each workspace includes:
 - **`.wsm/wsm.json`**: Metadata file with workspace information and environment variables
 - **`.wsm/setup.sh`**: Optional setup script executed after workspace creation/fork
 - **`.wsm/setup.d/`**: Directory for multiple setup scripts (executed in lexical order)
-- **`.wsm/tmux.conf`**: Default tmux configuration for the workspace
-- **`.wsm/profiles/PROFILE/tmux.conf`**: Profile-specific tmux configurations
 
 ### Environment Variables
 
@@ -313,17 +284,11 @@ wsm discover ~/projects/microservices --recursive
 # Create workspace for feature development
 wsm create user-auth-feature --repos api-gateway,user-service,auth-service --branch feature/oauth-integration
 
-# Start tmux session with development profile
-wsm tmux user-auth-feature --profile development
-
 # Check status across all services
 wsm status
 
 # Commit changes with consistent message
 wsm commit -m "Add OAuth integration across services"
-
-# Push all branches
-wsm push origin
 
 # Merge back to main when done
 wsm merge
@@ -343,8 +308,6 @@ cat go.work
 # use ./shared-models  
 # use ./migration-tools
 
-# Start tmux session for the workspace
-wsm tmux refactor-database
 ```
 
 ### Library and Application Development
@@ -352,9 +315,6 @@ wsm tmux refactor-database
 ```bash
 # Work on library and its dependent applications simultaneously
 wsm create library-update --repos core-lib,web-app,cli-tool --branch feature/api-v2
-
-# Start tmux session
-wsm tmux library-update
 
 # Make changes to library
 cd ~/workspaces/2025-01-15/library-update/core-lib
@@ -379,9 +339,6 @@ wsm create main-project --repos app,lib,api --branch main
 # Fork for feature development
 wsm fork feature-auth main-project
 # Creates: task/feature-auth branch from main
-
-# Start tmux session for the feature
-wsm tmux feature-auth
 
 # Work on the feature...
 cd ~/workspaces/2025-01-15/feature-auth/
@@ -434,27 +391,6 @@ echo "Repositories: $WSM_WORKSPACE_REPOS"
 npm install
 ```
 
-### Tmux Profiles and Configuration
-
-Create profile-specific tmux configurations:
-
-```bash
-# Use development profile
-wsm tmux my-workspace --profile development
-
-# Use testing profile
-wsm tmux my-workspace --profile testing
-```
-
-Example tmux.conf (`.wsm/profiles/development/tmux.conf`):
-```
-# Development profile tmux configuration
-new-window -n "editor" "vim ."
-new-window -n "server" "npm run dev"
-new-window -n "tests" "npm run test:watch"
-split-window -h "tail -f logs/app.log"
-```
-
 ### Agent Configuration
 
 Copy an `AGENT.md` file to your workspace for AI coding assistants:
@@ -488,9 +424,8 @@ WSM leverages **git worktrees** to create efficient multi-repository workspaces:
 4. **Fork & Merge**: Fork workspaces for feature development and merge back to parent branches
 5. **Branch Coordination**: Ensures all repositories are on the same branch (creates if needed)
 6. **Go Integration**: Automatically generates `go.work` files for Go projects
-7. **Tmux Integration**: Creates and manages tmux sessions with profile-based configurations
-8. **Status Tracking**: Monitors git status across all workspace repositories
-9. **Safe Operations**: Provides rollback mechanisms and proper cleanup
+7. **Status Tracking**: Monitors git status across all workspace repositories
+8. **Safe Operations**: Provides rollback mechanisms and proper cleanup
 
 ### Why Git Worktrees?
 

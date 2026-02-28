@@ -27,20 +27,20 @@
 
 ## Phase 3: Consolidation and Messaging Cleanup
 
-- [ ] Update root command long help text to remove sync/tmux/GitHub-specific claims
-- [ ] Update README command matrix and examples to remove removed verbs
-- [ ] Update IMPLEMENTATION guide command documentation to remove removed verbs
-- [ ] Add migration notes:
-- [ ] `sync` -> use `status`, `rebase`, `branch`, `commit --push`, direct git as needed
-- [ ] `conflicts` -> use `rebase status/continue/abort` plus direct `git mergetool` / `git add`
-- [ ] `pr`/`push` -> use native `gh`/`git` directly outside WSM
-- [ ] `tmux`/`starship` -> out of WSM scope
+- [x] Update root command long help text to remove sync/tmux/GitHub-specific claims
+- [x] Update README command matrix and examples to remove removed verbs
+- [x] Update IMPLEMENTATION guide command documentation to remove removed verbs
+- [x] Add migration notes:
+- [x] `sync` -> use `status`, `rebase`, `branch`, `commit --push`, direct git as needed
+- [x] `conflicts` -> use `rebase status/continue/abort` plus direct `git mergetool` / `git add`
+- [x] `pr`/`push` -> use native `gh`/`git` directly outside WSM
+- [x] `tmux`/`starship` -> out of WSM scope
 
 ## Phase 4: Build/Test Validation
 
 - [x] Run `go test ./cmd/... ./pkg/...` and capture failures
-- [ ] Run `go test ./...` and capture full-project baseline
-- [ ] Verify `wsm --help` no longer lists removed commands
+- [x] Run `go test ./...` and capture full-project baseline
+- [x] Verify `wsm --help` no longer lists removed commands
 
 ## Phase 5: Diary, Commits, and Publishing
 
