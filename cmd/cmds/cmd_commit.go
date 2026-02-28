@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
-	"os"
-	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -110,28 +108,6 @@ func runCommit(ctx context.Context, message string, interactive, addAll, push, d
 	}
 
 	return nil
-}
-
-// detectCurrentWorkspace detects the current workspace
-func detectCurrentWorkspace() (*wsm.Workspace, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get current directory")
-	}
-
-	// Try to find workspace by checking if we're in a workspace directory
-	workspaces, err := wsm.LoadWorkspaces()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to load workspaces")
-	}
-
-	for _, workspace := range workspaces {
-		if strings.HasPrefix(cwd, workspace.Path) {
-			return &workspace, nil
-		}
-	}
-
-	return nil, errors.New("not in a workspace directory. Run command from within a workspace")
 }
 
 // selectChangesInteractively allows user to select files interactively

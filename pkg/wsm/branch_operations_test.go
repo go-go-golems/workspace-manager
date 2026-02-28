@@ -5,16 +5,16 @@ import (
 	"testing"
 )
 
-func TestSyncSwitchBranch_RemoteTrackingBranch_BackendMatrix(t *testing.T) {
+func TestBranchSwitch_RemoteTrackingBranch_BackendMatrix(t *testing.T) {
 	ctx := context.Background()
 
 	for _, backend := range []string{"cli", "gogit", "hybrid"} {
 		t.Run(backend, func(t *testing.T) {
 			t.Setenv("WSM_GIT_BACKEND", backend)
 			repoPath := createWorkspaceBranchFixture(t)
-			so := &SyncOperations{workspace: &Workspace{}}
+			bo := &BranchOperations{workspace: &Workspace{}}
 
-			result := so.switchBranchInRepository(ctx, "repo", repoPath, "feature/remote-only")
+			result := bo.switchBranchInRepository(ctx, "repo", repoPath, "feature/remote-only")
 			if !result.Success {
 				t.Fatalf("expected success, got error: %s", result.Error)
 			}
@@ -27,12 +27,12 @@ func TestSyncSwitchBranch_RemoteTrackingBranch_BackendMatrix(t *testing.T) {
 	}
 }
 
-func TestSyncSwitchBranch_MissingBranchCreatesFromHead(t *testing.T) {
+func TestBranchSwitch_MissingBranchCreatesFromHead(t *testing.T) {
 	ctx := context.Background()
 	repoPath := createWorkspaceBranchFixture(t)
-	so := &SyncOperations{workspace: &Workspace{}}
+	bo := &BranchOperations{workspace: &Workspace{}}
 
-	result := so.switchBranchInRepository(ctx, "repo", repoPath, "feature/new-local")
+	result := bo.switchBranchInRepository(ctx, "repo", repoPath, "feature/new-local")
 	if !result.Success {
 		t.Fatalf("expected success, got error: %s", result.Error)
 	}

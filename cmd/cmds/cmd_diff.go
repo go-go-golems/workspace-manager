@@ -95,7 +95,7 @@ func runLog(ctx context.Context, since string, oneline bool, limit int) error {
 		return errors.Wrap(err, "failed to detect current workspace")
 	}
 
-	syncOps := wsm.NewSyncOperations(workspace)
+	historyOps := wsm.NewHistoryOperations(workspace)
 
 	output.PrintHeader("📜 Commit history for workspace: %s", workspace.Name)
 	if since != "" {
@@ -103,7 +103,7 @@ func runLog(ctx context.Context, since string, oneline bool, limit int) error {
 	}
 	fmt.Println()
 
-	logs, err := syncOps.GetWorkspaceLog(ctx, since, oneline, limit)
+	logs, err := historyOps.GetWorkspaceLog(ctx, since, oneline, limit)
 	if err != nil {
 		return errors.Wrap(err, "failed to get workspace log")
 	}

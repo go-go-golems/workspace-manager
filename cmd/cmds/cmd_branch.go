@@ -80,11 +80,11 @@ func runBranchCreate(ctx context.Context, branchName string, track bool) error {
 		return errors.Wrap(err, "failed to detect current workspace")
 	}
 
-	syncOps := wsm.NewSyncOperations(workspace)
+	branchOps := wsm.NewBranchOperations(workspace)
 
 	output.PrintHeader("🌿 Creating branch '%s' across workspace: %s", branchName, workspace.Name)
 
-	results, err := syncOps.CreateBranch(ctx, branchName, track)
+	results, err := branchOps.CreateBranch(ctx, branchName, track)
 	if err != nil {
 		return errors.Wrap(err, "branch creation failed")
 	}
@@ -98,11 +98,11 @@ func runBranchSwitch(ctx context.Context, branchName string) error {
 		return errors.Wrap(err, "failed to detect current workspace")
 	}
 
-	syncOps := wsm.NewSyncOperations(workspace)
+	branchOps := wsm.NewBranchOperations(workspace)
 
 	output.PrintHeader("🔄 Switching to branch '%s' across workspace: %s", branchName, workspace.Name)
 
-	results, err := syncOps.SwitchBranch(ctx, branchName)
+	results, err := branchOps.SwitchBranch(ctx, branchName)
 	if err != nil {
 		return errors.Wrap(err, "branch switch failed")
 	}
@@ -166,7 +166,7 @@ func runBranchList(ctx context.Context) error {
 	return nil
 }
 
-func printBranchResults(results []wsm.SyncResult, operation string) error {
+func printBranchResults(results []wsm.BranchOperationResult, operation string) error {
 	if len(results) == 0 {
 		output.PrintInfo("No repositories found.")
 		return nil
