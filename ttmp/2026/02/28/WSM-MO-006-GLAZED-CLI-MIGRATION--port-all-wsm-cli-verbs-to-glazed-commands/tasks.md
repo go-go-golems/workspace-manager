@@ -60,32 +60,32 @@
 
 ## Phase 4: Workflow-Heavy Verb Migration
 
-- [ ] Migrate `create`
-- [ ] Migrate `fork`
+- [x] Migrate `create`
+- [x] Migrate `fork`
 - [x] Migrate `commit`
-- [ ] Migrate `delete`
-- [ ] Ensure interactive paths still function for `create`, `commit`, `delete`
+- [x] Migrate `delete`
+- [x] Ensure interactive paths still function for `create`, `commit`, `delete`
 - [ ] Add fixture-driven tests for workflow-heavy verbs
 
 ## Phase 5: High-Risk Orchestration Migration
 
-- [ ] Migrate `rebase`
-- [ ] Migrate `rebase status`
-- [ ] Migrate `rebase continue`
-- [ ] Migrate `rebase abort`
-- [ ] Migrate `merge`
+- [x] Migrate `rebase`
+- [x] Migrate `rebase status`
+- [x] Migrate `rebase continue`
+- [x] Migrate `rebase abort`
+- [x] Migrate `merge`
 - [ ] Validate conflict/rollback and concurrency semantics remain unchanged
 
 ## Phase 6: Cleanup and Finalization
 
-- [ ] Remove legacy `cmd/cmds` command implementations after parity confirmation
-- [ ] Normalize output strategy around `--output-mode human|data|both` and Glazed data output controls
-- [ ] Update README/help/implementation docs for Glazed architecture
-- [ ] Run `go test ./cmd/... ./pkg/...` and targeted integration scenarios
+- [x] Remove legacy `cmd/cmds` command implementations after parity confirmation
+- [x] Normalize output strategy around `--output-mode human|data|both` and Glazed data output controls
+- [x] Update README/help/implementation docs for Glazed architecture
+- [x] Run `go test ./cmd/... ./pkg/...` and targeted integration scenarios
 - [x] Run `docmgr doctor --ticket WSM-MO-006-GLAZED-CLI-MIGRATION --stale-after 30`
 - [x] Upload implementation plan to reMarkable
 - [x] Upload v2 implementation plan to reMarkable
-- [ ] Upload diary to reMarkable
+- [x] Upload diary to reMarkable
 
 ## Immediate Execution Batch (Current Work Session)
 

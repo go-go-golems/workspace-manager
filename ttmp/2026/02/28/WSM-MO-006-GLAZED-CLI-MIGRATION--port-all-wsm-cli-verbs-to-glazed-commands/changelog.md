@@ -16,6 +16,16 @@
 - Implemented additional Phase 3 medium command migrations (commit `e57bc54`): moved `git/diff` and `git/log` to Glazed commands and switched root registration away from legacy handlers.
 - Implemented remaining planned Phase 3 command migrations for branch operations (commit `0f3b95e`): moved `branch create`, `branch switch`, and `branch list` to Glazed subcommands under git group.
 - Implemented first Phase 4 workflow-heavy command migration (commit `a08684b`): moved `commit` to a Glazed command while preserving interactive selection flow.
+- Implemented remaining workflow/high-risk command migrations (commit `a40fc6c`): moved `workspace/create`, `workspace/fork`, `workspace/delete`, and `workspace/merge` to Glazed commands.
+- Implemented full rebase command migration (commit `bad17a2`): moved `rebase`, `rebase status`, `rebase continue`, and `rebase abort` to Glazed command hierarchy.
+- Completed cleanup cutover (commit `229bb14`): removed legacy `cmd/cmds` command implementations and updated top-level docs to the new command layout.
+- Expanded investigation diary with Step 11-13 to document the final migration wave (`a40fc6c`, `bad17a2`, `229bb14`) including validation details and known integration-suite caveat.
+- Re-ran ticket hygiene check: `docmgr doctor --ticket WSM-MO-006-GLAZED-CLI-MIGRATION --stale-after 30` reports all checks passing.
+- Uploaded updated investigation diary to reMarkable path `/ai/2026/02/28/WSM-MO-006-GLAZED-CLI-MIGRATION`.
+- Validation snapshot:
+  - `go test ./cmd/... ./pkg/... -count=1` passes
+  - `go test ./... -count=1` still fails in integration scenarios with pre-existing sandbox/config isolation issue (`discover` sees host registry and `create` fails opening repo worktrees)
+  - `go run ./cmd/wsm --help` shows all verbs served from migrated command groups.
 
 ### Related Files
 
@@ -32,3 +42,9 @@
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/log.go — Migrated `log` Glazed command
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/branch.go — Migrated `branch create/switch/list` Glazed subcommands
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/commit.go — Migrated `commit` Glazed command
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/workspace/create.go — Migrated `create` Glazed command
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/workspace/fork.go — Migrated `fork` Glazed command
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/workspace/delete.go — Migrated `delete` Glazed command
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/workspace/merge.go — Migrated `merge` Glazed command
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/rebase.go — Migrated `rebase*` Glazed commands
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/cmds — Legacy command layer removed

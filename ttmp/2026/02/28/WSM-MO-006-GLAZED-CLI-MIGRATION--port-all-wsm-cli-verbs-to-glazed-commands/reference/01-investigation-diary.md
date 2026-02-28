@@ -26,7 +26,7 @@ ExternalSources:
     - /home/manuel/.codex/skills/diary/SKILL.md
     - /home/manuel/.codex/skills/remarkable-upload/SKILL.md
 Summary: Detailed execution diary for planning and implementing WSM-MO-006 command migration to Glazed.
-LastUpdated: 2026-02-28T20:35:00-05:00
+LastUpdated: 2026-02-28T17:07:31-05:00
 WhatFor: Track exactly how the Glazed migration plan and implementation steps were produced, validated, and committed.
 WhenToUse: Use when reviewing planning decisions or continuing implementation from this ticket.
 ---
@@ -743,3 +743,217 @@ The only notable compatibility adjustment was renaming the legacy `--template` c
   - overall commit execution summary,
   - per-repository file selection detail rows,
   - status-specific rows for no changes/no selection states.
+
+## Step 11: Migrate Remaining Workspace Verbs (`create`, `fork`, `delete`, `merge`)
+
+I completed the remaining workspace command ports in one concentrated batch so the workspace command group would be internally consistent and no longer split between Glazed and legacy implementations. This migrated all four remaining workspace verbs plus shared helper logic used by those commands.
+
+The migration preserved existing workflow delegation and interactive behavior while adding explicit data-row emission for machine-readable output modes.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 6)
+
+**Assistant interpretation:** Continue Phase 4/5 migration by finishing all remaining workspace-level verbs in Glazed.
+
+**Inferred user intent:** Remove remaining legacy workspace command registrations and keep behavior parity while progressing task-by-task.
+
+**Commit (code):** `a40fc6c` - "wsm: migrate workspace create/fork/delete/merge to glazed"
+
+### What I did
+- Added shared helpers in `cmd/wsm/cmds/workspace/helpers.go` for repeated option parsing and row construction.
+- Added Glazed command implementations:
+  - `cmd/wsm/cmds/workspace/create.go`
+  - `cmd/wsm/cmds/workspace/fork.go`
+  - `cmd/wsm/cmds/workspace/delete.go`
+  - `cmd/wsm/cmds/workspace/merge.go`
+- Updated `cmd/wsm/cmds/workspace/root.go` to register all new verbs.
+- Updated `cmd/wsm/root.go` to remove legacy registrations for `create`, `fork`, `delete`, and `merge`.
+- Validated with:
+  - `gofmt -w cmd/wsm/cmds/workspace/*.go cmd/wsm/root.go`
+  - `go test ./cmd/wsm/... ./pkg/... -count=1`
+  - `go run ./cmd/wsm create --help`
+  - `go run ./cmd/wsm merge --help`
+
+### Why
+- These were the remaining workspace verbs still served by `cmd/cmds`.
+- Completing them unblocked full legacy layer removal in later cleanup.
+
+### What worked
+- All four commands migrated cleanly with preserved workflow boundaries.
+- Root registration became simpler because workspace verbs now come from one group root.
+- Command/package tests remained green after the cutover.
+
+### What didn't work
+- N/A for this step.
+
+### What I learned
+- Small shared helpers in the command group prevent duplicated decode/row code without introducing cross-group coupling.
+
+### What was tricky to build
+- `merge` and `delete` still rely on lower-level workflow/internal printing for portions of human output, so strict "data-only means zero human text" is not fully enforceable yet.
+
+### What warrants a second pair of eyes
+- Data-mode purity for workflow-heavy commands should be reviewed once workflow internals emit structured events rather than direct prints.
+
+### What should be done in the future
+- Add fixture-driven tests for workflow-heavy verbs as listed in open tasks.
+
+### Code review instructions
+- Review:
+  - `cmd/wsm/cmds/workspace/helpers.go`
+  - `cmd/wsm/cmds/workspace/create.go`
+  - `cmd/wsm/cmds/workspace/fork.go`
+  - `cmd/wsm/cmds/workspace/delete.go`
+  - `cmd/wsm/cmds/workspace/merge.go`
+  - `cmd/wsm/cmds/workspace/root.go`
+  - `cmd/wsm/root.go`
+- Validate:
+  - `go test ./cmd/wsm/... ./pkg/... -count=1`
+  - `go run ./cmd/wsm create --help`
+  - `go run ./cmd/wsm merge --help`
+
+### Technical details
+- This step removed all remaining legacy workspace verb registrations from root wiring.
+- Shared helper extraction reduced repeated output-row shape logic across new workspace command files.
+
+## Step 12: Migrate Full `rebase` Command Tree to Glazed
+
+I then migrated the entire rebase command family (`rebase`, `rebase status`, `rebase continue`, `rebase abort`) into the git command group. This was the final high-risk command surface still depending on the legacy layer.
+
+With this step complete, `cmd/wsm/root.go` no longer needed any legacy `cmd/cmds` registrations at all.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 6)
+
+**Assistant interpretation:** Continue migration through the highest-risk command set and finish the remaining legacy command dependencies.
+
+**Inferred user intent:** Reach full Glazed command coverage for all retained verbs.
+
+**Commit (code):** `bad17a2` - "wsm: migrate rebase commands to glazed"
+
+### What I did
+- Added `cmd/wsm/cmds/git/rebase.go`:
+  - parent `rebase` command implementation,
+  - subcommands `status`, `continue`, `abort`,
+  - settings decode and output-mode handling.
+- Updated `cmd/wsm/cmds/git/root.go` to register the `rebase` parent/subcommands.
+- Updated `cmd/wsm/root.go`:
+  - removed final legacy `cmds.NewRebaseCommand` registration,
+  - removed the `cmd/cmds` import entirely.
+- Validated:
+  - `gofmt -w cmd/wsm/cmds/git/rebase.go cmd/wsm/cmds/git/root.go cmd/wsm/root.go`
+  - `go test ./cmd/wsm/... ./pkg/... -count=1`
+  - `go run ./cmd/wsm rebase --help`
+  - `go run ./cmd/wsm rebase status --help`
+
+### Why
+- Rebase is one of the highest behavioral risk areas; migrating it was required before deleting the legacy command package.
+- Removing the last `cmd/cmds` reference in root was a key architecture milestone.
+
+### What worked
+- Rebase command hierarchy registered correctly under the git group.
+- Help and package tests passed after migration.
+- Root wiring became fully Glazed-driven for all retained verbs.
+
+### What didn't work
+- N/A for this step.
+
+### What I learned
+- The dual output pattern remains viable even for complex multi-step workflows when command responsibilities are kept to decode/delegate/report.
+
+### What was tricky to build
+- `rebase` has more conflict/rollback semantics than other commands, so row output shape had to include enough operation-state detail for automation while still preserving existing human workflow output.
+
+### What warrants a second pair of eyes
+- Conflict and rollback behavior should still get targeted integration coverage before declaring full parity.
+
+### What should be done in the future
+- Add rebase conflict/rollback parity tests (still open in Phase 5 tasks).
+
+### Code review instructions
+- Review:
+  - `cmd/wsm/cmds/git/rebase.go`
+  - `cmd/wsm/cmds/git/root.go`
+  - `cmd/wsm/root.go`
+- Validate:
+  - `go test ./cmd/wsm/... ./pkg/... -count=1`
+  - `go run ./cmd/wsm rebase --help`
+  - `go run ./cmd/wsm rebase status --help`
+
+### Technical details
+- This step eliminated the final root-level dependency on the legacy command package.
+- Rebase subcommands now live under `cmd/wsm/cmds/git/` with unified runtime/output behavior.
+
+## Step 13: Remove Legacy `cmd/cmds`, Update Top-Level Docs, and Revalidate
+
+After all verb migrations were complete, I removed the legacy command layer entirely and updated top-level documentation to reflect the new architecture. This cutover made `cmd/wsm/cmds/<group>/<verb>.go` the single command implementation surface.
+
+I also re-ran validation. Command/package tests pass, while full integration suite still shows the previously observed environment isolation issue unrelated to the command migration itself.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 6)
+
+**Assistant interpretation:** Finish the migration endgame: remove legacy layer, align docs, and verify the repository state.
+
+**Inferred user intent:** Land a clean architecture cutover with explicit validation evidence and no half-migrated command surface.
+
+**Commit (code):** `229bb14` - "refactor: remove legacy cmd/cmds command layer"
+
+### What I did
+- Removed legacy package with:
+  - `git rm -r cmd/cmds`
+- Updated top-level docs:
+  - `README.md`
+  - `IMPLEMENTATION.md`
+- Revalidated command behavior and tests:
+  - `go test ./cmd/... ./pkg/... -count=1` (pass)
+  - `go run ./cmd/wsm --help` (pass, all verbs present)
+  - `go test ./... -count=1` (fails in integration scenarios; same pre-existing isolation issue pattern)
+- Updated ticket checklist/changelog to reflect cleanup completion and test status.
+
+### Why
+- Keeping `cmd/cmds` after full migration would leave duplicate architecture and maintenance overhead.
+- Documentation needed to match the implemented layout for future contributors and intern onboarding.
+
+### What worked
+- Legacy command layer was removed without breaking command/package test coverage.
+- Root help confirms all verbs are now served by the new Glazed command tree.
+- Docs now describe the new layout rather than the old hybrid architecture.
+
+### What didn't work
+- Full-suite integration failures persist:
+  - command: `go test ./... -count=1`
+  - representative symptoms:
+    - discover reporting unexpectedly high host repo counts in sandbox runs,
+    - create/open operations failing with `open repo: repository does not exist`.
+  - likely cause remains test environment/config path isolation, not command wiring regression.
+
+### What I learned
+- The migration itself is cleanly separable from integration harness environment issues; package-level command/workflow tests provide reliable migration confidence while full-suite isolation is being fixed.
+
+### What was tricky to build
+- Removing an entire package safely required ensuring every root registration and import path had already been cut over; otherwise stale references would only surface at compile/runtime late in the process.
+
+### What warrants a second pair of eyes
+- Integration test harness setup for config/registry isolation should be audited before using full-suite outcomes as migration regression signals.
+
+### What should be done in the future
+- Triage and fix integration sandbox/config isolation issue in a dedicated follow-up ticket.
+
+### Code review instructions
+- Review:
+  - `cmd/wsm/root.go`
+  - `README.md`
+  - `IMPLEMENTATION.md`
+  - deleted legacy files under `cmd/cmds/`
+- Validate:
+  - `go test ./cmd/... ./pkg/... -count=1`
+  - `go run ./cmd/wsm --help`
+  - optionally `go test ./... -count=1` to reproduce known isolation failures
+
+### Technical details
+- Post-cutover command source-of-truth is exclusively under `cmd/wsm/cmds/`.
+- Full-suite integration failures remain a known pre-existing issue and are documented in changelog/task notes.
