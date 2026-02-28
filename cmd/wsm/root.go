@@ -82,8 +82,6 @@ func init() {
 		cmds.NewCommitCommand(),
 		cmds.NewBranchCommand(),
 		cmds.NewRebaseCommand(),
-		cmds.NewDiffCommand(),
-		cmds.NewLogCommand(),
 	)
 
 	carapace.Gen(rootCmd)

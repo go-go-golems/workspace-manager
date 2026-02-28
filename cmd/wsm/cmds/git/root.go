@@ -1,8 +1,22 @@
 package git
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+)
 
-// Register is a placeholder for git command registration in later phases.
-func Register(_ *cobra.Command) error {
+// Register wires git-oriented commands into the root command.
+func Register(root *cobra.Command) error {
+	diffCmd, err := NewDiffCobraCommand()
+	if err != nil {
+		return errors.Wrap(err, "failed to build diff command")
+	}
+
+	logCmd, err := NewLogCobraCommand()
+	if err != nil {
+		return errors.Wrap(err, "failed to build log command")
+	}
+
+	root.AddCommand(diffCmd, logCmd)
 	return nil
 }
