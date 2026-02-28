@@ -308,8 +308,8 @@ func getLocalCommits(ctx context.Context, repoPath, remoteName, branch string) (
 
 	if err != nil {
 		// Remote branch might not exist, check if we have any commits to push
-		// by comparing against origin/main or just counting local commits
-		log.Debug().Err(err).Str("repoPath", repoPath).Str("remoteRef", remoteRef).Msg("Remote branch not found, checking against origin/main")
+		// by comparing against the default remote main branch or just counting local commits.
+		log.Debug().Err(err).Str("repoPath", repoPath).Str("remoteRef", remoteRef).Msg("Remote branch not found, checking against default remote main")
 
 		// Try to compare against default remote main
 		cmd = exec.CommandContext(ctx, "git", "rev-list", "--count", defaultMainRef+"..HEAD")

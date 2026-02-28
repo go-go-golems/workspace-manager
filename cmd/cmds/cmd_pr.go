@@ -40,8 +40,8 @@ This command will:
 
 A branch is considered to need a PR if:
 - It's not the main/master branch
-- It's not merged to origin/main yet
-- It has commits ahead of origin/main
+- It's not merged to the default remote main branch yet
+- It has commits ahead of the default remote main branch
 - If the branch doesn't exist on remote, it will be pushed first
 
 Requirements:
@@ -239,26 +239,26 @@ func checkIfNeedsPR(ctx context.Context, repoStatus wsm.RepositoryStatus, worksp
 		return candidate, false
 	}
 
-	// Skip if already merged to origin/main
+	// Skip if already merged to the default remote main branch.
 	if repoStatus.IsMerged {
-		log.Debug().Str("repository", candidate.Repository).Str("branch", candidate.Branch).Msg("Skipping: already merged to origin/main")
+		log.Debug().Str("repository", candidate.Repository).Str("branch", candidate.Branch).Msg("Skipping: already merged to default remote main")
 		return candidate, false
 	}
 
-	// Get ahead/behind counts against origin/main specifically for PR purposes
+	// Get ahead/behind counts against the default remote main branch for PR purposes.
 	aheadCount, behindCount, err := getAheadBehindOriginMain(ctx, candidate.RepoPath)
 	if err != nil {
-		log.Debug().Err(err).Str("repository", candidate.Repository).Str("branch", candidate.Branch).Msg("Failed to get ahead/behind counts against origin/main")
+		log.Debug().Err(err).Str("repository", candidate.Repository).Str("branch", candidate.Branch).Msg("Failed to get ahead/behind counts against default remote main")
 		// Fall back to the status ahead count
 		aheadCount = repoStatus.Ahead
 	}
 
 	candidate.CommitsAhead = aheadCount
-	log.Debug().Str("repository", candidate.Repository).Str("branch", candidate.Branch).Int("ahead", aheadCount).Int("behind", behindCount).Msg("Repository commits against origin/main")
+	log.Debug().Str("repository", candidate.Repository).Str("branch", candidate.Branch).Int("ahead", aheadCount).Int("behind", behindCount).Msg("Repository commits against default remote main")
 
-	// Skip if no commits ahead of origin/main
+	// Skip if no commits ahead of the default remote main branch.
 	if aheadCount == 0 {
-		log.Debug().Str("repository", candidate.Repository).Str("branch", candidate.Branch).Msg("Skipping: no commits ahead of origin/main")
+		log.Debug().Str("repository", candidate.Repository).Str("branch", candidate.Branch).Msg("Skipping: no commits ahead of default remote main")
 		return candidate, false
 	}
 
@@ -287,12 +287,12 @@ func checkIfNeedsPR(ctx context.Context, repoStatus wsm.RepositoryStatus, worksp
 func getAheadBehindOriginMain(ctx context.Context, repoPath string) (int, int, error) {
 	originMain := branchsvc.RemoteTrackingRef(branchsvc.DefaultRemoteName, branchsvc.BranchName("main"))
 
-	// Get ahead/behind counts against origin/main
+	// Get ahead/behind counts against the default remote main branch.
 	cmd := exec.CommandContext(ctx, "git", "rev-list", "--left-right", "--count", "HEAD..."+originMain)
 	cmd.Dir = repoPath
 	output, err := cmd.Output()
 	if err != nil {
-		log.Debug().Err(err).Str("repoPath", repoPath).Msg("Failed to get ahead/behind counts against origin/main")
+		log.Debug().Err(err).Str("repoPath", repoPath).Msg("Failed to get ahead/behind counts against default remote main")
 		return 0, 0, err
 	}
 
@@ -312,7 +312,7 @@ func getAheadBehindOriginMain(ctx context.Context, repoPath string) (int, int, e
 		behind = behindVal
 	}
 
-	log.Debug().Str("repoPath", repoPath).Int("ahead", ahead).Int("behind", behind).Msg("Got ahead/behind counts against origin/main")
+	log.Debug().Str("repoPath", repoPath).Int("ahead", ahead).Int("behind", behind).Msg("Got ahead/behind counts against default remote main")
 	return ahead, behind, nil
 }
 

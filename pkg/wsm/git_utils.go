@@ -20,7 +20,7 @@ func getGitCurrentBranch(ctx context.Context, path string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-// CheckBranchMerged checks if the current branch has been merged to origin/main
+// CheckBranchMerged checks if the current branch has been merged to the default remote main branch.
 func CheckBranchMerged(ctx context.Context, path string) (bool, error) {
 	originMain := branchsvc.RemoteTrackingRef(branchsvc.DefaultRemoteName, branchsvc.BranchName("main"))
 
@@ -38,12 +38,12 @@ func CheckBranchMerged(ctx context.Context, path string) (bool, error) {
 	fetchCmd.Dir = path
 	fetchErr := fetchCmd.Run()
 	if fetchErr != nil {
-		log.Debug().Err(fetchErr).Str("path", path).Msg("Failed to fetch origin/main - might be offline")
+		log.Debug().Err(fetchErr).Str("path", path).Msg("Failed to fetch default remote main - might be offline")
 	} else {
-		log.Debug().Str("path", path).Msg("Successfully fetched origin/main")
+		log.Debug().Str("path", path).Msg("Successfully fetched default remote main")
 	}
 
-	// Check if HEAD has been merged into origin/main
+	// Check if HEAD has been merged into the default remote main branch.
 	// This command returns 0 if the current HEAD is merged, non-zero otherwise
 	cmd := exec.CommandContext(ctx, "git", "merge-base", "--is-ancestor", "HEAD", originMain)
 	cmd.Dir = path
@@ -55,7 +55,7 @@ func CheckBranchMerged(ctx context.Context, path string) (bool, error) {
 	return merged, nil
 }
 
-// CheckBranchNeedsRebase checks if the current branch needs to be rebased on origin/main
+// CheckBranchNeedsRebase checks if the current branch needs to be rebased on the default remote main branch.
 func CheckBranchNeedsRebase(ctx context.Context, path string) (bool, error) {
 	originMain := branchsvc.RemoteTrackingRef(branchsvc.DefaultRemoteName, branchsvc.BranchName("main"))
 
@@ -79,18 +79,18 @@ func CheckBranchNeedsRebase(ctx context.Context, path string) (bool, error) {
 	fetchCmd.Dir = path
 	fetchErr := fetchCmd.Run()
 	if fetchErr != nil {
-		log.Debug().Err(fetchErr).Str("path", path).Msg("Failed to fetch origin/main - might be offline")
+		log.Debug().Err(fetchErr).Str("path", path).Msg("Failed to fetch default remote main - might be offline")
 	} else {
-		log.Debug().Str("path", path).Msg("Successfully fetched origin/main")
+		log.Debug().Str("path", path).Msg("Successfully fetched default remote main")
 	}
 
-	// Check if origin/main has new commits compared to the merge-base
-	// This tells us if origin/main has moved forward since we branched
+	// Check if remote main has new commits compared to the merge-base.
+	// This tells us if the base branch moved forward since we branched.
 	cmd := exec.CommandContext(ctx, "git", "rev-list", "--count", "HEAD.."+originMain)
 	cmd.Dir = path
 	output, err := cmd.Output()
 	if err != nil {
-		log.Debug().Err(err).Str("path", path).Msg("Failed to check for commits ahead on origin/main")
+		log.Debug().Err(err).Str("path", path).Msg("Failed to check for commits ahead on default remote main")
 		return false, err
 	}
 
