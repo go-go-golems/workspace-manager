@@ -13,6 +13,7 @@
 - Implemented remaining low-risk migration for `add` and `remove` (commit `b18b342`).
 - Verified root/help startup works without deprecated init warnings and validated command package tests with `go test ./cmd/wsm/... ./pkg/... -count=1`.
 - Implemented first Phase 3 medium command migration (commit `e879879`): `workspace/status` moved to Glazed command with dual output and legacy-human renderer parity.
+- Implemented additional Phase 3 medium command migrations (commit `e57bc54`): moved `git/diff` and `git/log` to Glazed commands and switched root registration away from legacy handlers.
 
 ### Related Files
 
@@ -25,3 +26,5 @@
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/workspace/add.go — Migrated `add` Glazed command
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/workspace/remove.go — Migrated `remove` Glazed command
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/workspace/status.go — Migrated `status` Glazed command
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/diff.go — Migrated `diff` Glazed command
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/log.go — Migrated `log` Glazed command

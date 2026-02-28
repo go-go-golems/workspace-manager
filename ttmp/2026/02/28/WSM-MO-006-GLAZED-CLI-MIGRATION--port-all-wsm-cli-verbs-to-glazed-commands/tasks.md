@@ -51,8 +51,8 @@
 ## Phase 3: Medium Verb Migration
 
 - [x] Migrate `status`
-- [ ] Migrate `diff`
-- [ ] Migrate `log`
+- [x] Migrate `diff`
+- [x] Migrate `log`
 - [ ] Migrate `branch create`
 - [ ] Migrate `branch switch`
 - [ ] Migrate `branch list`

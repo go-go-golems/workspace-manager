@@ -26,7 +26,7 @@ ExternalSources:
     - /home/manuel/.codex/skills/diary/SKILL.md
     - /home/manuel/.codex/skills/remarkable-upload/SKILL.md
 Summary: Detailed execution diary for planning and implementing WSM-MO-006 command migration to Glazed.
-LastUpdated: 2026-02-28T19:45:00-05:00
+LastUpdated: 2026-02-28T20:05:00-05:00
 WhatFor: Track exactly how the Glazed migration plan and implementation steps were produced, validated, and committed.
 WhenToUse: Use when reviewing planning decisions or continuing implementation from this ticket.
 ---
@@ -499,3 +499,92 @@ I then switched root registration from legacy `cmd/cmds` status wiring to the ne
   - repo identity,
   - branch/sync/conflict flags,
   - staged/modified/untracked counts and file lists.
+
+## Step 8: Continue Phase 3 with `diff` and `log` Migration
+
+I continued medium-command migration by moving `diff` and `log` into the new git command group. Both commands now follow the shared runtime/output contract while preserving existing human output semantics.
+
+This step also completed the transition of these two verbs away from `cmd/cmds`, with root registration now provided by `cmd/wsm/cmds/git/root.go`.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 6)
+
+**Assistant interpretation:** Continue task-by-task migration into remaining medium commands after `status`.
+
+**Inferred user intent:** Keep executing the approved implementation plan in small, verifiable increments.
+
+**Commit (code):** `e57bc54` — "wsm: migrate git diff and log to glazed commands"
+
+### What I did
+- Added new git command files:
+  - `cmd/wsm/cmds/git/diff.go`
+  - `cmd/wsm/cmds/git/log.go`
+  - `cmd/wsm/cmds/git/workspace_context.go`
+- Updated `cmd/wsm/cmds/git/root.go`:
+  - register `diff` and `log` as top-level verbs.
+- Updated `cmd/wsm/root.go`:
+  - removed legacy `cmds.NewDiffCommand()` and `cmds.NewLogCommand()` registration.
+- Implemented `diff` migration:
+  - decode `--staged`, `--repo`, `--jobs`,
+  - detect current workspace via shared workspace-context service,
+  - delegate to `wsm.NewGitOperations(...).GetDiffWithOptions(...)`,
+  - human path preserves header/summary output,
+  - data path emits row with diff payload and context fields.
+- Implemented `log` migration:
+  - decode `--since`, `--oneline`, `--limit`,
+  - detect current workspace,
+  - delegate to `wsm.NewHistoryOperations(...).GetWorkspaceLog(...)`,
+  - human path prints per-repo logs with sorted repo output,
+  - data path emits one row per repository with log payload.
+- Validated:
+  - `gofmt -w cmd/wsm/cmds/git/*.go cmd/wsm/root.go`
+  - `go test ./cmd/wsm/... ./pkg/... -count=1`
+  - `go run ./cmd/wsm diff --help`
+  - `go run ./cmd/wsm log --help`
+- Updated ticket docs:
+  - marked `diff` and `log` complete in `tasks.md`,
+  - added changelog entry for commit `e57bc54`.
+
+### Why
+- `diff` and `log` are planned next after `status` in Phase 3.
+- Completing these migrations reduces legacy command surface and validates the git group command pattern ahead of branch/rebase migration.
+
+### What worked
+- New git group root now owns `diff` and `log` registration cleanly.
+- Command/package tests remained green after migration.
+- Help surfaces show Glazed runtime/output controls consistently.
+
+### What didn't work
+- N/A for this step.
+
+### What I learned
+- Text-heavy commands can still fit the dual-output contract by carrying full text payloads in structured rows first, then refining schema granularity later.
+
+### What was tricky to build
+- `diff` and `log` outputs are inherently large strings; deciding between per-repo row splitting vs single payload rows required tradeoff. I chose simple payload rows now to avoid introducing fragile parsers.
+
+### What warrants a second pair of eyes
+- Potential size/performance impact of very large `diff`/`log` string fields in `data` mode when users select `json` output on large workspaces.
+
+### What should be done in the future
+- Consider follow-up schema refinement:
+  - `diff`: optional per-repo/per-hunk rows,
+  - `log`: optional parsed commit rows instead of raw text blocks.
+
+### Code review instructions
+- Review git command migration in order:
+  - `cmd/wsm/cmds/git/workspace_context.go`
+  - `cmd/wsm/cmds/git/diff.go`
+  - `cmd/wsm/cmds/git/log.go`
+  - `cmd/wsm/cmds/git/root.go`
+  - `cmd/wsm/root.go`
+- Validate:
+  - `go test ./cmd/wsm/... ./pkg/... -count=1`
+  - `go run ./cmd/wsm diff --help`
+  - `go run ./cmd/wsm log --help`
+
+### Technical details
+- Data row design for this step:
+  - `diff`: one row carrying command context + full diff string.
+  - `log`: one row per repository carrying command context + full repo log string.
