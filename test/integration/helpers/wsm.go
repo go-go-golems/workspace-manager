@@ -25,30 +25,34 @@ func (s *Sandbox) BuildWSM(t *testing.T, ctx context.Context) string {
 	return filepath.Join(outDir, "wsm")
 }
 
-// RunWSM executes the CLI; uses built binary if present, else go run.
+// RunWSM executes the CLI.
+// By default it builds/uses a sandbox-local binary to ensure tests exercise current source.
+// Set WSM_TEST_USE_PREBUILT=1 to opt into moduleRoot/.out/wsm when available.
 func (s *Sandbox) RunWSM(t *testing.T, ctx context.Context, workDir string, args ...string) RunResult {
 	t.Helper()
 	moduleRoot := s.projectRoot(t)
-	// Prefer prebuilt binary under module root .out from the Dagger build step
-	bin := filepath.Join(moduleRoot, ".out", "wsm")
-	var cmd *exec.Cmd
-	if ctx == nil {
-		// Don't use CommandContext when ctx is nil (it panics)
-		if _, err := os.Stat(bin); err == nil {
-			cmd = exec.Command(bin, args...)
-		} else {
-			cmd = exec.Command("go", append([]string{"run", "./cmd/wsm"}, args...)...)
-			cmd.Dir = moduleRoot
-		}
-	} else {
-		if _, err := os.Stat(bin); err == nil {
-			cmd = exec.CommandContext(ctx, bin, args...)
-		} else {
-			// fall back to go run
-			cmd = exec.CommandContext(ctx, "go", append([]string{"run", "./cmd/wsm"}, args...)...)
-			cmd.Dir = moduleRoot
+	useExternalPrebuilt := os.Getenv("WSM_TEST_USE_PREBUILT") == "1"
+	externalBin := filepath.Join(moduleRoot, ".out", "wsm")
+	localBin := filepath.Join(s.BaseDir, ".out", "wsm")
+
+	// Default path: build a fresh binary once per sandbox and execute that.
+	bin := localBin
+	if useExternalPrebuilt {
+		if _, err := os.Stat(externalBin); err == nil {
+			bin = externalBin
 		}
 	}
+	if _, err := os.Stat(bin); os.IsNotExist(err) {
+		bin = s.BuildWSM(t, ctx)
+	}
+
+	var cmd *exec.Cmd
+	if ctx == nil {
+		cmd = exec.Command(bin, args...)
+	} else {
+		cmd = exec.CommandContext(ctx, bin, args...)
+	}
+	cmd.Dir = moduleRoot
 	if workDir != "" {
 		cmd.Dir = workDir
 	}
@@ -102,13 +106,15 @@ func (s *Sandbox) projectRoot(t *testing.T) string {
 				}
 			}
 			parent := filepath.Dir(dir)
-			if parent == dir { break }
+			if parent == dir {
+				break
+			}
 			dir = parent
 		}
 	}
 	// Fallback to environment or current process CWD
-	if wd, err := os.Getwd(); err == nil { return wd }
+	if wd, err := os.Getwd(); err == nil {
+		return wd
+	}
 	return "."
 }
-
-
