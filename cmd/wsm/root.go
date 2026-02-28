@@ -78,7 +78,6 @@ func init() {
 		cmds.NewForkCommand(),
 		cmds.NewMergeCommand(),
 		cmds.NewDeleteCommand(),
-		cmds.NewStatusCommand(),
 
 		cmds.NewCommitCommand(),
 		cmds.NewBranchCommand(),

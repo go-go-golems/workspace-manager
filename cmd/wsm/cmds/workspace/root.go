@@ -22,6 +22,11 @@ func Register(root *cobra.Command) error {
 		return errors.Wrap(err, "failed to build remove command")
 	}
 
-	root.AddCommand(infoCmd, addCmd, removeCmd)
+	statusCmd, err := NewStatusCobraCommand()
+	if err != nil {
+		return errors.Wrap(err, "failed to build status command")
+	}
+
+	root.AddCommand(infoCmd, addCmd, removeCmd, statusCmd)
 	return nil
 }
