@@ -3,6 +3,9 @@ package main
 import (
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
 	"github.com/go-go-golems/workspace-manager/cmd/cmds"
+	gitcmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/git"
+	registrycmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/registry"
+	workspacecmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/workspace"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -39,7 +42,7 @@ Examples:
   # Interactive mode
   `,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return logging.InitLoggerFromViper()
+		return logging.InitLoggerFromCobra(cmd)
 	},
 }
 
@@ -48,23 +51,33 @@ func Execute() error {
 }
 
 func init() {
-	err := clay.InitViper("workspace-manager", rootCmd)
+	err := clay.InitGlazed("workspace-manager", rootCmd)
 	if err != nil {
 		output.PrintError("Failed to initialize configuration: %v", err)
-		log.Fatal().Err(err).Msg("Failed to initialize Viper")
+		log.Fatal().Err(err).Msg("Failed to initialize Glazed")
 	}
 
-	// Add all subcommands
+	if err := registrycmds.Register(rootCmd); err != nil {
+		output.PrintError("Failed to register registry commands: %v", err)
+		log.Fatal().Err(err).Msg("Failed to register registry commands")
+	}
+
+	if err := workspacecmds.Register(rootCmd); err != nil {
+		output.PrintError("Failed to register workspace commands: %v", err)
+		log.Fatal().Err(err).Msg("Failed to register workspace commands")
+	}
+
+	if err := gitcmds.Register(rootCmd); err != nil {
+		output.PrintError("Failed to register git commands: %v", err)
+		log.Fatal().Err(err).Msg("Failed to register git commands")
+	}
+
+	// Add legacy subcommands that have not yet migrated to cmd/wsm/cmds/<group>.
 	rootCmd.AddCommand(
-		cmds.NewDiscoverCommand(),
-		cmds.NewListCommand(),
 		cmds.NewCreateCommand(),
 		cmds.NewForkCommand(),
 		cmds.NewMergeCommand(),
-		cmds.NewAddCommand(),
-		cmds.NewRemoveCommand(),
 		cmds.NewDeleteCommand(),
-		cmds.NewInfoCommand(),
 		cmds.NewStatusCommand(),
 
 		cmds.NewCommitCommand(),
