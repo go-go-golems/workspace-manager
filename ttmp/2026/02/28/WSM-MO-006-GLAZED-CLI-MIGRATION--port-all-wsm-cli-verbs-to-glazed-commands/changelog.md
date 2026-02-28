@@ -32,6 +32,12 @@
   - full suite still has known non-migration failures:
     - `TestCommitPush` (`push: remote not found` in hybrid backend)
     - `TestRebaseHappyPath`/`TestSyncAheadBehind` (legacy `sync` command removed)
+- Resolved remaining full-suite failures (commit `070dcdb`):
+  - `HybridClient.Push` now falls back to CLI when go-git returns `remote not found` in worktree contexts,
+  - `CliGitClient.Push` retries first push with `--set-upstream` when branch upstream is missing,
+  - updated obsolete `sync` integration scenarios to current `rebase` command coverage.
+- Final validation update:
+  - `go test ./... -count=1` now passes end-to-end.
 - Validation snapshot:
   - `go test ./cmd/... ./pkg/... -count=1` passes
   - `go test ./... -count=1` still fails in integration scenarios with pre-existing sandbox/config isolation issue (`discover` sees host registry and `create` fails opening repo worktrees)

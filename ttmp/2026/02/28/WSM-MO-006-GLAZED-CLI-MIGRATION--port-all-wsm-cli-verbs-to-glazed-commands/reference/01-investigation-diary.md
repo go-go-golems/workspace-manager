@@ -26,7 +26,7 @@ ExternalSources:
     - /home/manuel/.codex/skills/diary/SKILL.md
     - /home/manuel/.codex/skills/remarkable-upload/SKILL.md
 Summary: Detailed execution diary for planning and implementing WSM-MO-006 command migration to Glazed.
-LastUpdated: 2026-02-28T17:26:39-05:00
+LastUpdated: 2026-02-28T17:48:10-05:00
 WhatFor: Track exactly how the Glazed migration plan and implementation steps were produced, validated, and committed.
 WhenToUse: Use when reviewing planning decisions or continuing implementation from this ticket.
 ---
@@ -1048,3 +1048,79 @@ I fixed the harness instead of weakening tests: sandbox env isolation was tighte
 ### Technical details
 - Structured-output coverage now explicitly asserts JSON row decoding for migrated command families.
 - Workflow-heavy parser helper intentionally extracts trailing JSON array from stdout to accommodate known human log leakage in data mode.
+
+## Step 15: Eliminate Final Full-Suite Failures (`commit --push` + Legacy `sync` Scenarios)
+
+After Step 14, the targeted migration matrix was green but `go test ./...` still failed in three places: `TestCommitPush` and two scenarios still calling removed `sync` commands. I closed these by fixing push fallback behavior in the git backend layer and rewriting the obsolete scenarios to current `rebase` flows.
+
+The result is a fully green test suite across the repository, including integration scenarios.
+
+### Prompt Context
+
+**User prompt (verbatim):** "yeah"
+
+**Assistant interpretation:** Proceed with the next immediate work items and complete the remaining failing integration cases.
+
+**Inferred user intent:** Move from "mostly complete" to fully passing and closed-out implementation status.
+
+**Commit (code):** `070dcdb` - "fix: stabilize push behavior and replace obsolete sync scenarios"
+
+### What I did
+- Updated `pkg/wsm/gitclient/hybrid_client.go`:
+  - added push-specific fallback logic for `remote not found` errors so hybrid backend can transparently recover to CLI in worktree contexts.
+- Updated `pkg/wsm/gitclient/hybrid_client_test.go`:
+  - added `TestHybridPush_FallbackOnRemoteNotFound` to lock fallback behavior.
+- Updated `pkg/wsm/gitclient/cli_client.go`:
+  - improved `Push` behavior to retry with `git push --set-upstream <remote> <branch>` when first push fails due missing upstream.
+- Rewrote outdated integration scenarios:
+  - `test/integration/scenarios/rebase_happy_test.go` now runs `wsm rebase --target main` and verifies no stopped-conflicts status.
+  - `test/integration/scenarios/sync_test.go` now validates `rebase` dry-run data output (renamed test to `TestRebaseDataModeDryRun`).
+- Ran validation:
+  - `go test ./pkg/wsm/gitclient -count=1`
+  - `go test ./test/integration/scenarios -run 'TestCommitPush|TestRebaseHappyPath|TestRebaseDataModeDryRun' -count=1`
+  - `go test ./... -count=1` (pass)
+
+### Why
+- `sync` command removal made old integration scenarios permanently invalid.
+- `commit --push` should work for freshly created feature branches; failing without upstream setup was a correctness gap in push handling.
+
+### What worked
+- Hybrid backend now successfully handles go-git worktree remote lookup limitations during push.
+- First-time branch pushes now establish upstream automatically and no longer fail under default git `push.default` behavior.
+- All previous full-suite failures are resolved.
+
+### What didn't work
+- Initial push fallback patch solved `remote not found` but exposed a second failure mode:
+  - `fatal: The current branch <name> has no upstream branch`.
+  - resolved by adding upstream-setup retry in `CliGitClient.Push`.
+
+### What I learned
+- In worktree-heavy workflows, backend fallback is not just for unimplemented features; backend-specific edge failures (like remote resolution) can be deterministic and should be explicitly handled.
+- Integration tests tied to removed commands must be rewritten quickly after command-surface changes; leaving them in place obscures real regressions.
+
+### What was tricky to build
+- Preserving strict hybrid semantics while adding targeted fallback:
+  - broad fallback-on-any-error could mask real failures,
+  - push-specific fallback for a known error string kept scope narrow and behavior predictable.
+
+### What warrants a second pair of eyes
+- Push fallback policy may deserve expansion/normalization across fetch/pull paths if more go-git worktree edge cases appear.
+
+### What should be done in the future
+- Consider codifying backend fallback policy by operation category (safe read, idempotent write, non-idempotent write) to make fallback decisions explicit and reviewable.
+
+### Code review instructions
+- Review:
+  - `pkg/wsm/gitclient/hybrid_client.go`
+  - `pkg/wsm/gitclient/hybrid_client_test.go`
+  - `pkg/wsm/gitclient/cli_client.go`
+  - `test/integration/scenarios/rebase_happy_test.go`
+  - `test/integration/scenarios/sync_test.go`
+- Validate:
+  - `go test ./pkg/wsm/gitclient -count=1`
+  - `go test ./test/integration/scenarios -run 'TestCommitPush|TestRebaseHappyPath|TestRebaseDataModeDryRun' -count=1`
+  - `go test ./... -count=1`
+
+### Technical details
+- Upstream setup retry is only triggered when push failure text indicates missing upstream branch.
+- `sync` scenario coverage has been fully transitioned to `rebase` command coverage consistent with current CLI surface.
