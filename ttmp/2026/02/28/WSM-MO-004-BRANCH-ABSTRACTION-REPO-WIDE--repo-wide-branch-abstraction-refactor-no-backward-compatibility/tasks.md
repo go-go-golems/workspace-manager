@@ -8,44 +8,44 @@
 
 ## Phase 1: Branch Domain Package
 
-- [ ] Create `pkg/wsm/branch/types.go` with `BranchName`, `RemoteName`, snapshot/request/plan types
-- [ ] Add enum types in `types.go`: `ResolutionMode`, `ResolutionStrategy`, `RemoteRefKind`
-- [ ] Create `pkg/wsm/branch/errors.go` with typed branch-domain errors
-- [ ] Create `pkg/wsm/branch/service.go` interface
-- [ ] Create `pkg/wsm/branch/resolver.go` deterministic strategy matrix
-- [ ] Add `pkg/wsm/branch/resolver_test.go` covering all strategy outcomes
+- [x] Create `pkg/wsm/branch/types.go` with `BranchName`, `RemoteName`, snapshot/request/plan types
+- [x] Add enum types in `types.go`: `ResolutionMode`, `ResolutionStrategy`, `RemoteRefKind`
+- [x] Create `pkg/wsm/branch/errors.go` with typed branch-domain errors
+- [x] Create `pkg/wsm/branch/service.go` interface
+- [x] Create `pkg/wsm/branch/resolver.go` deterministic strategy matrix
+- [x] Add `pkg/wsm/branch/resolver_test.go` covering all strategy outcomes
 
 ## Phase 2: GitClient Primitive API Refactor (Breaking)
 
-- [ ] Replace ambiguous branch methods in `pkg/wsm/gitclient/client.go` with explicit local/remote-tracking primitives
-- [ ] Add explicit primitive methods: `ListLocalBranches`, `ListRemoteTrackingBranches`, `LocalBranchExists`, `RemoteTrackingBranchExists`
-- [ ] Remove/deprecate old ambiguous branch-policy method usage in interface and call sites
-- [ ] Implement new primitives in `pkg/wsm/gitclient/cli_client.go`
-- [ ] Implement new primitives in `pkg/wsm/gitclient/gogit_client.go`
-- [ ] Implement fallback-aware primitives in `pkg/wsm/gitclient/hybrid_client.go`
-- [ ] Add/extend backend contract tests for all new primitive methods
+- [x] Replace ambiguous branch methods in `pkg/wsm/gitclient/client.go` with explicit local/remote-tracking primitives
+- [x] Add explicit primitive methods: `ListLocalBranches`, `ListRemoteTrackingBranches`, `LocalBranchExists`, `RemoteTrackingBranchExists`
+- [x] Remove/deprecate old ambiguous branch-policy method usage in interface and call sites
+- [x] Implement new primitives in `pkg/wsm/gitclient/cli_client.go`
+- [x] Implement new primitives in `pkg/wsm/gitclient/gogit_client.go`
+- [x] Implement fallback-aware primitives in `pkg/wsm/gitclient/hybrid_client.go`
+- [x] Add/extend backend contract tests for all new primitive methods
 
 ## Phase 3: Concrete BranchService
 
-- [ ] Implement `pkg/wsm/branch/service_impl.go`
-- [ ] Implement snapshot construction from backend primitives
-- [ ] Implement request validation + typed errors
-- [ ] Implement `Resolve` strategy generation per typed `ResolutionMode`
-- [ ] Ensure `BranchResolutionPlan` sets explicit `RemoteRefKind` for every strategy
-- [ ] Add `service_impl_test.go` with fixtures for local-only / remote-only / both / missing
+- [x] Implement `pkg/wsm/branch/service_impl.go`
+- [x] Implement snapshot construction from backend primitives
+- [x] Implement request validation + typed errors
+- [x] Implement `Resolve` strategy generation per typed `ResolutionMode`
+- [x] Ensure `BranchResolutionPlan` sets explicit `RemoteRefKind` for every strategy
+- [x] Add `service_impl_test.go` with fixtures for local-only / remote-only / both / missing
 
 ## Phase 4: WorkspaceManager Migration
 
-- [ ] Inject `BranchService` into `WorkspaceManager` struct and constructor path
-- [ ] Remove duplicated branch state logic in `createWorktree` and `CreateWorktreeForAdd`
-- [ ] Replace branch decision code with `BranchService.Resolve`
-- [ ] Remove or rewrite `CheckBranchExists` and `CheckRemoteBranchExists` to new semantics
-- [ ] Ensure all branch-related errors are propagated (no ignored `_` branch-result errors)
-- [ ] Add focused unit tests for workspace behavior against branch plan outcomes
+- [x] Inject `BranchService` into `WorkspaceManager` struct and constructor path
+- [x] Remove duplicated branch state logic in `createWorktree` and `CreateWorktreeForAdd`
+- [x] Replace branch decision code with `BranchService.Resolve`
+- [x] Remove or rewrite `CheckBranchExists` and `CheckRemoteBranchExists` to new semantics
+- [x] Ensure all branch-related errors are propagated (no ignored `_` branch-result errors)
+- [x] Add focused unit tests for workspace behavior against branch plan outcomes
 
 ## Phase 5: Repo-Wide Caller Migration
 
-- [ ] Audit and migrate branch-related logic in `pkg/wsm/discovery.go`
+- [x] Audit and migrate branch-related logic in `pkg/wsm/discovery.go`
 - [ ] Audit and migrate branch-related logic in `pkg/wsm/git_utils.go`
 - [ ] Audit and migrate branch-related logic in `pkg/wsm/sync_operations.go`
 - [ ] Audit and migrate branch-related logic in `pkg/wsm/rebase_operations.go` where applicable

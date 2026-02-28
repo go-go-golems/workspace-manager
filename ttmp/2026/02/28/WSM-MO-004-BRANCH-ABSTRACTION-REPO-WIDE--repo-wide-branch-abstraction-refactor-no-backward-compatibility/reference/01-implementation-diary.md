@@ -142,3 +142,49 @@ Documentation updates made:
 Execution plan update:
 
 - Implement enum-based domain package first, then enforce enum usage in resolver/service and workspace callers.
+
+## Step 6: Phase 1-4 Implementation (Enum-Based Branch Layer)
+
+### Code changes performed
+
+1. Added new package `pkg/wsm/branch`:
+   - `types.go` (typed enums + domain model)
+   - `errors.go`
+   - `service.go`
+   - `resolver.go`
+   - `service_impl.go`
+2. Added branch package tests:
+   - `resolver_test.go`
+   - `service_impl_test.go`
+3. Broke and refactored `GitClient` branch API to explicit primitives:
+   - `ListLocalBranches`
+   - `ListRemoteTrackingBranches`
+   - `RemoteTrackingBranchExists`
+4. Updated backend implementations:
+   - `pkg/wsm/gitclient/cli_client.go`
+   - `pkg/wsm/gitclient/gogit_client.go`
+   - `pkg/wsm/gitclient/hybrid_client.go`
+5. Updated backend test suite for renamed branch primitives.
+6. Migrated `WorkspaceManager` branch decision logic to `BranchService.Resolve`.
+7. Migrated `pkg/wsm/discovery.go` to `ListLocalBranches` for branch inventory.
+
+### Commands run
+
+```bash
+gofmt -w pkg/wsm/git_integration.go pkg/wsm/gitclient/client.go pkg/wsm/gitclient/cli_client.go pkg/wsm/gitclient/gogit_client.go pkg/wsm/gitclient/hybrid_client.go pkg/wsm/gitclient/hybrid_client_test.go pkg/wsm/gitclient/remote_branch_exists_test.go pkg/wsm/discovery.go pkg/wsm/workspace.go pkg/wsm/workspace_branch_test.go pkg/wsm/branch/types.go pkg/wsm/branch/errors.go pkg/wsm/branch/service.go pkg/wsm/branch/resolver.go pkg/wsm/branch/service_impl.go pkg/wsm/branch/resolver_test.go pkg/wsm/branch/service_impl_test.go
+
+go test ./pkg/wsm/branch -v
+go test ./pkg/wsm/gitclient -run 'Hybrid|RemoteTracking|RemoteBranch|List' -v
+go test ./pkg/wsm -run 'CheckRemoteBranchExists|ResolveBranch|CreateWorktreeForAdd' -v
+```
+
+### Results
+
+1. Branch package tests: PASS
+2. Gitclient targeted tests: PASS
+3. Workspace targeted tests: PASS
+
+### Notes
+
+- This phase intentionally introduced breaking `GitClient` branch APIs and updated current in-repo call sites used by workspace/discovery paths.
+- Wider command-layer branch policy migration remains open in Phase 5 tasks.

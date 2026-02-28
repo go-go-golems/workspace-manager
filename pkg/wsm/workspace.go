@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-go-golems/workspace-manager/pkg/output"
+	branchsvc "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm/gitclient"
 	"github.com/pkg/errors"
 )
@@ -21,6 +22,7 @@ type WorkspaceManager struct {
 	config       *WorkspaceConfig
 	Discoverer   *RepositoryDiscoverer
 	workspaceDir string
+	branches     branchsvc.Service
 }
 
 func getRegistryPath() (string, error) {
@@ -52,6 +54,7 @@ func NewWorkspaceManager() (*WorkspaceManager, error) {
 		config:       config,
 		Discoverer:   discoverer,
 		workspaceDir: config.WorkspaceDir,
+		branches:     BuildBranchService(context.Background()),
 	}, nil
 }
 
@@ -250,7 +253,7 @@ func (wm *WorkspaceManager) createWorkspaceStructure(ctx context.Context, worksp
 // createWorktree creates a git worktree for a repository
 func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Workspace, repo Repository) error {
 	targetPath := filepath.Join(workspace.Path, repo.Name)
-	gc, wtm := BuildGitBackends(ctx)
+	_, wtm := BuildGitBackends(ctx)
 
 	output.LogInfo(
 		fmt.Sprintf("Creating worktree for '%s' on branch '%s'", repo.Name, workspace.Branch),
@@ -265,72 +268,77 @@ func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Works
 		return wtm.Add(ctx, repo.Path, "", targetPath, gitclient.WorktreeAddOptions{})
 	}
 
-	// Determine local branch existence via GitClient
-	h, err := gc.Open(ctx, repo.Path)
+	plan, err := wm.resolveBranchPlan(ctx, repo.Path, branchsvc.BranchResolutionRequest{
+		TargetBranch: branchsvc.BranchName(workspace.Branch),
+		BaseBranch:   branchsvc.BranchName(workspace.BaseBranch),
+		Remote:       branchsvc.DefaultRemoteName,
+		Mode:         branchsvc.ResolutionModeCreateWorktree,
+	})
 	if err != nil {
-		return errors.Wrap(err, "open repository")
+		return errors.Wrap(err, "resolve branch plan")
 	}
-	branches, _ := gc.ListBranches(ctx, h)
-	branchExists := false
-	for _, b := range branches {
-		if b == workspace.Branch {
-			branchExists = true
-			break
-		}
-	}
-
-	// Remote existence (keep CLI-based check for now)
-	remoteBranchExists, _ := wm.CheckRemoteBranchExists(ctx, repo.Path, workspace.Branch)
 
 	opts := gitclient.WorktreeAddOptions{}
-	if branchExists {
+	if plan.Strategy == branchsvc.ResolutionStrategyUseLocal {
 		// Use existing branch as-is (non-destructive default)
 		return wtm.Add(ctx, repo.Path, workspace.Branch, targetPath, opts)
 	}
 
-	// Branch doesn't exist locally
-	if remoteBranchExists {
-		opts.RemoteBranch = "origin/" + workspace.Branch
+	if plan.Strategy == branchsvc.ResolutionStrategyTrackRemote {
+		opts.RemoteBranch = plan.RemoteRef
 		return wtm.Add(ctx, repo.Path, workspace.Branch, targetPath, opts)
 	}
-	if workspace.BaseBranch != "" {
-		opts.BaseRef = workspace.BaseBranch
+	if plan.Strategy == branchsvc.ResolutionStrategyCreateFromBase {
+		opts.BaseRef = plan.StartPoint
 		return wtm.Add(ctx, repo.Path, workspace.Branch, targetPath, opts)
 	}
+
 	// Create new local branch from HEAD
 	return wtm.Add(ctx, repo.Path, workspace.Branch, targetPath, opts)
 }
 
+func (wm *WorkspaceManager) branchService(ctx context.Context) branchsvc.Service {
+	if wm.branches == nil {
+		wm.branches = BuildBranchService(ctx)
+	}
+	return wm.branches
+}
+
+func (wm *WorkspaceManager) resolveBranchPlan(ctx context.Context, repoPath string, req branchsvc.BranchResolutionRequest) (*branchsvc.BranchResolutionPlan, error) {
+	plan, err := wm.branchService(ctx).Resolve(ctx, repoPath, req)
+	if err != nil {
+		return nil, errors.Wrap(err, "resolve branch")
+	}
+	return plan, nil
+}
+
 // checkBranchExists checks if a local branch exists
 func (wm *WorkspaceManager) CheckBranchExists(ctx context.Context, repoPath, branch string) (bool, error) {
-	gc, _ := BuildGitBackends(ctx)
-	h, err := gc.Open(ctx, repoPath)
+	if branch == "" {
+		return false, nil
+	}
+	localExists, err := wm.branchService(ctx).LocalExists(ctx, repoPath, branchsvc.BranchName(branch))
 	if err != nil {
-		return false, errors.Wrap(err, "open repository")
+		return false, errors.Wrap(err, "check local branch")
 	}
-	branches, _ := gc.ListBranches(ctx, h)
-	for _, b := range branches {
-		if b == branch {
-			return true, nil
-		}
-	}
-	return false, nil
+	return localExists, nil
 }
 
 // checkRemoteBranchExists checks if a remote branch exists
 func (wm *WorkspaceManager) CheckRemoteBranchExists(ctx context.Context, repoPath, branch string) (bool, error) {
-	gc, _ := BuildGitBackends(ctx)
-	h, err := gc.Open(ctx, repoPath)
+	if branch == "" {
+		return false, nil
+	}
+	remoteExists, err := wm.branchService(ctx).RemoteTrackingExists(
+		ctx,
+		repoPath,
+		branchsvc.DefaultRemoteName,
+		branchsvc.BranchName(branch),
+	)
 	if err != nil {
-		return false, errors.Wrap(err, "open repository")
+		return false, errors.Wrap(err, "check remote branch")
 	}
-	branches, _ := gc.ListBranches(ctx, h)
-	for _, b := range branches {
-		if strings.HasPrefix(b, "origin/") && strings.TrimPrefix(b, "origin/") == branch {
-			return true, nil
-		}
-	}
-	return false, nil
+	return remoteExists, nil
 }
 
 // createGoWorkspace creates a go.work file
@@ -1029,7 +1037,7 @@ func (wm *WorkspaceManager) AddRepositoryToWorkspace(ctx context.Context, worksp
 // CreateWorktreeForAdd creates a worktree for adding a repository to an existing workspace
 func (wm *WorkspaceManager) CreateWorktreeForAdd(ctx context.Context, workspace *Workspace, repo Repository, branch string, forceOverwrite bool) error {
 	targetPath := filepath.Join(workspace.Path, repo.Name)
-	gc, wtm := BuildGitBackends(ctx)
+	_, wtm := BuildGitBackends(ctx)
 
 	output.LogInfo(
 		fmt.Sprintf("Creating worktree for %s at %s", repo.Name, targetPath),
@@ -1050,25 +1058,18 @@ func (wm *WorkspaceManager) CreateWorktreeForAdd(ctx context.Context, workspace 
 		return wtm.Add(ctx, repo.Path, "", targetPath, gitclient.WorktreeAddOptions{})
 	}
 
-	// Local branch existence via GitClient
-	h, err := gc.Open(ctx, repo.Path)
+	plan, err := wm.resolveBranchPlan(ctx, repo.Path, branchsvc.BranchResolutionRequest{
+		TargetBranch: branchsvc.BranchName(branch),
+		BaseBranch:   branchsvc.BranchName(workspace.Branch),
+		Remote:       branchsvc.DefaultRemoteName,
+		Mode:         branchsvc.ResolutionModeAddRepository,
+	})
 	if err != nil {
-		return errors.Wrap(err, "open repository")
+		return errors.Wrap(err, "resolve branch plan")
 	}
-	branches, _ := gc.ListBranches(ctx, h)
-	branchExists := false
-	for _, b := range branches {
-		if b == branch {
-			branchExists = true
-			break
-		}
-	}
-
-	// Remote branch existence
-	remoteBranchExists, _ := wm.CheckRemoteBranchExists(ctx, repo.Path, branch)
 
 	opts := gitclient.WorktreeAddOptions{}
-	if branchExists {
+	if plan.Strategy == branchsvc.ResolutionStrategyUseLocal {
 		if forceOverwrite {
 			opts.Overwrite = true
 			return wtm.Add(ctx, repo.Path, branch, targetPath, opts)
@@ -1076,14 +1077,13 @@ func (wm *WorkspaceManager) CreateWorktreeForAdd(ctx context.Context, workspace 
 		return wtm.Add(ctx, repo.Path, branch, targetPath, opts)
 	}
 
-	if remoteBranchExists {
-		opts.RemoteBranch = "origin/" + branch
+	if plan.Strategy == branchsvc.ResolutionStrategyTrackRemote {
+		opts.RemoteBranch = plan.RemoteRef
 		return wtm.Add(ctx, repo.Path, branch, targetPath, opts)
 	}
 
-	// New branch locally, optionally from base
-	if workspace.Branch != "" {
-		opts.BaseRef = workspace.Branch
+	if plan.Strategy == branchsvc.ResolutionStrategyCreateFromBase {
+		opts.BaseRef = plan.StartPoint
 	}
 	return wtm.Add(ctx, repo.Path, branch, targetPath, opts)
 }

@@ -191,7 +191,7 @@ func (rd *RepositoryDiscoverer) analyzeRepository(ctx context.Context, path stri
 			if branch, err := gc.CurrentBranch(ctx, handle); err == nil {
 				repo.CurrentBranch = branch
 			}
-			if branches, err := gc.ListBranches(ctx, handle); err == nil {
+			if branches, err := gc.ListLocalBranches(ctx, handle); err == nil {
 				repo.Branches = branches
 			}
 			if tags, err := gc.ListTags(ctx, handle); err == nil {
@@ -205,19 +205,29 @@ func (rd *RepositoryDiscoverer) analyzeRepository(ctx context.Context, path stri
 
 	// Fallbacks for any missing fields
 	if repo.RemoteURL == "" {
-		if v, err := rd.getGitRemoteURL(ctx, path); err == nil { repo.RemoteURL = v }
+		if v, err := rd.getGitRemoteURL(ctx, path); err == nil {
+			repo.RemoteURL = v
+		}
 	}
 	if repo.CurrentBranch == "" {
-		if v, err := rd.getGitCurrentBranch(ctx, path); err == nil { repo.CurrentBranch = v }
+		if v, err := rd.getGitCurrentBranch(ctx, path); err == nil {
+			repo.CurrentBranch = v
+		}
 	}
 	if len(repo.Branches) == 0 {
-		if v, err := rd.getGitBranches(ctx, path); err == nil { repo.Branches = v }
+		if v, err := rd.getGitBranches(ctx, path); err == nil {
+			repo.Branches = v
+		}
 	}
 	if len(repo.Tags) == 0 {
-		if v, err := rd.getGitTags(ctx, path); err == nil { repo.Tags = v }
+		if v, err := rd.getGitTags(ctx, path); err == nil {
+			repo.Tags = v
+		}
 	}
 	if repo.LastCommit == "" {
-		if v, err := rd.getGitLastCommit(ctx, path); err == nil { repo.LastCommit = v }
+		if v, err := rd.getGitLastCommit(ctx, path); err == nil {
+			repo.LastCommit = v
+		}
 	}
 
 	return repo, nil
