@@ -44,10 +44,10 @@
 
 ## Phase 5: Diary, Commits, and Publishing
 
-- [ ] Update detailed implementation diary after each completed phase
-- [ ] Commit planning updates
-- [ ] Commit command removals
-- [ ] Commit docs/migration cleanup + validation updates
-- [ ] Run `docmgr doctor --ticket WSM-MO-005-CMD-PKG-REARCH-REMOVE-SYNC --stale-after 30`
-- [ ] Upload diary to reMarkable under today’s ticket folder
-- [ ] Update changelog and close completed tasks
+- [x] Update detailed implementation diary after each completed phase
+- [x] Commit planning updates
+- [x] Commit command removals
+- [x] Commit docs/migration cleanup + validation updates
+- [x] Run `docmgr doctor --ticket WSM-MO-005-CMD-PKG-REARCH-REMOVE-SYNC --stale-after 30`
+- [x] Upload diary to reMarkable under today’s ticket folder
+- [x] Update changelog and close completed tasks
