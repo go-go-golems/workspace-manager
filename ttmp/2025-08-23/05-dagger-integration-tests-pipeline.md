@@ -26,6 +26,7 @@ This document designs a full Dagger-based pipeline to run `workspace-manager` (W
 
 ### 4. Repo Layout (proposed additions)
 
+[foobar](https://github.com/dagger/dagger/blob/main/docs/pipeline/go.md)
 - `ci/dagger/main.go` → entrypoint to run the pipeline.
 - `ci/dagger/pipeline.go` → pipeline construction (optionally inline with main.go if small).
 - `test/integration/` → integration tests (helpers/scenarios, see 04-integration-tests-design.md).

@@ -1,0 +1,10 @@
+# Gap 2 Reproduction: HybridClient error swallowing
+# Date: 2026-02-28T19:27:10Z
+
+Case A: primary returns real errors, fallback should not run, error should bubble up
+Add: err=primary add failed primaryCalls=1 fallbackCalls=0
+Push: err=primary push failed primaryCalls=1 fallbackCalls=0
+
+Case B: primary returns ErrNotImplemented, fallback should run
+Add: err=<nil> primaryCalls=1 fallbackCalls=1
+Push: err=<nil> primaryCalls=1 fallbackCalls=1

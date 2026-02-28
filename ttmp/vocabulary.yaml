@@ -1,0 +1,24 @@
+topics:
+    - slug: architecture
+      description: Topic architecture
+    - slug: git
+      description: Topic git
+    - slug: refactor
+      description: Topic refactor
+    - slug: workspace-manager
+      description: Topic workspace-manager
+docTypes:
+    - slug: index
+      description: Doc type index
+    - slug: design-doc
+      description: Doc type design-doc
+    - slug: reference
+      description: Doc type reference
+intent:
+    - slug: long-term
+      description: Long-running ticket context
+status:
+    - slug: active
+      description: Active ticket/doc status
+    - slug: complete
+      description: Completed/closed ticket status

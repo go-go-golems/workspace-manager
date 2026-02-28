@@ -1,0 +1,44 @@
+# Gap 1 Reproduction: Remote branch false negative
+# Date: 2026-02-28T19:27:10Z
+
+## 1) Create remote + seed repository
+Initialized empty Git repository in /tmp/tmp.cSZZcpJfHN/origin.git/
+Cloning into '/tmp/tmp.cSZZcpJfHN/seed'...
+warning: You appear to have cloned an empty repository.
+done.
+Switched to a new branch 'main'
+[main (root-commit) 45fda28] seed commit
+ 1 file changed, 1 insertion(+)
+ create mode 100644 README.md
+To /tmp/tmp.cSZZcpJfHN/origin.git
+ * [new branch]      main -> main
+branch 'main' set up to track 'origin/main' by rebasing.
+Switched to a new branch 'feature/remote-only'
+[feature/remote-only 567b772] add remote-only feature branch
+ 1 file changed, 1 insertion(+)
+ create mode 100644 feature.txt
+To /tmp/tmp.cSZZcpJfHN/origin.git
+ * [new branch]      feature/remote-only -> feature/remote-only
+branch 'feature/remote-only' set up to track 'origin/feature/remote-only' by rebasing.
+
+## 2) Create fresh client clone (no local feature branch)
+Cloning into '/tmp/tmp.cSZZcpJfHN/client'...
+done.
+
+git branch -a output:
+* main
+  remotes/origin/HEAD -> origin/main
+  remotes/origin/feature/remote-only
+  remotes/origin/main
+
+Ground truth using ls-remote:
+567b77228c875eb21b83965ee4e556cdae97cae2	refs/heads/feature/remote-only
+
+## 3) Call actual CheckRemoteBranchExists()
+backend=cli exists=true err=<nil>
+backend=gogit exists=true err=<nil>
+backend=hybrid exists=true err=<nil>
+
+## 4) Expected vs actual
+Expected: true (origin has feature/remote-only)
+Actual: see backend lines above
