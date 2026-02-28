@@ -45,7 +45,7 @@
 - [x] `remove`: implement structured row output path
 - [x] Register migrated low-risk commands via new group roots in `cmd/wsm/root.go`
 - [x] Keep legacy commands registered only for verbs not yet migrated
-- [ ] Add targeted tests for low-risk command setting decode / structured rows
+- [x] Add targeted tests for low-risk command setting decode / structured rows
 - [x] Validate low-risk command parity via manual smoke checks
 
 ## Phase 3: Medium Verb Migration
@@ -56,7 +56,7 @@
 - [x] Migrate `branch create`
 - [x] Migrate `branch switch`
 - [x] Migrate `branch list`
-- [ ] Add parity tests for status/branch/diff/log behavior
+- [x] Add parity tests for status/branch/diff/log behavior
 
 ## Phase 4: Workflow-Heavy Verb Migration
 
@@ -65,7 +65,7 @@
 - [x] Migrate `commit`
 - [x] Migrate `delete`
 - [x] Ensure interactive paths still function for `create`, `commit`, `delete`
-- [ ] Add fixture-driven tests for workflow-heavy verbs
+- [x] Add fixture-driven tests for workflow-heavy verbs
 
 ## Phase 5: High-Risk Orchestration Migration
 
@@ -74,7 +74,7 @@
 - [x] Migrate `rebase continue`
 - [x] Migrate `rebase abort`
 - [x] Migrate `merge`
-- [ ] Validate conflict/rollback and concurrency semantics remain unchanged
+- [x] Validate conflict/rollback and concurrency semantics remain unchanged
 
 ## Phase 6: Cleanup and Finalization
 

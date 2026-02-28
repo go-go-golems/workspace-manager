@@ -26,7 +26,7 @@ ExternalSources:
     - /home/manuel/.codex/skills/diary/SKILL.md
     - /home/manuel/.codex/skills/remarkable-upload/SKILL.md
 Summary: Detailed execution diary for planning and implementing WSM-MO-006 command migration to Glazed.
-LastUpdated: 2026-02-28T17:07:31-05:00
+LastUpdated: 2026-02-28T17:26:39-05:00
 WhatFor: Track exactly how the Glazed migration plan and implementation steps were produced, validated, and committed.
 WhenToUse: Use when reviewing planning decisions or continuing implementation from this ticket.
 ---
@@ -957,3 +957,94 @@ I also re-ran validation. Command/package tests pass, while full integration sui
 ### Technical details
 - Post-cutover command source-of-truth is exclusively under `cmd/wsm/cmds/`.
 - Full-suite integration failures remain a known pre-existing issue and are documented in changelog/task notes.
+
+## Step 14: Close Remaining Validation Tasks with Harness Hardening and New Scenario Coverage
+
+After final migration cleanup, I tackled the four remaining unchecked test tasks in `tasks.md`. The first attempt failed for two structural reasons: integration tests were executing a stale prebuilt `.out/wsm` binary (missing Glazed flags) and, after switching to `go run`, subprocesses launched from sandbox repo directories without a `go.mod` root.
+
+I fixed the harness instead of weakening tests: sandbox env isolation was tightened, git editor prompts were disabled for non-interactive rebase flows, and `RunWSM` now builds/uses a sandbox-local binary by default so each test runs current source while still supporting arbitrary working directories.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go ahead, do them all."
+
+**Assistant interpretation:** Complete all remaining ticket work, including open test-related tasks, and do not stop at partial closeout.
+
+**Inferred user intent:** Fully finish WSM-MO-006 with concrete verification evidence, not just architecture migration.
+
+**Commit (code):** `f3d459d` - "test: stabilize integration harness and add migration parity scenarios"
+
+### What I did
+- Hardened integration sandbox defaults in `test/integration/helpers/sandbox.go`:
+  - pinned `XDG_CONFIG_HOME`, `XDG_CACHE_HOME`, `XDG_STATE_HOME`,
+  - set `GIT_EDITOR=true`, `GIT_SEQUENCE_EDITOR=true`,
+  - set `GOMODCACHE`/`GOCACHE` to host caches to avoid repeated sandbox-local module downloads.
+- Reworked CLI test runner in `test/integration/helpers/wsm.go`:
+  - default execution now uses a sandbox-local built binary (`<sandbox>/.out/wsm`),
+  - optional fallback to module-root prebuilt binary retained behind `WSM_TEST_USE_PREBUILT=1`,
+  - preserved arbitrary `workDir` execution semantics for workspace detection tests.
+- Added new scenario coverage:
+  - `test/integration/scenarios/low_risk_data_output_test.go`
+  - `test/integration/scenarios/branch_log_test.go`
+  - `test/integration/scenarios/workflow_heavy_data_test.go`
+- Verified targeted matrix pass:
+  - `go test ./test/integration/scenarios -run 'TestLowRiskCommandsDataOutput|TestBranchAndLogHumanDataParity|TestWorkflowHeavyCommandsDataOutput|TestSmokeStatusDiff|TestWorktreeCreateDelete|TestJobsConcurrency|TestRebaseConflictsAbort|TestRebaseConflictsContinueAbort' -count=1`
+- Re-ran:
+  - `go test ./cmd/... ./pkg/... -count=1` (pass)
+  - `go test ./... -count=1` (still fails for known non-migration cases listed below).
+
+### Why
+- Remaining unchecked tasks were all validation-oriented and required reliable integration execution first.
+- Without fixing stale-binary and module-root execution issues, any new parity tests would produce misleading failures unrelated to command behavior.
+
+### What worked
+- Harness stabilization eliminated stale flag mismatches and `go.mod` lookup failures.
+- New scenario tests gave explicit evidence for:
+  - low-risk command structured output,
+  - status/branch/diff/log parity paths,
+  - workflow-heavy create/commit/delete data-mode behavior,
+  - conflict/rollback and concurrency checks using focused existing scenarios.
+
+### What didn't work
+- First parity test attempt against stale binary failed:
+  - error: `unknown flag: --output-mode` for commands expected to be Glazed-backed.
+- First `go run`-based approach failed when `cmd.Dir` pointed at sandbox repo paths:
+  - error: `go: go.mod file not found in current directory or any parent directory`.
+- Full-suite still has non-migration failures:
+  - `TestCommitPush`: `push: remote not found` in hybrid backend path,
+  - `TestRebaseHappyPath` / `TestSyncAheadBehind`: use removed `sync` command.
+
+### What I learned
+- Integration harness correctness (binary freshness + execution root + env isolation) is a prerequisite for meaningful migration parity evidence.
+- Data-mode assertions for workflow-heavy verbs must tolerate known lower-layer human output leakage until workflow internals are fully event/row-driven.
+
+### What was tricky to build
+- Balancing "always current source" with test runtime and cwd semantics:
+  - pure `go run` guaranteed freshness but broke non-module workdirs,
+  - prebuilt binary supported workdirs but became stale.
+- The stable compromise was a sandbox-local binary built from current source, then executed from arbitrary test cwd locations.
+
+### What warrants a second pair of eyes
+- `commit --push` integration behavior under hybrid backend (`remote not found`) should be reviewed separately from this migration ticket.
+- Remaining legacy sync-based scenarios should be rewritten or removed to match post-sync command surface.
+
+### What should be done in the future
+- Create follow-up integration ticket to:
+  - replace/remove `sync` scenario coverage with modern command paths,
+  - diagnose and fix hybrid backend push remote resolution in commit-push scenario.
+
+### Code review instructions
+- Review harness changes first:
+  - `test/integration/helpers/sandbox.go`
+  - `test/integration/helpers/wsm.go`
+- Review new scenarios next:
+  - `test/integration/scenarios/low_risk_data_output_test.go`
+  - `test/integration/scenarios/branch_log_test.go`
+  - `test/integration/scenarios/workflow_heavy_data_test.go`
+- Validate:
+  - `go test ./cmd/... ./pkg/... -count=1`
+  - `go test ./test/integration/scenarios -run 'TestLowRiskCommandsDataOutput|TestBranchAndLogHumanDataParity|TestWorkflowHeavyCommandsDataOutput|TestSmokeStatusDiff|TestWorktreeCreateDelete|TestJobsConcurrency|TestRebaseConflictsAbort|TestRebaseConflictsContinueAbort' -count=1`
+
+### Technical details
+- Structured-output coverage now explicitly asserts JSON row decoding for migrated command families.
+- Workflow-heavy parser helper intentionally extracts trailing JSON array from stdout to accommodate known human log leakage in data mode.

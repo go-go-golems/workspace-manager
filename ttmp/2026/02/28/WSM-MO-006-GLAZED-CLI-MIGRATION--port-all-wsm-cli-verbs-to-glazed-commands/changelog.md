@@ -22,6 +22,16 @@
 - Expanded investigation diary with Step 11-13 to document the final migration wave (`a40fc6c`, `bad17a2`, `229bb14`) including validation details and known integration-suite caveat.
 - Re-ran ticket hygiene check: `docmgr doctor --ticket WSM-MO-006-GLAZED-CLI-MIGRATION --stale-after 30` reports all checks passing.
 - Uploaded updated investigation diary to reMarkable path `/ai/2026/02/28/WSM-MO-006-GLAZED-CLI-MIGRATION`.
+- Added integration harness hardening and parity coverage tests (commit `f3d459d`):
+  - sandbox env now pins `XDG_CONFIG_HOME`/`XDG_CACHE_HOME`/`XDG_STATE_HOME` and non-interactive git editor settings,
+  - test runner now builds/uses a sandbox-local binary by default to avoid stale `.out/wsm`,
+  - new scenarios cover low-risk data output, branch/log human+data parity, workflow-heavy create/commit/delete data output, and focused concurrency/conflict validation runs.
+- Validation update:
+  - targeted matrix passes:
+    - `go test ./test/integration/scenarios -run 'TestLowRiskCommandsDataOutput|TestBranchAndLogHumanDataParity|TestWorkflowHeavyCommandsDataOutput|TestSmokeStatusDiff|TestWorktreeCreateDelete|TestJobsConcurrency|TestRebaseConflictsAbort|TestRebaseConflictsContinueAbort' -count=1`
+  - full suite still has known non-migration failures:
+    - `TestCommitPush` (`push: remote not found` in hybrid backend)
+    - `TestRebaseHappyPath`/`TestSyncAheadBehind` (legacy `sync` command removed)
 - Validation snapshot:
   - `go test ./cmd/... ./pkg/... -count=1` passes
   - `go test ./... -count=1` still fails in integration scenarios with pre-existing sandbox/config isolation issue (`discover` sees host registry and `create` fails opening repo worktrees)
