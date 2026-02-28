@@ -43,3 +43,30 @@ Completed pkg-first architecture consolidation: added shared workspace context s
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workspace_context.go — New canonical workspace detection/loading service
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/02/28/WSM-MO-005-CMD-PKG-REARCH-REMOVE-SYNC--remove-sync-and-refactor-cli-verbs-into-reusable-pkg-api/reference/01-investigation-diary.md — Detailed implementation diary for phase 6 and 7
 
+
+## 2026-02-28
+
+Completed Phase 9 full cmd->pkg consolidation by extracting remaining command orchestration (discover/list/info/status/create/fork/commit/delete) into `pkg/wsm/workflows`, adding targeted workflow tests, and converting command files into thin adapters with preserved CLI behavior.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/cmds/cmd_commit.go — Commit command now delegates orchestration to commit workflow
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/cmds/cmd_create.go — Create command now delegates branch/default + create orchestration to workflow
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/cmds/cmd_delete.go — Delete preview/delete flow now orchestrated by workflow service
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/cmds/cmd_discover.go — Path resolution/discovery orchestration moved to workflow
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/cmds/cmd_fork.go — Fork source/base-branch planning moved to workflow
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/cmds/cmd_info.go — Workspace resolution/field extraction moved to workflow
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/cmds/cmd_list.go — Repository/workspace listing orchestration moved to workflow
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/cmds/cmd_status.go — Status workspace resolution/retrieval moved to workflow
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/commit_workflow.go — New commit orchestration service
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/create_workflow.go — New create orchestration service
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/delete_workflow.go — New delete orchestration service
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/discover_workflow.go — New discovery orchestration service
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/fork_workflow.go — New fork orchestration service
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/info_workflow.go — New info orchestration service
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/list_workflow.go — New list orchestration service
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/status_workflow.go — New status orchestration service
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/commit_workflow_test.go — Template mapping test coverage
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/create_workflow_test.go — Branch selection helper test coverage
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/discover_workflow_test.go — Path resolution helper test coverage
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/info_workflow_test.go — Field extraction helper test coverage

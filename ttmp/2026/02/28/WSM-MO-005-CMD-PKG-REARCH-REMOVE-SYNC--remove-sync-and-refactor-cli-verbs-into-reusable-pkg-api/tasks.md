@@ -80,3 +80,18 @@
 - [x] Update changelog with architecture consolidation summary
 - [x] Run `docmgr doctor --ticket WSM-MO-005-CMD-PKG-REARCH-REMOVE-SYNC --stale-after 30`
 - [x] Commit consolidation changes in logical intervals
+
+## Phase 9: Full cmd->pkg Orchestration Consolidation
+
+- [x] Add `pkg/wsm/workflows/discover_workflow.go` and move path expansion/validation + discovery orchestration out of `cmd_discover.go`
+- [x] Add `pkg/wsm/workflows/list_workflow.go` and move repository/workspace loading + filtering/sorting out of `cmd_list.go`
+- [x] Add `pkg/wsm/workflows/info_workflow.go` and move workspace resolution + field extraction logic out of `cmd_info.go`
+- [x] Add `pkg/wsm/workflows/status_workflow.go` and move workspace resolution + status retrieval out of `cmd_status.go`
+- [x] Add `pkg/wsm/workflows/create_workflow.go` and move branch-defaulting + create orchestration out of `cmd_create.go`
+- [x] Add `pkg/wsm/workflows/fork_workflow.go` and move source/base-branch validation + fork orchestration out of `cmd_fork.go`
+- [x] Add `pkg/wsm/workflows/commit_workflow.go` and move workspace-change/message/execute orchestration out of `cmd_commit.go`
+- [x] Add `pkg/wsm/workflows/delete_workflow.go` and move workspace/status/delete orchestration out of `cmd_delete.go`
+- [x] Refactor `cmd/cmds` command files to thin adapters (flags + interactive UX + rendering only)
+- [x] Add unit tests for new workflow services and keep existing command behavior intact
+- [x] Run `go test ./cmd/... ./pkg/...` and targeted smoke checks for retained verbs
+- [x] Update diary/changelog/tasks with per-step notes and commit in logical intervals

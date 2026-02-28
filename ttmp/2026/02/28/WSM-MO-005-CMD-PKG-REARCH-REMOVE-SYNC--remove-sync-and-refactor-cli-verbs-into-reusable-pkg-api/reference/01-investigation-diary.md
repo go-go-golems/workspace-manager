@@ -16,7 +16,7 @@ RelatedFiles:
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/sync_operations.go
 ExternalSources: []
 Summary: "Chronological investigation log for sync removal planning and command-to-pkg architecture cleanup design."
-LastUpdated: 2026-02-28T17:03:00-05:00
+LastUpdated: 2026-02-28T18:07:00-05:00
 WhatFor: "Provide continuation-ready evidence and rationale for WSM-MO-005."
 WhenToUse: "Use when implementing the sync removal and command extraction plan."
 ---
@@ -512,3 +512,97 @@ I completed a second consolidation pass by extracting rebase and merge orchestra
 
 ### Technical details
 - Both high-complexity commands now delegate orchestration to package workflows.
+
+## Step 9: Full cmd->pkg Orchestration Consolidation (Discover/List/Info/Status/Create/Fork/Commit/Delete)
+
+I executed an additional consolidation phase to move the remaining command-layer orchestration into `pkg/wsm/workflows`. This pass focused on turning `cmd/cmds` into consistent adapters across all retained verbs, not only `rebase` and `merge`.
+
+This step addressed the remaining architecture gap: several commands still had business decisions in `cmd/` (path normalization, workspace resolution, branch defaulting, fork validation, commit template resolution, delete preview orchestration). Those decisions are now in package workflows with command wrappers handling flags, prompts, and rendering.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 7)
+
+**Assistant interpretation:** Complete the remaining command-to-package extraction so all core functionality is reusable and command files are thin.
+
+**Inferred user intent:** Finish the consolidation end-to-end in this ticket, not partial cleanup.
+
+### What I did
+- Added workflow services:
+  - `pkg/wsm/workflows/discover_workflow.go`
+  - `pkg/wsm/workflows/list_workflow.go`
+  - `pkg/wsm/workflows/info_workflow.go`
+  - `pkg/wsm/workflows/status_workflow.go`
+  - `pkg/wsm/workflows/create_workflow.go`
+  - `pkg/wsm/workflows/fork_workflow.go`
+  - `pkg/wsm/workflows/commit_workflow.go`
+  - `pkg/wsm/workflows/delete_workflow.go`
+- Refactored command adapters to delegate orchestration:
+  - `cmd/cmds/cmd_discover.go`
+  - `cmd/cmds/cmd_list.go`
+  - `cmd/cmds/cmd_info.go`
+  - `cmd/cmds/cmd_status.go`
+  - `cmd/cmds/cmd_create.go`
+  - `cmd/cmds/cmd_fork.go`
+  - `cmd/cmds/cmd_commit.go`
+  - `cmd/cmds/cmd_delete.go`
+- Added workflow tests for new pure extraction helpers:
+  - `pkg/wsm/workflows/discover_workflow_test.go`
+  - `pkg/wsm/workflows/create_workflow_test.go`
+  - `pkg/wsm/workflows/info_workflow_test.go`
+  - `pkg/wsm/workflows/commit_workflow_test.go`
+- Updated ticket tasks with Phase 9 and checked completed items.
+- Validation:
+  - `go test ./cmd/... ./pkg/...` (pass)
+  - `go run ./cmd/wsm --help` (pass, retained command set)
+  - `go test ./...` (fails on known integration baseline: `open repository: open repo: repository does not exist`)
+
+### Why
+- The command layer still contained non-trivial behavior after Phase 7, which blocked the "all functionality in `pkg/`" target.
+- Consolidating now reduces future refactor noise and gives a consistent intern-friendly architecture.
+
+### What worked
+- Workflow extraction compiled and command behavior remained stable.
+- New workflow tests passed and capture key branch/template/path/field helper behavior.
+- `cmd` packages now follow a more uniform adapter pattern.
+
+### What didn't work
+- First compile pass failed after refactor due stale imports/variables:
+  - `cmd/cmds/cmd_fork.go`: unused imports + stale `baseBranch` reference.
+  - `cmd/cmds/cmd_status.go`: missing `os` import for table writer output.
+  - `cmd/cmds/cmd_discover.go`, `cmd/cmds/cmd_info.go`: stale `errors` imports.
+- Commands used:
+  - `go test ./cmd/... ./pkg/...` (failed once)
+  - fixed imports/refs
+  - reran `go test ./cmd/... ./pkg/...` (pass)
+- Full suite remains red on existing integration setup issues (same baseline failure class as prior steps).
+
+### What I learned
+- The fastest safe extraction path is creating one workflow per command domain and moving only orchestration/decision code, leaving terminal rendering in command adapters.
+- Doing compile/test immediately after each batch catches stale-import and variable drift before doc updates.
+
+### What was tricky to build
+- Preserving user-facing behavior while moving logic:
+  - `fork` required keeping both "plan" context printing and final creation behavior.
+  - `commit` required splitting preparation and execution so interactive selection in `cmd` could remain without business logic duplication.
+  - `discover` needed path resolution centralization without breaking completion helpers that still rely on registry-path helper functions.
+
+### What warrants a second pair of eyes
+- `CreateWorkflow`/`ForkWorkflow` cancellation semantics currently rely on upstream error strings from creation flows; if cancellation behavior changes in lower layers, cmd-level graceful cancellation handling should be revisited.
+- Workflow boundaries in `merge_workflow` still include some interactive/output concerns from earlier phases and could be further purified later.
+
+### What should be done in the future
+- Add integration-level tests targeted at new workflows with fixture-isolated registry/config paths to reduce dependence on broad CLI integration harness behavior.
+- Continue reducing output/UI coupling inside older workflows (`merge` first).
+
+### Code review instructions
+- Start with new workflow services under `pkg/wsm/workflows`.
+- Then inspect adapter reductions in updated `cmd/cmds` files.
+- Validate with:
+  - `go test ./cmd/... ./pkg/...`
+  - `go run ./cmd/wsm --help`
+- Optionally run `go test ./...` and confirm failures are the known integration baseline.
+
+### Technical details
+- Phase 9 task list updated in ticket `tasks.md`.
+- `go test ./cmd/... ./pkg/...` is now green with all new workflow files in place.
