@@ -444,16 +444,16 @@ We welcome contributions! Please see our [contributing guidelines](CONTRIBUTING.
 git clone https://github.com/go-go-golems/workspace-manager.git
 cd workspace-manager
 go mod download
-go build ./cmd/workspace-manager
+go build ./cmd/wsm
 go test ./...
 ```
 
 ### Adding New Commands
 
-1. Create `cmd/cmds/cmd_<name>.go`
-2. Implement `func New<Name>Command() *cobra.Command`
-3. Add to root command in `cmd/cmds/root.go`
-4. Add business logic to `WorkspaceManager` if needed
+1. Create `cmd/wsm/cmds/<group>/<verb>.go`
+2. Implement a Glazed command (`cmds.BareCommand`) and wire `New<Verb>CobraCommand()`
+3. Register it in `cmd/wsm/cmds/<group>/root.go`
+4. Keep orchestration/business logic in `pkg/wsm` or `pkg/wsm/workflows`
 
 ## License
 

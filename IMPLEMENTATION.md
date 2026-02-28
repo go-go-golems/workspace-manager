@@ -215,7 +215,7 @@ The newly implemented fork and merge commands provide a complete workflow for fe
 
 #### Fork Command Implementation
 
-The `fork` command in [`cmd_fork.go`](file:///home/manuel/code/wesen/corporate-headquarters/workspace-manager/cmd/cmds/cmd_fork.go) creates a new workspace by forking an existing one:
+The `fork` command in `cmd/wsm/cmds/workspace/fork.go` creates a new workspace by forking an existing one:
 
 ```go
 func runFork(ctx context.Context, newWorkspaceName, sourceWorkspaceName, branch, branchPrefix, agentSource string, dryRun bool) error {
@@ -242,7 +242,7 @@ func runFork(ctx context.Context, newWorkspaceName, sourceWorkspaceName, branch,
 
 #### Merge Command Implementation
 
-The `merge` command in [`cmd_merge.go`](file:///home/manuel/code/wesen/corporate-headquarters/workspace-manager/cmd/cmds/cmd_merge.go) merges a forked workspace back to its parent:
+The `merge` command in `cmd/wsm/cmds/workspace/merge.go` merges a forked workspace back to its parent:
 
 ```go
 func runMerge(ctx context.Context, workspaceName string, dryRun, force, keepWorkspace bool) error {
@@ -272,7 +272,7 @@ func runMerge(ctx context.Context, workspaceName string, dryRun, force, keepWork
 
 ### Example Command Implementation
 
-Here's the structure of the `add` command in [`cmd_add.go`](file:///home/manuel/code/wesen/corporate-headquarters/workspace-manager/cmd/cmds/cmd_add.go):
+Here's the structure of the `add` command in `cmd/wsm/cmds/workspace/add.go`:
 
 ```go
 func NewAddCommand() *cobra.Command {
@@ -306,7 +306,7 @@ func NewAddCommand() *cobra.Command {
 
 ### Remove Command Implementation
 
-The newly implemented `remove` command in [`cmd_remove.go`](file:///home/manuel/code/wesen/corporate-headquarters/workspace-manager/cmd/cmds/cmd_remove.go) follows the same pattern:
+The `remove` command in `cmd/wsm/cmds/workspace/remove.go` follows the same pattern:
 
 ```go
 func (wm *WorkspaceManager) RemoveRepositoryFromWorkspace(ctx context.Context, workspaceName, repoName string, force, removeFiles bool) error {
@@ -604,10 +604,10 @@ log.Info().
 
 To add a new command:
 
-1. **Create Command File**: `cmd/cmds/cmd_<name>.go`
-2. **Implement Command Function**: `func New<Name>Command() *cobra.Command`
-3. **Add to Root Command**: Add to `rootCmd.AddCommand()` in `cmd/wsm/root.go`
-4. **Implement Business Logic**: Add methods to `WorkspaceManager` in `pkg/wsm/` if needed
+1. **Create Command File**: `cmd/wsm/cmds/<group>/<verb>.go`
+2. **Implement Glazed Command**: add command description + `Run(ctx, vals)`
+3. **Register in Group Root**: wire in `cmd/wsm/cmds/<group>/root.go`
+4. **Keep Business Logic in pkg**: add/update methods in `pkg/wsm/` or `pkg/wsm/workflows/`
 
 **Example: Fork and Merge Commands**
 
