@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm/workflows"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -59,27 +60,24 @@ Examples:
 }
 
 func runDelete(ctx context.Context, workspaceName string, force bool, forceWorktrees bool, removeFiles bool, outputFormat string) error {
-	manager, err := wsm.NewWorkspaceManager()
+	workflow, err := workflows.NewDeleteWorkflow()
 	if err != nil {
-		return errors.Wrap(err, "failed to create workspace manager")
+		return err
 	}
-
-	// Load workspace
-	workspace, err := manager.LoadWorkspace(workspaceName)
+	preview, err := workflow.Preview(ctx, workspaceName)
 	if err != nil {
-		return errors.Wrapf(err, "workspace '%s' not found", workspaceName)
+		return err
 	}
+	workspace := preview.Workspace
 
 	// Show workspace status first
 	output.PrintHeader("Current workspace status")
-	checker := wsm.NewStatusChecker()
-	status, err := checker.GetWorkspaceStatus(ctx, workspace)
-	if err == nil {
-		if err := printStatusDetailed(status, false); err != nil {
+	if preview.StatusError == nil {
+		if err := printStatusDetailed(preview.Status, false); err != nil {
 			output.PrintError("Error showing status: %v", err)
 		}
 	} else {
-		output.PrintError("Error getting status: %v", err)
+		output.PrintError("Error getting status: %v", preview.StatusError)
 	}
 	fmt.Printf("\n")
 
@@ -142,8 +140,8 @@ func runDelete(ctx context.Context, workspaceName string, force bool, forceWorkt
 	}
 
 	// Perform deletion
-	if err := manager.DeleteWorkspace(ctx, workspaceName, removeFiles, forceWorktrees); err != nil {
-		return errors.Wrap(err, "failed to delete workspace")
+	if err := workflow.Delete(ctx, workspaceName, removeFiles, forceWorktrees); err != nil {
+		return err
 	}
 
 	if removeFiles {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm/workflows"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -41,39 +42,33 @@ Supports interactive file selection and consistent commit messaging.`,
 }
 
 func runCommit(ctx context.Context, message string, interactive, addAll, push, dryRun bool, template string) error {
-	// Detect current workspace
-	workspace, err := detectCurrentWorkspace()
-	if err != nil {
-		return errors.Wrap(err, "failed to detect current workspace")
+	workflow := workflows.NewCommitWorkflow()
+	req := workflows.CommitRequest{
+		Message:  message,
+		Template: template,
+		AddAll:   addAll,
+		Push:     push,
+		DryRun:   dryRun,
 	}
-
-	// Initialize git operations
-	gitOps := wsm.NewGitOperations(workspace)
-
-	// Get all changes in workspace
-	allChanges, err := gitOps.GetWorkspaceChanges(ctx)
+	prep, err := workflow.Prepare(ctx, req)
 	if err != nil {
-		return errors.Wrap(err, "failed to get workspace changes")
+		return err
 	}
+	allChanges := prep.Changes
 
 	if len(allChanges) == 0 {
 		output.PrintInfo("No changes found in workspace")
 		return nil
 	}
 
-	// Handle commit message
-	if message == "" && template != "" {
-		message = getCommitMessageFromTemplate(template)
-	}
-
-	if message == "" && !interactive {
+	if prep.Message == "" && !interactive {
 		return errors.New("commit message is required. Use -m flag or --interactive mode")
 	}
 
 	// Handle interactive mode
 	var selectedChanges map[string][]wsm.FileChange
 	if interactive {
-		selectedChanges, message, err = selectChangesInteractively(allChanges, message)
+		selectedChanges, prep.Message, err = selectChangesInteractively(allChanges, prep.Message)
 		if err != nil {
 			return errors.Wrap(err, "interactive selection failed")
 		}
@@ -86,18 +81,9 @@ func runCommit(ctx context.Context, message string, interactive, addAll, push, d
 		return nil
 	}
 
-	// Create commit operation
-	operation := &wsm.CommitOperation{
-		Message: message,
-		Files:   selectedChanges,
-		DryRun:  dryRun,
-		AddAll:  addAll,
-		Push:    push,
-	}
-
 	// Execute commit
-	if err := gitOps.CommitChanges(ctx, operation); err != nil {
-		return errors.Wrap(err, "commit failed")
+	if err := workflow.Execute(ctx, prep, selectedChanges, req); err != nil {
+		return err
 	}
 
 	if !dryRun {
@@ -152,23 +138,4 @@ func selectChangesInteractively(allChanges map[string][]wsm.FileChange, initialM
 	output.PrintInfo("Proceeding with all changes...")
 
 	return allChanges, message, nil
-}
-
-// getCommitMessageFromTemplate gets commit message from template
-func getCommitMessageFromTemplate(template string) string {
-	templates := map[string]string{
-		"feature":  "feat: add new feature",
-		"fix":      "fix: resolve issue",
-		"docs":     "docs: update documentation",
-		"style":    "style: formatting changes",
-		"refactor": "refactor: code restructuring",
-		"test":     "test: add or update tests",
-		"chore":    "chore: maintenance tasks",
-	}
-
-	if msg, exists := templates[template]; exists {
-		return msg
-	}
-
-	return template // Use template as-is if not found in predefined templates
 }

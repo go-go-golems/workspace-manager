@@ -7,16 +7,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-func detectWorkspace(cwd string) (string, error) {
-	ctx := wsm.NewWorkspaceContextService()
-	return ctx.DetectWorkspaceName(cwd)
-}
-
-func loadWorkspace(name string) (*wsm.Workspace, error) {
-	ctx := wsm.NewWorkspaceContextService()
-	return ctx.LoadWorkspace(name)
-}
-
 func detectCurrentWorkspace() (*wsm.Workspace, error) {
 	cwd, err := os.Getwd()
 	if err != nil {

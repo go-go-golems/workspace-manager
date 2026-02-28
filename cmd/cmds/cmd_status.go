@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm/workflows"
 	"os"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/carapace-sh/carapace"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -48,31 +48,13 @@ If no workspace name is provided, attempts to detect the current workspace.`,
 }
 
 func runStatus(ctx context.Context, workspaceName string, short, untracked bool, jobs int) error {
-	// If no workspace specified, try to detect current workspace
-	if workspaceName == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return errors.Wrap(err, "failed to get current directory")
-		}
-
-		detected, err := detectWorkspace(cwd)
-		if err != nil {
-			return errors.Wrap(err, "failed to detect workspace. Use 'workspace-manager status <workspace-name>' or specify --workspace flag")
-		}
-		workspaceName = detected
-	}
-
-	// Load workspace
-	workspace, err := loadWorkspace(workspaceName)
+	workflow := workflows.NewStatusWorkflow()
+	status, err := workflow.GetStatus(ctx, workflows.StatusRequest{
+		WorkspaceName: workspaceName,
+		Jobs:          jobs,
+	})
 	if err != nil {
-		return errors.Wrapf(err, "failed to load workspace '%s'", workspaceName)
-	}
-
-	// Get status
-	checker := wsm.NewStatusChecker()
-	status, err := checker.GetWorkspaceStatusWithOptions(ctx, workspace, wsm.StatusOptions{MaxJobs: jobs})
-	if err != nil {
-		return errors.Wrap(err, "failed to get workspace status")
+		return err
 	}
 
 	// Display status

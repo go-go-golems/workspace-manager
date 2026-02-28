@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm/workflows"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -63,13 +64,17 @@ Examples:
 }
 
 func runCreate(ctx context.Context, name string, repos []string, branch, branchPrefix, baseBranch, agentSource string, interactive, dryRun bool) error {
-	wm, err := wsm.NewWorkspaceManager()
+	workflow, err := workflows.NewCreateWorkflow()
 	if err != nil {
-		return errors.Wrap(err, "failed to create workspace manager")
+		return err
 	}
 
 	// Handle interactive mode
 	if interactive {
+		wm, err := wsm.NewWorkspaceManager()
+		if err != nil {
+			return errors.Wrap(err, "failed to create workspace manager")
+		}
 		selectedRepos, err := selectRepositoriesInteractively(wm)
 		if err != nil {
 			// Check if user cancelled - handle gracefully without error
@@ -85,22 +90,16 @@ func runCreate(ctx context.Context, name string, repos []string, branch, branchP
 		repos = selectedRepos
 	}
 
-	// Validate inputs
-	if len(repos) == 0 {
-		return errors.New("no repositories specified. Use --repos flag or --interactive mode")
-	}
-
-	// Generate branch name if not specified
-	finalBranch := branch
-	if finalBranch == "" {
-		finalBranch = fmt.Sprintf("%s/%s", branchPrefix, name)
-		output.PrintInfo("Using auto-generated branch: %s", finalBranch)
-		log.Debug().Str("branch", finalBranch).Str("prefix", branchPrefix).Str("name", name).Msg("Generated branch name")
-	}
-
-	// Create workspace
-	log.Debug().Str("name", name).Strs("repos", repos).Str("branch", finalBranch).Str("baseBranch", baseBranch).Bool("dryRun", dryRun).Msg("Creating workspace")
-	workspace, err := wm.CreateWorkspace(ctx, name, repos, finalBranch, baseBranch, agentSource, dryRun)
+	log.Debug().Str("name", name).Strs("repos", repos).Str("branch", branch).Str("baseBranch", baseBranch).Bool("dryRun", dryRun).Msg("Creating workspace")
+	result, err := workflow.Create(ctx, workflows.CreateRequest{
+		Name:         name,
+		Repos:        repos,
+		Branch:       branch,
+		BranchPrefix: branchPrefix,
+		BaseBranch:   baseBranch,
+		AgentSource:  agentSource,
+		DryRun:       dryRun,
+	})
 	if err != nil {
 		// Check if user cancelled - handle gracefully without error
 		errMsg := strings.ToLower(err.Error())
@@ -110,8 +109,13 @@ func runCreate(ctx context.Context, name string, repos []string, branch, branchP
 			output.PrintInfo("Operation cancelled.")
 			return nil // Return success to prevent usage help
 		}
-		return errors.Wrap(err, "failed to create workspace")
+		return err
 	}
+	if result.AutoBranchGenerated {
+		output.PrintInfo("Using auto-generated branch: %s", result.FinalBranch)
+		log.Debug().Str("branch", result.FinalBranch).Str("prefix", branchPrefix).Str("name", name).Msg("Generated branch name")
+	}
+	workspace := result.Workspace
 
 	// Show results
 	if dryRun {

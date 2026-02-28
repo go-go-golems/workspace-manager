@@ -3,12 +3,10 @@ package cmds
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/go-go-golems/workspace-manager/pkg/output"
-	"github.com/go-go-golems/workspace-manager/pkg/wsm"
-	"github.com/pkg/errors"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm/workflows"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
@@ -67,88 +65,47 @@ Examples:
 }
 
 func runFork(ctx context.Context, newWorkspaceName, sourceWorkspaceName, branch, branchPrefix, agentSource string, dryRun bool) error {
-	wm, err := wsm.NewWorkspaceManager()
+	workflow, err := workflows.NewForkWorkflow()
 	if err != nil {
-		return errors.Wrap(err, "failed to create workspace manager")
+		return err
 	}
 
-	// If no source workspace specified, try to detect current workspace
-	if sourceWorkspaceName == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return errors.Wrap(err, "failed to get current directory")
-		}
-
-		detected, err := detectWorkspace(cwd)
-		if err != nil {
-			return errors.Wrap(err, "failed to detect workspace. Use 'workspace-manager fork <new-name> <source-workspace>' or specify --workspace flag")
-		}
-		sourceWorkspaceName = detected
+	req := workflows.ForkRequest{
+		NewWorkspaceName:    newWorkspaceName,
+		SourceWorkspaceName: sourceWorkspaceName,
+		Branch:              branch,
+		BranchPrefix:        branchPrefix,
+		AgentSource:         agentSource,
+		DryRun:              dryRun,
 	}
 
-	// Load source workspace
-	sourceWorkspace, err := loadWorkspace(sourceWorkspaceName)
+	plan, err := workflow.Plan(ctx, req)
 	if err != nil {
-		return errors.Wrapf(err, "failed to load source workspace '%s'", sourceWorkspaceName)
+		return err
 	}
 
+	sourceWorkspace := plan.SourceWorkspace
 	output.PrintInfo("Forking workspace '%s' to create '%s'", sourceWorkspace.Name, newWorkspaceName)
-
-	// Get current branch status of source workspace to use as base branch
-	checker := wsm.NewStatusChecker()
-	status, err := checker.GetWorkspaceStatus(ctx, sourceWorkspace)
-	if err != nil {
-		return errors.Wrap(err, "failed to get source workspace status")
+	output.PrintInfo("Using base branch: %s", plan.BaseBranch)
+	if branch == "" {
+		output.PrintInfo("Using auto-generated branch: %s", plan.FinalBranch)
+		log.Debug().Str("branch", plan.FinalBranch).Str("prefix", branchPrefix).Str("name", newWorkspaceName).Msg("Generated branch name")
 	}
-
-	// Determine the base branch from the source workspace
-	// Use the first repository's current branch as the base
-	var baseBranch string
-	if len(status.Repositories) > 0 {
-		baseBranch = status.Repositories[0].CurrentBranch
-		output.PrintInfo("Using base branch: %s", baseBranch)
-	}
-
-	// Validate that all repositories are on the same branch
-	for _, repoStatus := range status.Repositories {
-		if repoStatus.CurrentBranch != baseBranch {
-			return errors.Errorf("repositories in source workspace are on different branches: %s is on %s, but expected %s",
-				repoStatus.Repository.Name, repoStatus.CurrentBranch, baseBranch)
-		}
-	}
-
-	// Generate branch name if not specified
-	finalBranch := branch
-	if finalBranch == "" {
-		finalBranch = fmt.Sprintf("%s/%s", branchPrefix, newWorkspaceName)
-		output.PrintInfo("Using auto-generated branch: %s", finalBranch)
-		log.Debug().Str("branch", finalBranch).Str("prefix", branchPrefix).Str("name", newWorkspaceName).Msg("Generated branch name")
-	}
-
-	// Extract repository names from source workspace
-	var repoNames []string
-	for _, repo := range sourceWorkspace.Repositories {
-		repoNames = append(repoNames, repo.Name)
-	}
-
-	// Use the source workspace's agent MD if no custom one specified
-	finalAgentSource := agentSource
-	if finalAgentSource == "" && sourceWorkspace.AgentMD != "" {
-		finalAgentSource = sourceWorkspace.AgentMD
-		output.PrintInfo("Using AGENT.md from source workspace: %s", finalAgentSource)
+	if agentSource == "" && plan.FinalAgentSource != "" {
+		output.PrintInfo("Using AGENT.md from source workspace: %s", plan.FinalAgentSource)
 	}
 
 	// Create the new workspace
 	log.Debug().
 		Str("newName", newWorkspaceName).
 		Str("sourceName", sourceWorkspace.Name).
-		Strs("repos", repoNames).
-		Str("branch", finalBranch).
-		Str("baseBranch", baseBranch).
+		Strs("repos", plan.RepoNames).
+		Str("branch", plan.FinalBranch).
+		Str("baseBranch", plan.BaseBranch).
 		Bool("dryRun", dryRun).
 		Msg("Forking workspace")
 
-	workspace, err := wm.CreateWorkspace(ctx, newWorkspaceName, repoNames, finalBranch, baseBranch, finalAgentSource, dryRun)
+	workspace, _, err := workflow.Fork(ctx, req)
 	if err != nil {
 		// Check if user cancelled - handle gracefully without error
 		errMsg := strings.ToLower(err.Error())
@@ -158,7 +115,7 @@ func runFork(ctx context.Context, newWorkspaceName, sourceWorkspaceName, branch,
 			output.PrintInfo("Operation cancelled.")
 			return nil // Return success to prevent usage help
 		}
-		return errors.Wrap(err, "failed to fork workspace")
+		return err
 	}
 
 	// Show results
@@ -168,7 +125,7 @@ func runFork(ctx context.Context, newWorkspaceName, sourceWorkspaceName, branch,
 		output.PrintInfo("Source workspace:")
 		fmt.Printf("  Name: %s\n", sourceWorkspace.Name)
 		fmt.Printf("  Path: %s\n", sourceWorkspace.Path)
-		fmt.Printf("  Current branch: %s\n", baseBranch)
+		fmt.Printf("  Current branch: %s\n", plan.BaseBranch)
 		fmt.Println()
 		return showWorkspacePreview(workspace)
 	}
@@ -177,12 +134,12 @@ func runFork(ctx context.Context, newWorkspaceName, sourceWorkspaceName, branch,
 	fmt.Println()
 
 	output.PrintHeader("Fork Details")
-	fmt.Printf("  Source: %s (branch: %s)\n", sourceWorkspace.Name, baseBranch)
+	fmt.Printf("  Source: %s (branch: %s)\n", sourceWorkspace.Name, plan.BaseBranch)
 	fmt.Printf("  New workspace: %s\n", workspace.Name)
 	fmt.Printf("  Path: %s\n", workspace.Path)
 	fmt.Printf("  Repositories: %s\n", strings.Join(getRepositoryNames(workspace.Repositories), ", "))
 	fmt.Printf("  New branch: %s\n", workspace.Branch)
-	fmt.Printf("  Base branch: %s\n", workspace.BaseBranch)
+	fmt.Printf("  Base branch: %s\n", plan.BaseBranch)
 	if workspace.GoWorkspace {
 		fmt.Printf("  Go workspace: yes (go.work created)\n")
 	}

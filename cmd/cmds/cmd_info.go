@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
-	"os"
-	"strings"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm/workflows"
 
 	"github.com/carapace-sh/carapace"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -68,29 +66,20 @@ Examples:
 }
 
 func runInfo(ctx context.Context, workspaceName string, outputFormat, outputField string) error {
-	// If no workspace specified, try to detect current workspace
-	if workspaceName == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return errors.Wrap(err, "failed to get current directory")
-		}
-
-		detected, err := detectWorkspace(cwd)
-		if err != nil {
-			return errors.Wrap(err, "failed to detect workspace. Use 'workspace-manager info <workspace-name>' or specify --workspace flag")
-		}
-		workspaceName = detected
-	}
-
-	// Load workspace
-	workspace, err := loadWorkspace(workspaceName)
+	workflow := workflows.NewInfoWorkflow()
+	workspace, err := workflow.ResolveWorkspace(workspaceName)
 	if err != nil {
-		return errors.Wrapf(err, "failed to load workspace '%s'", workspaceName)
+		return err
 	}
 
 	// Handle field-specific output
 	if outputField != "" {
-		return printField(workspace, outputField)
+		value, err := workflow.FieldValue(workspace, outputField)
+		if err != nil {
+			return err
+		}
+		fmt.Println(value)
+		return nil
 	}
 
 	// Handle JSON output
@@ -100,28 +89,6 @@ func runInfo(ctx context.Context, workspaceName string, outputFormat, outputFiel
 
 	// Default table output
 	return printInfoTable(workspace)
-}
-
-func printField(workspace *wsm.Workspace, field string) error {
-	switch strings.ToLower(field) {
-	case "path":
-		fmt.Println(workspace.Path)
-	case "name":
-		fmt.Println(workspace.Name)
-	case "branch":
-		fmt.Println(workspace.Branch)
-	case "repositories":
-		fmt.Println(len(workspace.Repositories))
-	case "created":
-		fmt.Println(workspace.Created.Format("2006-01-02 15:04:05"))
-	case "date":
-		fmt.Println(workspace.Created.Format("2006-01-02"))
-	case "time":
-		fmt.Println(workspace.Created.Format("15:04:05"))
-	default:
-		return errors.Errorf("unknown field: %s. Available fields: path, name, branch, repositories, created, date, time", field)
-	}
-	return nil
 }
 
 func printInfoTable(workspace *wsm.Workspace) error {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm/workflows"
 	"os"
-	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -74,19 +74,14 @@ func NewListWorkspacesCommand() *cobra.Command {
 }
 
 func runListRepos(format string, tags []string) error {
-	// Get registry path and load registry
-	registryPath, err := getRegistryPath()
+	workflow, err := workflows.NewListWorkflow()
 	if err != nil {
-		return errors.Wrap(err, "failed to get registry path")
+		return err
 	}
-
-	discoverer := wsm.NewRepositoryDiscoverer(registryPath)
-	if err := discoverer.LoadRegistry(); err != nil {
-		return errors.Wrap(err, "failed to load registry")
+	repos, err := workflow.ListRepositories(tags)
+	if err != nil {
+		return err
 	}
-
-	// Get repositories, optionally filtered by tags
-	repos := discoverer.GetRepositoriesByTags(tags)
 
 	if len(repos) == 0 {
 		if len(tags) > 0 {
@@ -108,20 +103,19 @@ func runListRepos(format string, tags []string) error {
 }
 
 func runListWorkspaces(format string) error {
-	workspaces, err := wsm.LoadWorkspaces()
+	workflow, err := workflows.NewListWorkflow()
 	if err != nil {
-		return errors.Wrap(err, "failed to load workspaces")
+		return err
+	}
+	workspaces, err := workflow.ListWorkspaces()
+	if err != nil {
+		return err
 	}
 
 	if len(workspaces) == 0 {
 		output.PrintInfo("No workspaces found. Use 'workspace-manager create' to create a workspace")
 		return nil
 	}
-
-	// Sort workspaces by creation date descending (newest first)
-	sort.Slice(workspaces, func(i, j int) bool {
-		return workspaces[i].Created.After(workspaces[j].Created)
-	})
 
 	switch format {
 	case "table":
