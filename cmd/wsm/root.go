@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
-	"github.com/go-go-golems/workspace-manager/cmd/cmds"
 	gitcmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/git"
 	registrycmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/registry"
 	workspacecmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/workspace"
@@ -71,11 +70,6 @@ func init() {
 		output.PrintError("Failed to register git commands: %v", err)
 		log.Fatal().Err(err).Msg("Failed to register git commands")
 	}
-
-	// Add legacy subcommands that have not yet migrated to cmd/wsm/cmds/<group>.
-	rootCmd.AddCommand(
-		cmds.NewRebaseCommand(),
-	)
 
 	carapace.Gen(rootCmd)
 }

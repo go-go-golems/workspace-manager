@@ -27,6 +27,11 @@ func Register(root *cobra.Command) error {
 		return errors.Wrap(err, "failed to build branch command")
 	}
 
-	root.AddCommand(commitCmd, diffCmd, logCmd, branchCmd)
+	rebaseCmd, err := NewRebaseCobraCommand()
+	if err != nil {
+		return errors.Wrap(err, "failed to build rebase command")
+	}
+
+	root.AddCommand(commitCmd, diffCmd, logCmd, branchCmd, rebaseCmd)
 	return nil
 }
