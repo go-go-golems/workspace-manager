@@ -62,7 +62,7 @@
 
 - [ ] Migrate `create`
 - [ ] Migrate `fork`
-- [ ] Migrate `commit`
+- [x] Migrate `commit`
 - [ ] Migrate `delete`
 - [ ] Ensure interactive paths still function for `create`, `commit`, `delete`
 - [ ] Add fixture-driven tests for workflow-heavy verbs
@@ -82,7 +82,7 @@
 - [ ] Normalize output strategy around `--output-mode human|data|both` and Glazed data output controls
 - [ ] Update README/help/implementation docs for Glazed architecture
 - [ ] Run `go test ./cmd/... ./pkg/...` and targeted integration scenarios
-- [ ] Run `docmgr doctor --ticket WSM-MO-006-GLAZED-CLI-MIGRATION --stale-after 30`
+- [x] Run `docmgr doctor --ticket WSM-MO-006-GLAZED-CLI-MIGRATION --stale-after 30`
 - [x] Upload implementation plan to reMarkable
 - [x] Upload v2 implementation plan to reMarkable
 - [ ] Upload diary to reMarkable

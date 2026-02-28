@@ -26,7 +26,7 @@ ExternalSources:
     - /home/manuel/.codex/skills/diary/SKILL.md
     - /home/manuel/.codex/skills/remarkable-upload/SKILL.md
 Summary: Detailed execution diary for planning and implementing WSM-MO-006 command migration to Glazed.
-LastUpdated: 2026-02-28T20:20:00-05:00
+LastUpdated: 2026-02-28T20:35:00-05:00
 WhatFor: Track exactly how the Glazed migration plan and implementation steps were produced, validated, and committed.
 WhenToUse: Use when reviewing planning decisions or continuing implementation from this ticket.
 ---
@@ -666,3 +666,80 @@ The migration keeps familiar human summaries/tables while adding structured rows
   - repository identifier,
   - success/error details,
   - branch/status fields for list view.
+
+## Step 10: Begin Phase 4 by Migrating `commit`
+
+I started the workflow-heavy phase with `commit` because it already has a clean workflow boundary (`Prepare` and `Execute`) and explicit interactive behavior. The migration retained that behavior while introducing standardized runtime/data-output handling.
+
+The only notable compatibility adjustment was renaming the legacy `--template` commit flag to `--commit-template` to avoid a hard conflict with Glazed’s existing output templating flags.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 6)
+
+**Assistant interpretation:** Continue migration into the next phase, preserving behavior and keeping commit checkpoints + diary updates.
+
+**Inferred user intent:** Keep moving through the plan quickly while preventing regressions in interactive commands.
+
+**Commit (code):** `a08684b` — "wsm: migrate git commit to glazed command"
+
+### What I did
+- Added `cmd/wsm/cmds/git/commit.go`:
+  - decoded flags: `--message`, `--interactive`, `--add-all`, `--push`, `--dry-run`, `--commit-template`,
+  - delegated to `workflows.NewCommitWorkflow().Prepare/Execute`,
+  - preserved interactive selection helper and message prompt logic,
+  - added dual output support with summary and per-repository structured rows.
+- Updated `cmd/wsm/cmds/git/root.go`:
+  - registered `commit` in git command group.
+- Updated `cmd/wsm/root.go`:
+  - removed legacy `cmds.NewCommitCommand()` registration.
+- Fixed a migration bug:
+  - initial implementation used `template` flag name and failed root startup due duplicate flag registration from Glazed output section.
+  - renamed command flag to `commit-template` and revalidated.
+- Validated:
+  - `gofmt -w cmd/wsm/cmds/git/commit.go cmd/wsm/cmds/git/root.go cmd/wsm/root.go`
+  - `go test ./cmd/wsm/... ./pkg/... -count=1`
+  - `go run ./cmd/wsm commit --help`
+
+### Why
+- `commit` is a high-impact command and a good first candidate in Phase 4 due existing workflow encapsulation.
+- Completing this migration reduces legacy command burden while proving workflow-heavy commands can still fit the Glazed architecture.
+
+### What worked
+- Workflow delegation stayed intact and compile/test checks passed.
+- Interactive commit flow was preserved without introducing new external dependencies.
+- Data output now provides structured execution summaries suitable for automation.
+
+### What didn't work
+- Flag collision on first pass:
+  - command: `go run ./cmd/wsm commit --help`
+  - error: `Flag 'template' ... already exists`
+  - root cause: command-level `template` flag name conflicted with Glazed output templating flags.
+  - resolution: renamed to `commit-template`.
+
+### What I learned
+- Workflow-heavy commands need explicit audit of flag names against Glazed built-ins to avoid collisions (especially `template`, `output`, `fields`, etc.).
+
+### What was tricky to build
+- Maintaining interactive behavior while still producing structured rows required separating execution outcome reporting from user-prompt flow and explicitly handling “no changes/no selection” states.
+
+### What warrants a second pair of eyes
+- UX impact of `--template` rename to `--commit-template` should be reviewed before final release documentation is updated.
+
+### What should be done in the future
+- Consider a dedicated compatibility note in release docs for renamed flags where Glazed reserves the legacy name.
+
+### Code review instructions
+- Review:
+  - `cmd/wsm/cmds/git/commit.go`
+  - `cmd/wsm/cmds/git/root.go`
+  - `cmd/wsm/root.go`
+- Validate:
+  - `go test ./cmd/wsm/... ./pkg/... -count=1`
+  - `go run ./cmd/wsm commit --help`
+
+### Technical details
+- Structured rows emitted include:
+  - overall commit execution summary,
+  - per-repository file selection detail rows,
+  - status-specific rows for no changes/no selection states.

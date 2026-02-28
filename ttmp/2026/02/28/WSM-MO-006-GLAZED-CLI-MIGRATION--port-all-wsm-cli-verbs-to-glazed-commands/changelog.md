@@ -15,6 +15,7 @@
 - Implemented first Phase 3 medium command migration (commit `e879879`): `workspace/status` moved to Glazed command with dual output and legacy-human renderer parity.
 - Implemented additional Phase 3 medium command migrations (commit `e57bc54`): moved `git/diff` and `git/log` to Glazed commands and switched root registration away from legacy handlers.
 - Implemented remaining planned Phase 3 command migrations for branch operations (commit `0f3b95e`): moved `branch create`, `branch switch`, and `branch list` to Glazed subcommands under git group.
+- Implemented first Phase 4 workflow-heavy command migration (commit `a08684b`): moved `commit` to a Glazed command while preserving interactive selection flow.
 
 ### Related Files
 
@@ -30,3 +31,4 @@
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/diff.go — Migrated `diff` Glazed command
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/log.go — Migrated `log` Glazed command
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/branch.go — Migrated `branch create/switch/list` Glazed subcommands
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/commit.go — Migrated `commit` Glazed command
