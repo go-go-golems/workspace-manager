@@ -79,7 +79,6 @@ func init() {
 		cmds.NewMergeCommand(),
 		cmds.NewDeleteCommand(),
 
-		cmds.NewCommitCommand(),
 		cmds.NewRebaseCommand(),
 	)
 

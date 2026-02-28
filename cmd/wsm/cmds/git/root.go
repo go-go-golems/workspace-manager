@@ -7,6 +7,11 @@ import (
 
 // Register wires git-oriented commands into the root command.
 func Register(root *cobra.Command) error {
+	commitCmd, err := NewCommitCobraCommand()
+	if err != nil {
+		return errors.Wrap(err, "failed to build commit command")
+	}
+
 	diffCmd, err := NewDiffCobraCommand()
 	if err != nil {
 		return errors.Wrap(err, "failed to build diff command")
@@ -22,6 +27,6 @@ func Register(root *cobra.Command) error {
 		return errors.Wrap(err, "failed to build branch command")
 	}
 
-	root.AddCommand(diffCmd, logCmd, branchCmd)
+	root.AddCommand(commitCmd, diffCmd, logCmd, branchCmd)
 	return nil
 }
