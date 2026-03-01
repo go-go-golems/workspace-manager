@@ -99,10 +99,7 @@ func (c *DiscoverCommand) RunIntoGlazeProcessor(
 		return err
 	}
 
-	row := types.NewRow(
-		types.MRP("paths", result.Paths),
-		types.MRP("repository_count", result.RepositoryCount),
-	)
+	row := discoverResultToRow(result)
 	return gp.AddRow(ctx, row)
 }
 
@@ -130,6 +127,13 @@ func (c *DiscoverCommand) execute(ctx context.Context, vals *values.Values) (*di
 		Paths:           result.Paths,
 		RepositoryCount: result.RepositoryCount,
 	}, nil
+}
+
+func discoverResultToRow(result *discoverExecutionResult) types.Row {
+	return types.NewRow(
+		types.MRP("paths", result.Paths),
+		types.MRP("repository_count", result.RepositoryCount),
+	)
 }
 
 func NewDiscoverCobraCommand() (*cobra.Command, error) {

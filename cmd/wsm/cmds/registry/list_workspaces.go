@@ -56,21 +56,7 @@ func (c *ListWorkspacesCommand) RunIntoGlazeProcessor(
 		return err
 	}
 
-	for _, workspace := range workspaces {
-		repoNames := make([]string, 0, len(workspace.Repositories))
-		for _, repo := range workspace.Repositories {
-			repoNames = append(repoNames, repo.Name)
-		}
-
-		row := types.NewRow(
-			types.MRP("name", workspace.Name),
-			types.MRP("path", workspace.Path),
-			types.MRP("branch", workspace.Branch),
-			types.MRP("base_branch", workspace.BaseBranch),
-			types.MRP("repository_count", len(workspace.Repositories)),
-			types.MRP("repositories", repoNames),
-			types.MRP("created", workspace.Created),
-		)
+	for _, row := range workspacesToRows(workspaces) {
 		if err := gp.AddRow(ctx, row); err != nil {
 			return errors.Wrap(err, "failed to add workspace row")
 		}
@@ -91,6 +77,27 @@ func (c *ListWorkspacesCommand) execute(_ context.Context) ([]wsm.Workspace, err
 	}
 
 	return workspaces, nil
+}
+
+func workspacesToRows(workspaces []wsm.Workspace) []types.Row {
+	rows := make([]types.Row, 0, len(workspaces))
+	for _, workspace := range workspaces {
+		repoNames := make([]string, 0, len(workspace.Repositories))
+		for _, repo := range workspace.Repositories {
+			repoNames = append(repoNames, repo.Name)
+		}
+
+		rows = append(rows, types.NewRow(
+			types.MRP("name", workspace.Name),
+			types.MRP("path", workspace.Path),
+			types.MRP("branch", workspace.Branch),
+			types.MRP("base_branch", workspace.BaseBranch),
+			types.MRP("repository_count", len(workspace.Repositories)),
+			types.MRP("repositories", repoNames),
+			types.MRP("created", workspace.Created),
+		))
+	}
+	return rows
 }
 
 func printWorkspacesHuman(workspaces []wsm.Workspace) error {

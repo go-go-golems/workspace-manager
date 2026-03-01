@@ -70,15 +70,7 @@ func (c *ListReposCommand) RunIntoGlazeProcessor(
 		return err
 	}
 
-	for _, repo := range repos {
-		row := types.NewRow(
-			types.MRP("name", repo.Name),
-			types.MRP("path", repo.Path),
-			types.MRP("current_branch", repo.CurrentBranch),
-			types.MRP("remote_url", repo.RemoteURL),
-			types.MRP("categories", repo.Categories),
-			types.MRP("last_updated", repo.LastUpdated),
-		)
+	for _, row := range reposToRows(repos) {
 		if err := gp.AddRow(ctx, row); err != nil {
 			return errors.Wrap(err, "failed to add repository row")
 		}
@@ -103,6 +95,21 @@ func (c *ListReposCommand) execute(_ context.Context, vals *values.Values) ([]ws
 	}
 
 	return repos, settings_.Tags, nil
+}
+
+func reposToRows(repos []wsm.Repository) []types.Row {
+	rows := make([]types.Row, 0, len(repos))
+	for _, repo := range repos {
+		rows = append(rows, types.NewRow(
+			types.MRP("name", repo.Name),
+			types.MRP("path", repo.Path),
+			types.MRP("current_branch", repo.CurrentBranch),
+			types.MRP("remote_url", repo.RemoteURL),
+			types.MRP("categories", repo.Categories),
+			types.MRP("last_updated", repo.LastUpdated),
+		))
+	}
+	return rows
 }
 
 func printReposHuman(repos []wsm.Repository, tags []string) error {
