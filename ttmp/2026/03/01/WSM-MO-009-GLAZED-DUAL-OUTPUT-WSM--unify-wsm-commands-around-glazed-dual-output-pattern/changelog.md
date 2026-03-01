@@ -102,3 +102,15 @@ Committed registry execution phase as 6855a26 (discover/list repos/list workspac
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/registry/list_repos.go — Commit includes list repos dual-interface rewrite
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/registry/list_workspaces.go — Commit includes list workspaces dual-interface rewrite
 
+
+## 2026-03-01
+
+Phase 5: completed registry human/glaze test coverage by extracting row projection helpers and adding focused unit tests for projection and human renderer output; committed as 803b5ed.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/registry/discover.go — Added `discoverResultToRow` helper for glaze output projection testing
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/registry/list_repos.go — Added `reposToRows` helper and reused it in `RunIntoGlazeProcessor`
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/registry/list_workspaces.go — Added `workspacesToRows` helper and reused it in `RunIntoGlazeProcessor`
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/registry/registry_output_test.go — New tests for glaze row projection and human output rendering
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/tasks.md — Registry test task marked complete

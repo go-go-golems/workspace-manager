@@ -17,7 +17,7 @@
 - [x] Rewrite `wsm discover` to `Run` + `RunIntoGlazeProcessor` (remove `EmitRows`/`output-mode` branching)
 - [x] Rewrite `wsm list repos` to `Run` + `RunIntoGlazeProcessor` (keep concise human template)
 - [x] Rewrite `wsm list workspaces` to `Run` + `RunIntoGlazeProcessor` (keep concise human template)
-- [ ] Add/adjust registry command tests for human mode and glaze mode
+- [x] Add/adjust registry command tests for human mode and glaze mode
 
 ### Workspace Command Rewrites
 - [ ] Rewrite `wsm create` to `Run` + `RunIntoGlazeProcessor`
