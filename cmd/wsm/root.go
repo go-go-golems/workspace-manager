@@ -32,6 +32,10 @@ Features:
 
 - Safe workspace cleanup with proper worktree removal
 
+Output:
+- Human-readable output is the default
+- Use --with-glaze-output to emit structured rows (JSON/YAML/CSV via Glazed flags)
+
 Examples:
   # Discover repositories in your code directories
   wsm discover ~/code ~/projects --recursive

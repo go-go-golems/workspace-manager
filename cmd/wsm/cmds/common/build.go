@@ -11,7 +11,7 @@ import (
 func BuildCobraCommand(command cmds.Command) (*cobra.Command, error) {
 	return cli.BuildCobraCommandFromCommand(command,
 		cli.WithParserConfig(cli.CobraParserConfig{
-			ShortHelpSections: []string{schema.DefaultSlug, RuntimeSectionSlug},
+			ShortHelpSections: []string{schema.DefaultSlug},
 			MiddlewaresFunc:   cli.CobraCommandDefaultMiddlewares,
 		}),
 	)
@@ -24,7 +24,7 @@ func BuildCobraCommandDualMode(command cmds.Command) (*cobra.Command, error) {
 		cli.WithDualMode(true),
 		cli.WithGlazeToggleFlag("with-glaze-output"),
 		cli.WithParserConfig(cli.CobraParserConfig{
-			ShortHelpSections: []string{schema.DefaultSlug, RuntimeSectionSlug},
+			ShortHelpSections: []string{schema.DefaultSlug},
 			MiddlewaresFunc:   cli.CobraCommandDefaultMiddlewares,
 		}),
 	)
