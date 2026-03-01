@@ -184,6 +184,32 @@ Outcome:
 
 - CI helper code and Makefile now match CLI-only backend model.
 
+### Final Validation and Closeout
+
+Date: 2026-03-01
+
+Full validation run:
+
+```bash
+go test ./... -count=1
+```
+
+Result:
+
+- Full suite passed, including integration scenarios.
+
+Phase commits:
+
+- `16261fc` — task 1 (configurable base branch + no unconditional fetch)
+- `a8e9e56` — task 2 (porcelain parsing for status/worktree)
+- `3621f36` — task 3 (commit contract simplification)
+- `f77aee5` — task 4 (semantic/parser tests)
+- `de6b3d2` — task 5 (Makefile/Dagger backend-matrix cleanup)
+
+Notes:
+
+- While updating changelog for Task 2, backticks in a shell command string were interpreted by the shell once; entry text was corrected immediately afterward.
+
 ## Usage Examples
 
 Use `WSM_BASE_BRANCH` to override default base branch globally:
