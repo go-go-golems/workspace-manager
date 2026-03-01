@@ -195,9 +195,9 @@ func (c *CliGitClient) Reset(ctx context.Context, repo RepositoryHandle, path st
 	return err
 }
 
-func (c *CliGitClient) Commit(ctx context.Context, repo RepositoryHandle, msg string, opts CommitOptions) (string, error) {
+func (c *CliGitClient) Commit(ctx context.Context, repo RepositoryHandle, msg string) error {
 	_, err := runGit(ctx, repo.Path(), "commit", "-m", msg)
-	return "", err
+	return err
 }
 
 func (c *CliGitClient) Diff(ctx context.Context, repo RepositoryHandle, staged bool) (string, error) {

@@ -25,12 +25,6 @@ type Status struct {
 	UntrackedFiles []string
 }
 
-// CommitOptions holds options for commit operations.
-type CommitOptions struct {
-	AuthorName  string
-	AuthorEmail string
-}
-
 // WorktreeAddOptions controls worktree add behavior.
 type WorktreeAddOptions struct {
 	BaseRef      string // base ref to create branch from, optional
@@ -66,7 +60,7 @@ type GitClient interface {
 	Status(ctx context.Context, repo RepositoryHandle) (Status, error)
 	Add(ctx context.Context, repo RepositoryHandle, path string) error
 	Reset(ctx context.Context, repo RepositoryHandle, path string) error
-	Commit(ctx context.Context, repo RepositoryHandle, msg string, opts CommitOptions) (string, error)
+	Commit(ctx context.Context, repo RepositoryHandle, msg string) error
 	Diff(ctx context.Context, repo RepositoryHandle, staged bool) (string, error)
 
 	// Sync

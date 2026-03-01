@@ -104,6 +104,34 @@ Outcome:
 - Parser changes compiled and passed targeted tests.
 - No regressions observed in smoke status scenario.
 
+### Phase 3 (Task 3): Simplify GitClient Commit Contract
+
+Date: 2026-03-01
+
+Changes made:
+
+- Removed misleading commit options and unused return value from git client contract:
+  - `pkg/wsm/gitclient/client.go`
+  - Removed `CommitOptions`
+  - Changed `Commit(ctx, repo, msg, opts) (string, error)` to `Commit(ctx, repo, msg) error`
+- Updated CLI implementation accordingly:
+  - `pkg/wsm/gitclient/cli_client.go`
+- Updated caller flow in workspace commit orchestration:
+  - `pkg/wsm/git_operations.go`
+  - removed unused `gitclient` import tied to removed options
+
+Validation commands run:
+
+```bash
+gofmt -w pkg/wsm/gitclient/client.go pkg/wsm/gitclient/cli_client.go pkg/wsm/git_operations.go
+go test ./pkg/wsm/gitclient ./pkg/wsm ./pkg/wsmjs/service ./test/integration/scenarios -run TestSmokeStatusDiff -count=1
+```
+
+Outcome:
+
+- Contract is now explicit and non-misleading.
+- Targeted tests passed.
+
 ## Usage Examples
 
 Use `WSM_BASE_BRANCH` to override default base branch globally:

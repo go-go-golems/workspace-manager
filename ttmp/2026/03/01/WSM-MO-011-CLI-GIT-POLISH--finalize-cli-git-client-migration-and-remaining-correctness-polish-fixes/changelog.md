@@ -35,3 +35,14 @@ Task 2 complete: hardened git client parsing using machine formats (status --por
 
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/gitclient/cli_client.go — Status parser uses NUL-delimited porcelain
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/gitclient/worktree_cli.go — Worktree parser uses porcelain stanzas
+
+## 2026-03-01
+
+Task 3 complete: simplified GitClient commit contract by removing unused CommitOptions and changing commit signature to return only error.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/git_operations.go — Caller updated for new commit contract
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/gitclient/cli_client.go — Commit implementation simplified
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/gitclient/client.go — Commit interface simplified
+

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/go-go-golems/workspace-manager/pkg/output"
-	"github.com/go-go-golems/workspace-manager/pkg/wsm/gitclient"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -170,7 +169,7 @@ func (gops *GitOperations) CommitChanges(ctx context.Context, operation *CommitO
 		}
 
 		// Commit changes
-		if _, err := gc.Commit(ctx, h, operation.Message, gitclient.CommitOptions{}); err != nil {
+		if err := gc.Commit(ctx, h, operation.Message); err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", repoName, err))
 			continue
 		}
