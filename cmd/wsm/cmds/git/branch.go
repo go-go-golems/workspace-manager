@@ -10,6 +10,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
@@ -44,9 +45,39 @@ type BranchSwitchSettings struct {
 
 type BranchListSettings struct{}
 
+type branchCreateExecutionResult struct {
+	WorkspaceName string
+	BranchName    string
+	Track         bool
+	Results       []wsm.BranchOperationResult
+}
+
+type branchSwitchExecutionResult struct {
+	WorkspaceName string
+	BranchName    string
+	Results       []wsm.BranchOperationResult
+}
+
+type branchListEntry struct {
+	Repository    string
+	CurrentBranch string
+	StatusSymbol  string
+	HasChanges    bool
+	HasConflicts  bool
+	Error         string
+}
+
+type branchListExecutionResult struct {
+	WorkspaceName string
+	Entries       []branchListEntry
+}
+
 var _ cmds.BareCommand = &BranchCreateCommand{}
+var _ cmds.GlazeCommand = &BranchCreateCommand{}
 var _ cmds.BareCommand = &BranchSwitchCommand{}
+var _ cmds.GlazeCommand = &BranchSwitchCommand{}
 var _ cmds.BareCommand = &BranchListCommand{}
+var _ cmds.GlazeCommand = &BranchListCommand{}
 
 func NewBranchCreateCommand() (*BranchCreateCommand, error) {
 	desc, err := wsmcmdcommon.BuildDescription(
@@ -75,56 +106,80 @@ func NewBranchCreateCommand() (*BranchCreateCommand, error) {
 }
 
 func (c *BranchCreateCommand) Run(ctx context.Context, vals *values.Values) error {
-	settings_ := &BranchCreateSettings{}
-	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrap(err, "failed to decode branch create settings")
-	}
-	if settings_.BranchName == "" {
-		return errors.New("branch name is required")
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
 	}
 
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
+	output.PrintHeader("Creating branch '%s' across workspace: %s", result.BranchName, result.WorkspaceName)
+	if err := printBranchResults(result.Results, "create"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *BranchCreateCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	for _, row := range branchCreateResultToRows(result) {
+		if err := gp.AddRow(ctx, row); err != nil {
+			return errors.Wrap(err, "failed to add branch create row")
+		}
+	}
+
+	return nil
+}
+
+func (c *BranchCreateCommand) execute(ctx context.Context, vals *values.Values) (*branchCreateExecutionResult, error) {
+	settings_ := &BranchCreateSettings{}
+	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
+		return nil, errors.Wrap(err, "failed to decode branch create settings")
+	}
+	if settings_.BranchName == "" {
+		return nil, errors.New("branch name is required")
 	}
 
 	workspace, err := detectCurrentWorkspace()
 	if err != nil {
-		return errors.Wrap(err, "failed to detect current workspace")
+		return nil, errors.Wrap(err, "failed to detect current workspace")
 	}
 
 	branchOps := wsm.NewBranchOperations(workspace)
 	results, err := branchOps.CreateBranch(ctx, settings_.BranchName, settings_.Track)
 	if err != nil {
-		return errors.Wrap(err, "branch creation failed")
+		return nil, errors.Wrap(err, "branch creation failed")
 	}
 
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		output.PrintHeader("Creating branch '%s' across workspace: %s", settings_.BranchName, workspace.Name)
-		if err := printBranchResults(results, "create"); err != nil {
-			return err
-		}
-	}
+	return &branchCreateExecutionResult{
+		WorkspaceName: workspace.Name,
+		BranchName:    settings_.BranchName,
+		Track:         settings_.Track,
+		Results:       results,
+	}, nil
+}
 
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		rows := make([]types.Row, 0, len(results))
-		for _, result := range results {
-			rows = append(rows, types.NewRow(
-				types.MRP("workspace", workspace.Name),
-				types.MRP("operation", "create"),
-				types.MRP("branch", settings_.BranchName),
-				types.MRP("track", settings_.Track),
-				types.MRP("repository", result.Repository),
-				types.MRP("success", result.Success),
-				types.MRP("error", result.Error),
-			))
-		}
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit branch create rows")
-		}
+func branchCreateResultToRows(result *branchCreateExecutionResult) []types.Row {
+	rows := make([]types.Row, 0, len(result.Results))
+	for _, operationResult := range result.Results {
+		rows = append(rows, types.NewRow(
+			types.MRP("workspace", result.WorkspaceName),
+			types.MRP("operation", "create"),
+			types.MRP("branch", result.BranchName),
+			types.MRP("track", result.Track),
+			types.MRP("repository", operationResult.Repository),
+			types.MRP("success", operationResult.Success),
+			types.MRP("error", operationResult.Error),
+		))
 	}
-
-	return nil
+	return rows
 }
 
 func NewBranchSwitchCommand() (*BranchSwitchCommand, error) {
@@ -148,55 +203,78 @@ func NewBranchSwitchCommand() (*BranchSwitchCommand, error) {
 }
 
 func (c *BranchSwitchCommand) Run(ctx context.Context, vals *values.Values) error {
-	settings_ := &BranchSwitchSettings{}
-	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrap(err, "failed to decode branch switch settings")
-	}
-	if settings_.BranchName == "" {
-		return errors.New("branch name is required")
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
 	}
 
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
+	output.PrintHeader("Switching to branch '%s' across workspace: %s", result.BranchName, result.WorkspaceName)
+	if err := printBranchResults(result.Results, "switch"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *BranchSwitchCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	for _, row := range branchSwitchResultToRows(result) {
+		if err := gp.AddRow(ctx, row); err != nil {
+			return errors.Wrap(err, "failed to add branch switch row")
+		}
+	}
+
+	return nil
+}
+
+func (c *BranchSwitchCommand) execute(ctx context.Context, vals *values.Values) (*branchSwitchExecutionResult, error) {
+	settings_ := &BranchSwitchSettings{}
+	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
+		return nil, errors.Wrap(err, "failed to decode branch switch settings")
+	}
+	if settings_.BranchName == "" {
+		return nil, errors.New("branch name is required")
 	}
 
 	workspace, err := detectCurrentWorkspace()
 	if err != nil {
-		return errors.Wrap(err, "failed to detect current workspace")
+		return nil, errors.Wrap(err, "failed to detect current workspace")
 	}
 
 	branchOps := wsm.NewBranchOperations(workspace)
 	results, err := branchOps.SwitchBranch(ctx, settings_.BranchName)
 	if err != nil {
-		return errors.Wrap(err, "branch switch failed")
+		return nil, errors.Wrap(err, "branch switch failed")
 	}
 
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		output.PrintHeader("Switching to branch '%s' across workspace: %s", settings_.BranchName, workspace.Name)
-		if err := printBranchResults(results, "switch"); err != nil {
-			return err
-		}
-	}
+	return &branchSwitchExecutionResult{
+		WorkspaceName: workspace.Name,
+		BranchName:    settings_.BranchName,
+		Results:       results,
+	}, nil
+}
 
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		rows := make([]types.Row, 0, len(results))
-		for _, result := range results {
-			rows = append(rows, types.NewRow(
-				types.MRP("workspace", workspace.Name),
-				types.MRP("operation", "switch"),
-				types.MRP("branch", settings_.BranchName),
-				types.MRP("repository", result.Repository),
-				types.MRP("success", result.Success),
-				types.MRP("error", result.Error),
-			))
-		}
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit branch switch rows")
-		}
+func branchSwitchResultToRows(result *branchSwitchExecutionResult) []types.Row {
+	rows := make([]types.Row, 0, len(result.Results))
+	for _, operationResult := range result.Results {
+		rows = append(rows, types.NewRow(
+			types.MRP("workspace", result.WorkspaceName),
+			types.MRP("operation", "switch"),
+			types.MRP("branch", result.BranchName),
+			types.MRP("repository", operationResult.Repository),
+			types.MRP("success", operationResult.Success),
+			types.MRP("error", operationResult.Error),
+		))
 	}
-
-	return nil
+	return rows
 }
 
 func NewBranchListCommand() (*BranchListCommand, error) {
@@ -212,37 +290,44 @@ func NewBranchListCommand() (*BranchListCommand, error) {
 }
 
 func (c *BranchListCommand) Run(ctx context.Context, vals *values.Values) error {
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
 	}
 
+	output.PrintHeader("Current branches in workspace: %s", result.WorkspaceName)
+	printBranchListHuman(result.Entries)
+
+	return nil
+}
+
+func (c *BranchListCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	for _, row := range branchListResultToRows(result) {
+		if err := gp.AddRow(ctx, row); err != nil {
+			return errors.Wrap(err, "failed to add branch list row")
+		}
+	}
+
+	return nil
+}
+
+func (c *BranchListCommand) execute(ctx context.Context, _ *values.Values) (*branchListExecutionResult, error) {
 	workspace, err := detectCurrentWorkspace()
 	if err != nil {
-		return errors.Wrap(err, "failed to detect current workspace")
+		return nil, errors.Wrap(err, "failed to detect current workspace")
 	}
 
 	checker := wsm.NewStatusChecker()
-	rows := make([]types.Row, 0, len(workspace.Repositories))
-
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		output.PrintHeader("Current branches in workspace: %s", workspace.Name)
-	}
-
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		defer func() {
-			if err := w.Flush(); err != nil {
-				output.LogWarn(
-					fmt.Sprintf("Failed to flush table writer: %v", err),
-					"Failed to flush table writer",
-					"error", err,
-				)
-			}
-		}()
-		fmt.Fprintln(w, "\nREPOSITORY\tCURRENT BRANCH\tSTATUS")
-		fmt.Fprintln(w, "----------\t--------------\t------")
-	}
+	entries := make([]branchListEntry, 0, len(workspace.Repositories))
 
 	for _, repo := range workspace.Repositories {
 		status, err := checker.GetWorkspaceStatus(ctx, &wsm.Workspace{
@@ -250,54 +335,72 @@ func (c *BranchListCommand) Run(ctx context.Context, vals *values.Values) error 
 			Repositories: []wsm.Repository{repo},
 		})
 
-		branchName := "unknown"
-		symbol := "❌"
-		errMsg := ""
-		hasChanges := false
-		hasConflicts := false
+		entry := branchListEntry{
+			Repository:    repo.Name,
+			CurrentBranch: "unknown",
+			StatusSymbol:  "❌",
+		}
 
 		if err == nil && len(status.Repositories) > 0 {
 			repoStatus := status.Repositories[0]
-			branchName = repoStatus.CurrentBranch
-			symbol = "✅"
+			entry.CurrentBranch = repoStatus.CurrentBranch
+			entry.StatusSymbol = "✅"
 			if repoStatus.HasChanges {
-				symbol = "🔄"
-				hasChanges = true
+				entry.StatusSymbol = "🔄"
+				entry.HasChanges = true
 			}
 			if repoStatus.HasConflicts {
-				symbol = "⚠️"
-				hasConflicts = true
+				entry.StatusSymbol = "⚠️"
+				entry.HasConflicts = true
 			}
 		} else if err != nil {
-			errMsg = err.Error()
+			entry.Error = err.Error()
 		}
 
-		if wsmcmdcommon.ShouldOutputHuman(mode) {
-			fmt.Fprintf(w, "%s\t%s\t%s\n", repo.Name, branchName, symbol)
-		}
+		entries = append(entries, entry)
+	}
 
+	return &branchListExecutionResult{
+		WorkspaceName: workspace.Name,
+		Entries:       entries,
+	}, nil
+}
+
+func printBranchListHuman(entries []branchListEntry) {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	defer func() {
+		if err := w.Flush(); err != nil {
+			output.LogWarn(
+				fmt.Sprintf("Failed to flush table writer: %v", err),
+				"Failed to flush table writer",
+				"error", err,
+			)
+		}
+	}()
+
+	fmt.Fprintln(w, "\nREPOSITORY\tCURRENT BRANCH\tSTATUS")
+	fmt.Fprintln(w, "----------\t--------------\t------")
+
+	for _, entry := range entries {
+		fmt.Fprintf(w, "%s\t%s\t%s\n", entry.Repository, entry.CurrentBranch, entry.StatusSymbol)
+	}
+	fmt.Fprintln(w)
+}
+
+func branchListResultToRows(result *branchListExecutionResult) []types.Row {
+	rows := make([]types.Row, 0, len(result.Entries))
+	for _, entry := range result.Entries {
 		rows = append(rows, types.NewRow(
-			types.MRP("workspace", workspace.Name),
-			types.MRP("repository", repo.Name),
-			types.MRP("current_branch", branchName),
-			types.MRP("status_symbol", symbol),
-			types.MRP("has_changes", hasChanges),
-			types.MRP("has_conflicts", hasConflicts),
-			types.MRP("error", errMsg),
+			types.MRP("workspace", result.WorkspaceName),
+			types.MRP("repository", entry.Repository),
+			types.MRP("current_branch", entry.CurrentBranch),
+			types.MRP("status_symbol", entry.StatusSymbol),
+			types.MRP("has_changes", entry.HasChanges),
+			types.MRP("has_conflicts", entry.HasConflicts),
+			types.MRP("error", entry.Error),
 		))
 	}
-
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		fmt.Fprintln(w)
-	}
-
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit branch list rows")
-		}
-	}
-
-	return nil
+	return rows
 }
 
 func printBranchResults(results []wsm.BranchOperationResult, operation string) error {
@@ -360,15 +463,15 @@ func NewBranchCobraCommand() (*cobra.Command, error) {
 		return nil, errors.Wrap(err, "failed to build branch list command")
 	}
 
-	createCobra, err := wsmcmdcommon.BuildCobraCommand(createCmd)
+	createCobra, err := wsmcmdcommon.BuildCobraCommandDualMode(createCmd)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build branch create cobra command")
 	}
-	switchCobra, err := wsmcmdcommon.BuildCobraCommand(switchCmd)
+	switchCobra, err := wsmcmdcommon.BuildCobraCommandDualMode(switchCmd)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build branch switch cobra command")
 	}
-	listCobra, err := wsmcmdcommon.BuildCobraCommand(listCmd)
+	listCobra, err := wsmcmdcommon.BuildCobraCommandDualMode(listCmd)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build branch list cobra command")
 	}
