@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm/workflows"
@@ -30,6 +31,14 @@ type MergeSettings struct {
 }
 
 var _ cmds.BareCommand = &MergeCommand{}
+var _ cmds.GlazeCommand = &MergeCommand{}
+
+type mergeExecutionResult struct {
+	WorkspaceName string
+	DryRun        bool
+	Force         bool
+	KeepWorkspace bool
+}
 
 func NewMergeCommand() (*MergeCommand, error) {
 	desc, err := wsmcmdcommon.BuildDescription(
@@ -51,14 +60,28 @@ func NewMergeCommand() (*MergeCommand, error) {
 }
 
 func (c *MergeCommand) Run(ctx context.Context, vals *values.Values) error {
-	settings_ := &MergeSettings{}
-	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrap(err, "failed to decode merge settings")
+	_, err := c.execute(ctx, vals)
+	return err
+}
+
+func (c *MergeCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
 	}
 
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
+	row := mergeResultToRow(result)
+	return gp.AddRow(ctx, row)
+}
+
+func (c *MergeCommand) execute(ctx context.Context, vals *values.Values) (*mergeExecutionResult, error) {
+	settings_ := &MergeSettings{}
+	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
+		return nil, errors.Wrap(err, "failed to decode merge settings")
 	}
 
 	workspaceName := settings_.WorkspaceName
@@ -73,23 +96,25 @@ func (c *MergeCommand) Run(ctx context.Context, vals *values.Values) error {
 		Force:         settings_.Force,
 		KeepWorkspace: settings_.KeepWorkspace,
 	}); err != nil {
-		return err
+		return nil, err
 	}
 
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		rows := []types.Row{types.NewRow(
-			types.MRP("workspace", workspaceName),
-			types.MRP("dry_run", settings_.DryRun),
-			types.MRP("force", settings_.Force),
-			types.MRP("keep_workspace", settings_.KeepWorkspace),
-			types.MRP("status", "completed"),
-		)}
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit merge rows")
-		}
-	}
+	return &mergeExecutionResult{
+		WorkspaceName: workspaceName,
+		DryRun:        settings_.DryRun,
+		Force:         settings_.Force,
+		KeepWorkspace: settings_.KeepWorkspace,
+	}, nil
+}
 
-	return nil
+func mergeResultToRow(result *mergeExecutionResult) types.Row {
+	return types.NewRow(
+		types.MRP("workspace", result.WorkspaceName),
+		types.MRP("dry_run", result.DryRun),
+		types.MRP("force", result.Force),
+		types.MRP("keep_workspace", result.KeepWorkspace),
+		types.MRP("status", "completed"),
+	)
 }
 
 func NewMergeCobraCommand() (*cobra.Command, error) {
@@ -97,5 +122,5 @@ func NewMergeCobraCommand() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build merge command: %w", err)
 	}
-	return wsmcmdcommon.BuildCobraCommand(command)
+	return wsmcmdcommon.BuildCobraCommandDualMode(command)
 }
