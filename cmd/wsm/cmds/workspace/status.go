@@ -33,6 +33,7 @@ type StatusSettings struct {
 	Short            bool   `glazed:"short"`
 	Untracked        bool   `glazed:"untracked"`
 	Jobs             int    `glazed:"jobs"`
+	Fetch            bool   `glazed:"fetch"`
 }
 
 var _ cmds.BareCommand = &StatusCommand{}
@@ -79,6 +80,12 @@ If no workspace name is provided, attempts to detect the current workspace.`),
 				fields.TypeInteger,
 				fields.WithDefault(1),
 				fields.WithHelp("Maximum concurrent repositories to process"),
+			),
+			fields.New(
+				"fetch",
+				fields.TypeBool,
+				fields.WithDefault(false),
+				fields.WithHelp("Fetch origin before computing status"),
 			),
 		),
 	)
@@ -141,6 +148,7 @@ func (c *StatusCommand) execute(ctx context.Context, vals *values.Values) (*stat
 	status, err := workflow.GetStatus(ctx, workflows.StatusRequest{
 		WorkspaceName: workspaceName,
 		Jobs:          settings_.Jobs,
+		Fetch:         settings_.Fetch,
 	})
 	if err != nil {
 		return nil, err

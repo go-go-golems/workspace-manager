@@ -53,9 +53,7 @@ func TestStatusSemanticMergedAndNeedsRebase(t *testing.T) {
 	seed := s.InitRepo(t, "seed", remote)
 	h.RunForTest(t, s, seed, nil, "bash", "-lc", "git checkout main && echo remote >> README.md && git add README.md && git commit -m 'remote main update' && git push origin main")
 
-	// Status checks no longer fetch by default; update remote tracking refs explicitly.
-	h.RunForTest(t, s, repoInWorkspace, nil, "git", "fetch", "origin", "main")
-
+	// Without --fetch, status should use stale remote-tracking refs.
 	res = s.RunWSM(t, nil, wsPath, "status", "--workspace", wsName, "--with-glaze-output", "--output", "json")
 	if res.ExitCode != 0 {
 		t.Fatalf("status failed: %s\n%s", res.Stdout, res.Stderr)
@@ -72,7 +70,22 @@ func TestStatusSemanticMergedAndNeedsRebase(t *testing.T) {
 		t.Fatalf("expected is_merged=false, row=%#v", row)
 	}
 	needsRebase, _ := row["needs_rebase"].(bool)
+	if needsRebase {
+		t.Fatalf("expected needs_rebase=false without --fetch (stale refs), row=%#v", row)
+	}
+
+	// With --fetch, status should update origin refs and detect that rebase is needed.
+	res = s.RunWSM(t, nil, wsPath, "status", "--workspace", wsName, "--fetch", "--with-glaze-output", "--output", "json")
+	if res.ExitCode != 0 {
+		t.Fatalf("status --fetch failed: %s\n%s", res.Stdout, res.Stderr)
+	}
+	rows = parseStatusRows(t, res.Stdout)
+	if len(rows) != 1 {
+		t.Fatalf("expected one status row after --fetch, got %d: %s", len(rows), res.Stdout)
+	}
+	row = rows[0]
+	needsRebase, _ = row["needs_rebase"].(bool)
 	if !needsRebase {
-		t.Fatalf("expected needs_rebase=true after main advanced, row=%#v", row)
+		t.Fatalf("expected needs_rebase=true after --fetch updates refs, row=%#v", row)
 	}
 }

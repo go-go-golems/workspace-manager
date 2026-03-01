@@ -21,6 +21,7 @@ func NewStatusChecker() *StatusChecker {
 // StatusOptions configures workspace status collection.
 type StatusOptions struct {
 	MaxJobs int
+	Fetch   bool
 }
 
 // GetWorkspaceStatus gets the status of a workspace
@@ -43,7 +44,7 @@ func (sc *StatusChecker) GetWorkspaceStatusWithOptions(ctx context.Context, work
 	if maxJobs == 1 || repoCount <= 1 {
 		for i, repo := range workspace.Repositories {
 			repoPath := filepath.Join(workspace.Path, repo.Name)
-			status, err := sc.getRepositoryStatusWithClient(ctx, repo, repoPath, workspace.BaseBranch, gc)
+			status, err := sc.getRepositoryStatusWithClient(ctx, repo, repoPath, workspace.BaseBranch, opts.Fetch, gc)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to get status for repository %s", repo.Name)
 			}
@@ -62,7 +63,7 @@ func (sc *StatusChecker) GetWorkspaceStatusWithOptions(ctx context.Context, work
 				defer sem.Release(1)
 				repo := workspace.Repositories[i]
 				repoPath := filepath.Join(workspace.Path, repo.Name)
-				status, err := sc.getRepositoryStatusWithClient(gctx, repo, repoPath, workspace.BaseBranch, gc)
+				status, err := sc.getRepositoryStatusWithClient(gctx, repo, repoPath, workspace.BaseBranch, opts.Fetch, gc)
 				if err != nil {
 					return errors.Wrapf(err, "failed to get status for repository %s", repo.Name)
 				}
@@ -116,12 +117,17 @@ func (sc *StatusChecker) calculateOverallStatus(repoStatuses []RepositoryStatus)
 }
 
 // getRepositoryStatusWithClient uses the GitClient to compute repository status
-func (sc *StatusChecker) getRepositoryStatusWithClient(ctx context.Context, repo Repository, repoPath string, baseBranch string, gc gitclient.GitClient) (*RepositoryStatus, error) {
+func (sc *StatusChecker) getRepositoryStatusWithClient(ctx context.Context, repo Repository, repoPath string, baseBranch string, fetch bool, gc gitclient.GitClient) (*RepositoryStatus, error) {
 	status := &RepositoryStatus{Repository: repo}
 
 	handle, err := gc.Open(ctx, repoPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "open repository")
+	}
+	if fetch {
+		if err := gc.Fetch(ctx, handle, ""); err != nil {
+			return nil, errors.Wrap(err, "git fetch origin")
+		}
 	}
 
 	st, err := gc.Status(ctx, handle)

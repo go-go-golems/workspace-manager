@@ -12,6 +12,7 @@ import (
 type StatusRequest struct {
 	WorkspaceName string
 	Jobs          int
+	Fetch         bool
 }
 
 // StatusWorkflow resolves workspace status requests.
@@ -48,7 +49,10 @@ func (sw *StatusWorkflow) GetStatus(ctx context.Context, req StatusRequest) (*ws
 		return nil, errors.Wrapf(err, "failed to load workspace '%s'", workspaceName)
 	}
 
-	status, err := sw.checker.GetWorkspaceStatusWithOptions(ctx, workspace, wsm.StatusOptions{MaxJobs: req.Jobs})
+	status, err := sw.checker.GetWorkspaceStatusWithOptions(ctx, workspace, wsm.StatusOptions{
+		MaxJobs: req.Jobs,
+		Fetch:   req.Fetch,
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get workspace status")
 	}
