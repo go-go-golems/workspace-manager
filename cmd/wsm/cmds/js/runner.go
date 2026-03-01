@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
@@ -29,6 +30,13 @@ type RunnerSettings struct {
 }
 
 var _ cmds.BareCommand = &RunnerCommand{}
+var _ cmds.GlazeCommand = &RunnerCommand{}
+
+type runnerExecutionResult struct {
+	ScriptPath  string
+	PrintResult bool
+	Result      interface{}
+}
 
 func NewRunnerCommand() (*RunnerCommand, error) {
 	desc, err := wsmcmdcommon.BuildDescription(
@@ -60,49 +68,66 @@ Example:
 }
 
 func (c *RunnerCommand) Run(ctx context.Context, vals *values.Values) error {
-	settings_ := &RunnerSettings{}
-	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrap(err, "failed to decode runner settings")
-	}
-	if settings_.ScriptPath == "" {
-		return errors.New("script path is required")
-	}
-
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
-	}
-
-	result, err := wsmjsrunner.RunFile(ctx, settings_.ScriptPath)
+	result, err := c.execute(ctx, vals)
 	if err != nil {
-		return errors.Wrap(err, "failed to execute JavaScript")
+		return err
 	}
 
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		output.PrintSuccess("Executed JS script: %s", settings_.ScriptPath)
-		if settings_.PrintResult && result != nil {
-			encoded, encErr := json.MarshalIndent(result, "", "  ")
-			if encErr != nil {
-				fmt.Printf("Result: %v\n", result)
-			} else {
-				fmt.Println(string(encoded))
-			}
-		}
-	}
-
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		rows := []types.Row{types.NewRow(
-			types.MRP("script", settings_.ScriptPath),
-			types.MRP("result", result),
-			types.MRP("has_result", result != nil),
-			types.MRP("status", "ok"),
-		)}
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit runner rows")
+	output.PrintSuccess("Executed JS script: %s", result.ScriptPath)
+	if result.PrintResult && result.Result != nil {
+		encoded, encErr := json.MarshalIndent(result.Result, "", "  ")
+		if encErr != nil {
+			fmt.Printf("Result: %v\n", result.Result)
+		} else {
+			fmt.Println(string(encoded))
 		}
 	}
 
 	return nil
+}
+
+func (c *RunnerCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	row := runnerResultToRow(result)
+	return gp.AddRow(ctx, row)
+}
+
+func (c *RunnerCommand) execute(ctx context.Context, vals *values.Values) (*runnerExecutionResult, error) {
+	settings_ := &RunnerSettings{}
+	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
+		return nil, errors.Wrap(err, "failed to decode runner settings")
+	}
+	if settings_.ScriptPath == "" {
+		return nil, errors.New("script path is required")
+	}
+
+	scriptResult, err := wsmjsrunner.RunFile(ctx, settings_.ScriptPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to execute JavaScript")
+	}
+
+	return &runnerExecutionResult{
+		ScriptPath:  settings_.ScriptPath,
+		PrintResult: settings_.PrintResult,
+		Result:      scriptResult,
+	}, nil
+}
+
+func runnerResultToRow(result *runnerExecutionResult) types.Row {
+	return types.NewRow(
+		types.MRP("script", result.ScriptPath),
+		types.MRP("result", result.Result),
+		types.MRP("has_result", result.Result != nil),
+		types.MRP("status", "ok"),
+	)
 }
 
 func NewRunnerCobraCommand() (*cobra.Command, error) {
@@ -110,5 +135,5 @@ func NewRunnerCobraCommand() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build runner command: %w", err)
 	}
-	return wsmcmdcommon.BuildCobraCommand(command)
+	return wsmcmdcommon.BuildCobraCommandDualMode(command)
 }
