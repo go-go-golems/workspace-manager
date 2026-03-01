@@ -49,6 +49,8 @@ RelatedFiles:
       Note: Workspace info command migrated to Run + RunIntoGlazeProcessor in phase 12
     - Path: cmd/wsm/cmds/workspace/status.go
       Note: Workspace status command migrated to Run + RunIntoGlazeProcessor in phase 13
+    - Path: cmd/wsm/cmds/js/runner.go
+      Note: JS runner command migrated to Run + RunIntoGlazeProcessor in phase 19
     - Path: cmd/wsm/cmds/git/commit.go
       Note: Git commit command migrated to Run + RunIntoGlazeProcessor in phase 14
     - Path: cmd/wsm/cmds/git/diff.go
@@ -65,7 +67,7 @@ ExternalSources:
     - /home/manuel/code/wesen/corporate-headquarters/glazed/pkg/doc/tutorials/05-build-first-command.md
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/glazed/cmd/examples/new-api-dual-mode/main.go
 Summary: Chronological record of ticket creation, command inventory, Glazed dual-output alignment decisions, and final implementation document authoring.
-LastUpdated: 2026-03-01T14:45:00-05:00
+LastUpdated: 2026-03-01T14:57:00-05:00
 WhatFor: Preserve investigation steps and reasoning for the WSM dual-output unification plan.
 WhenToUse: Use this diary to review what was inspected, why design decisions were made, and how to validate delivery artifacts.
 ---
@@ -1617,3 +1619,85 @@ All rebase commands now expose `RunIntoGlazeProcessor` and use dual-mode cobra w
   - `git add cmd/wsm/cmds/git/rebase.go`
   - `git commit --no-verify -m "wsm(git): migrate rebase commands to Run+RunIntoGlazeProcessor"` (failed when executed in parallel with add)
   - `git add cmd/wsm/cmds/git/rebase.go && git commit --no-verify -m "wsm(git): migrate rebase commands to Run+RunIntoGlazeProcessor"` (successful)
+
+## Step 19: Migrate `wsm runner` to split Run/Glaze interfaces
+
+I completed the remaining JS command rewrite by migrating `wsm runner` to the split interface pattern. The command now executes once in `execute(...)`, prints human result output in `Run`, and emits a structured row through `RunIntoGlazeProcessor`.
+
+This removed `ResolveOutputMode`/`EmitRows` branching from the runner command and switched it to the dual-mode cobra wrapper.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 18)
+
+**Assistant interpretation:** Continue through all remaining tasks and keep committing each phase with diary updates.
+
+**Inferred user intent:** Fully close the migration backlog, including non-git command groups.
+
+**Commit (code):** `314c3cb154e689aaf8c68ec38322307c7a69e2cc` — "wsm(js): migrate runner to Run+RunIntoGlazeProcessor"
+
+### What I did
+
+- Updated `cmd/wsm/cmds/js/runner.go`:
+  - Added `cmds.GlazeCommand` assertion.
+  - Added `runnerExecutionResult`, shared `execute(...)`, and `runnerResultToRow(...)`.
+  - Added `RunIntoGlazeProcessor(...)`.
+  - Switched wrapper to `BuildCobraCommandDualMode(...)`.
+  - Removed runtime output-mode checks and `EmitRows` usage.
+- Preserved behavior:
+  - human success message
+  - optional printed script result (`--print-result`)
+  - structured row with `script`, `result`, `has_result`, `status`
+- Ran:
+  - `gofmt -w cmd/wsm/cmds/js/runner.go`
+  - `go test ./cmd/wsm/cmds/js -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+- Committed code phase.
+
+### Why
+
+- `runner` was the last remaining command in the explicit rewrite list outside the grouped directory normalization and runtime-plumbing cleanup tasks.
+
+### What worked
+
+- Migration compiled immediately.
+- Package checks passed.
+
+### What didn't work
+
+- N/A in this phase.
+
+### What I learned
+
+- The split-interface migration remains consistent even for commands returning generic `interface{}` payloads.
+
+### What was tricky to build
+
+- The tricky part was keeping human-mode pretty-print behavior while moving structured output to one row helper.
+- Symptom: result marshaling/printing can diverge from structured payload.
+- Approach: keep marshaling solely in human `Run` path and return raw result object in structured row.
+
+### What warrants a second pair of eyes
+
+- Whether very large script results should be truncated or summarized for human mode to avoid terminal flooding.
+
+### What should be done in the future
+
+- Proceed with grouped-directory normalization tasks and then remove legacy runtime output plumbing.
+
+### Code review instructions
+
+- Start with:
+  - `cmd/wsm/cmds/js/runner.go`
+- Validate with:
+  - `go test ./cmd/wsm/cmds/js -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+
+### Technical details
+
+- Commands run:
+  - `gofmt -w cmd/wsm/cmds/js/runner.go`
+  - `go test ./cmd/wsm/cmds/js -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+  - `git add cmd/wsm/cmds/js/runner.go`
+  - `git commit --no-verify -m "wsm(js): migrate runner to Run+RunIntoGlazeProcessor"`

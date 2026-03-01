@@ -42,7 +42,7 @@
 - [x] Rewrite `wsm rebase abort` to `Run` + `RunIntoGlazeProcessor`
 
 ### JS Command Rewrites
-- [ ] Rewrite `wsm runner` to `Run` + `RunIntoGlazeProcessor`
+- [x] Rewrite `wsm runner` to `Run` + `RunIntoGlazeProcessor`
 
 ### Grouped Command Directory Normalization
 - [ ] Move `git branch` commands into `cmd/wsm/cmds/git/branch/*` with local `root.go`
