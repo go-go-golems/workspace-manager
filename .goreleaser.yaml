@@ -8,14 +8,30 @@ before:
     # you may remove this if you don't need go generate
     - go generate ./...
 builds:
-  - env:
-      - CGO_ENABLED=0
+  - id: wsm-linux
+    env:
+      - CGO_ENABLED=1
+      - CC_linux_amd64=gcc
+      - CXX_linux_amd64=g++
+      - CC_linux_arm64=aarch64-linux-gnu-gcc
+      - CXX_linux_arm64=aarch64-linux-gnu-g++
+      - 'CC={{ index .Env (print "CC_" .Os "_" .Arch) }}'
+      - 'CXX={{ index .Env (print "CXX_" .Os "_" .Arch) }}'
     main: ./cmd/wsm
     binary: wsm
     goos:
       - linux
 # I am not able to test windows at the time
 #      - windows
+    goarch:
+      - amd64
+      - arm64
+  - id: wsm-darwin
+    env:
+      - CGO_ENABLED=1
+    main: ./cmd/wsm
+    binary: wsm
+    goos:
       - darwin
     goarch:
       - amd64
@@ -39,7 +55,7 @@ signs:
 brews:
   - name: wsm
     description: "wsm is a tool"
-    homepage: "https://github.com/go-go-golems/wsm"
+    homepage: "https://github.com/go-go-golems/workspace-manager"
     repository:
       owner: go-go-golems
       name: homebrew-go-go-go

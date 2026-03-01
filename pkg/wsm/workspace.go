@@ -313,6 +313,37 @@ func (wm *WorkspaceManager) resolveBranchPlan(ctx context.Context, repoPath stri
 	return plan, nil
 }
 
+// getGoVersion dynamically detects the Go version from the system
+func (wm *WorkspaceManager) getGoVersion(ctx context.Context) (string, error) {
+	cmd := exec.CommandContext(ctx, "go", "version")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to execute 'go version'")
+	}
+
+	// Parse output like "go version go1.23.4 darwin/amd64"
+	versionStr := strings.TrimSpace(string(output))
+	parts := strings.Fields(versionStr)
+	if len(parts) < 3 {
+		return "", errors.New("unexpected format from 'go version' command")
+	}
+
+	// Extract version from "go1.23.4" -> "1.23"
+	fullVersion := parts[2] // "go1.23.4"
+	if !strings.HasPrefix(fullVersion, "go") {
+		return "", errors.Errorf("unexpected version format: %s", fullVersion)
+	}
+
+	version := strings.TrimPrefix(fullVersion, "go") // "1.23.4"
+	versionParts := strings.Split(version, ".")
+	if len(versionParts) < 2 {
+		return "", errors.Errorf("unexpected version format: %s", version)
+	}
+
+	// Return major.minor version
+	return fmt.Sprintf("%s.%s", versionParts[0], versionParts[1]), nil
+}
+
 // createGoWorkspace creates a go.work file
 func (wm *WorkspaceManager) CreateGoWorkspace(workspace *Workspace) error {
 	goWorkPath := filepath.Join(workspace.Path, "go.work")
@@ -323,7 +354,19 @@ func (wm *WorkspaceManager) CreateGoWorkspace(workspace *Workspace) error {
 		"path", goWorkPath,
 	)
 
-	content := "go 1.23\n\nuse (\n"
+	// Dynamically detect Go version
+	ctx := context.Background()
+	goVersion, err := wm.getGoVersion(ctx)
+	if err != nil {
+		output.LogWarn(
+			fmt.Sprintf("Failed to detect Go version, using default 1.23: %v", err),
+			"Failed to detect Go version, using default",
+			"error", err,
+		)
+		goVersion = "1.23" // Safe fallback version
+	}
+
+	content := fmt.Sprintf("go %s\n\nuse (\n", goVersion)
 
 	for _, repo := range workspace.Repositories {
 		// Check if repo has go.mod

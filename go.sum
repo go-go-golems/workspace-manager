@@ -117,8 +117,8 @@ github.com/go-go-golems/clay v0.1.39 h1:n54cEcAIGDJMq3R3VbtFGYr2Fi7At1ROmkOb7Eh+
 github.com/go-go-golems/clay v0.1.39/go.mod h1:yZnapCusACgz0ch1Sq6OM5wjMCWpc/Bgb9/huzCteF0=
 github.com/go-go-golems/glazed v1.0.4 h1:QOrPFq3RnL36I3yYkbc/frMsGDyWIZnwpQyNAQPGoyc=
 github.com/go-go-golems/glazed v1.0.4/go.mod h1:k+KwcIT68nAam+p1JTGbCtT4Pr20sCwYPKr1FFHIazo=
-github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
-github.com/go-logr/logr v1.4.2 h1:6pFjapn8bFcIbiKo3XT4j/BhANplGihG6tvd+8rYgrY=
+github.com/go-viper/mapstructure/v2 v2.4.0 h1:EBsztssimR/CONLSZZ04E8qAkxNYq4Qp9LvH92wZUgs=
+github.com/go-viper/mapstructure/v2 v2.4.0/go.mod h1:oJDH3BJKyqBA2TXFhDsKDGDTlndYOZ6rGS0BRZIxGhM=
 github.com/go-logr/logr v1.4.2/go.mod h1:9T104GzyrTigFIr8wt5mBrctHMim0Nb2HLGrmQ40KvY=
 github.com/go-logr/stdr v1.2.2 h1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=
 github.com/go-logr/stdr v1.2.2/go.mod h1:mMo/vtBO5dYbehREoey6XUKy/eSumjCCveDpRre4VKE=

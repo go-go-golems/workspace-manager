@@ -9,7 +9,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// getGitCurrentBranch returns the current branch name
+// getGitCurrentBranch returns the current branch name.
 func getGitCurrentBranch(ctx context.Context, path string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "branch", "--show-current")
 	cmd.Dir = path
@@ -25,7 +25,6 @@ func CheckBranchMerged(ctx context.Context, path string, baseBranch string) (boo
 	base := branchsvc.ResolveBaseBranch(baseBranch)
 	remoteBase := branchsvc.RemoteTrackingRef(branchsvc.DefaultRemoteName, base)
 
-	// Get current branch for logging
 	currentBranch, branchErr := getGitCurrentBranch(ctx, path)
 	if branchErr != nil {
 		log.Debug().Err(branchErr).Str("path", path).Msg("Failed to get current branch for merge check")
@@ -39,14 +38,17 @@ func CheckBranchMerged(ctx context.Context, path string, baseBranch string) (boo
 		Str("base_branch", string(base)).
 		Msg("Checking if branch is merged to configured remote base")
 
-	// Check if HEAD has been merged into the configured default remote base branch.
-	// This command returns 0 if the current HEAD is merged, non-zero otherwise
 	cmd := exec.CommandContext(ctx, "git", "merge-base", "--is-ancestor", "HEAD", remoteBase)
 	cmd.Dir = path
 	err := cmd.Run()
 
 	merged := err == nil
-	log.Debug().Str("path", path).Str("branch", currentBranch).Bool("merged", merged).Msg("Branch merge check result")
+	log.Debug().
+		Str("path", path).
+		Str("branch", currentBranch).
+		Str("upstream", remoteBase).
+		Bool("merged", merged).
+		Msg("Branch merge check result")
 
 	return merged, nil
 }
@@ -56,7 +58,6 @@ func CheckBranchNeedsRebase(ctx context.Context, path string, baseBranch string)
 	base := branchsvc.ResolveBaseBranch(baseBranch)
 	remoteBase := branchsvc.RemoteTrackingRef(branchsvc.DefaultRemoteName, base)
 
-	// Get current branch for logging
 	currentBranch, branchErr := getGitCurrentBranch(ctx, path)
 	if branchErr != nil {
 		log.Debug().Err(branchErr).Str("path", path).Msg("Failed to get current branch for rebase check")
@@ -80,19 +81,27 @@ func CheckBranchNeedsRebase(ctx context.Context, path string, baseBranch string)
 		Str("base_branch", string(base)).
 		Msg("Checking if branch needs rebase on configured remote base")
 
-	// Check if remote base branch has new commits compared to the merge-base.
-	// This tells us if the base branch moved forward since we branched.
 	cmd := exec.CommandContext(ctx, "git", "rev-list", "--count", "HEAD.."+remoteBase)
 	cmd.Dir = path
 	output, err := cmd.Output()
 	if err != nil {
-		log.Debug().Err(err).Str("path", path).Msg("Failed to check for commits ahead on default remote main")
+		log.Debug().
+			Err(err).
+			Str("path", path).
+			Str("upstream", remoteBase).
+			Msg("Failed to check for commits ahead on configured remote base")
 		return false, err
 	}
 
 	commitCount := strings.TrimSpace(string(output))
 	needsRebase := commitCount != "0"
-	log.Debug().Str("path", path).Str("branch", currentBranch).Str("commits_behind", commitCount).Bool("needs_rebase", needsRebase).Msg("Branch rebase check result")
+	log.Debug().
+		Str("path", path).
+		Str("branch", currentBranch).
+		Str("upstream", remoteBase).
+		Str("commits_behind", commitCount).
+		Bool("needs_rebase", needsRebase).
+		Msg("Branch rebase check result")
 
 	return needsRebase, nil
 }
