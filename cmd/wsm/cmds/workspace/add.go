@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
@@ -31,6 +32,14 @@ type AddSettings struct {
 }
 
 var _ cmds.BareCommand = &AddCommand{}
+var _ cmds.GlazeCommand = &AddCommand{}
+
+type addExecutionResult struct {
+	WorkspaceName string
+	RepoName      string
+	Branch        string
+	Force         bool
+}
 
 func NewAddCommand() (*AddCommand, error) {
 	desc, err := wsmcmdcommon.BuildDescription(
@@ -87,14 +96,28 @@ Examples:
 }
 
 func (c *AddCommand) Run(ctx context.Context, vals *values.Values) error {
-	settings_ := &AddSettings{}
-	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrap(err, "failed to decode add settings")
+	_, err := c.execute(ctx, vals)
+	return err
+}
+
+func (c *AddCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
 	}
 
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
+	row := addResultToRow(result)
+	return gp.AddRow(ctx, row)
+}
+
+func (c *AddCommand) execute(ctx context.Context, vals *values.Values) (*addExecutionResult, error) {
+	settings_ := &AddSettings{}
+	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
+		return nil, errors.Wrap(err, "failed to decode add settings")
 	}
 
 	workspaceName := settings_.WorkspaceName
@@ -102,7 +125,7 @@ func (c *AddCommand) Run(ctx context.Context, vals *values.Values) error {
 		workspaceName = settings_.WorkspaceNameArg
 	}
 	if workspaceName == "" {
-		return errors.New("workspace name is required (positional <workspace-name> or --workspace)")
+		return nil, errors.New("workspace name is required (positional <workspace-name> or --workspace)")
 	}
 
 	repoName := settings_.RepoName
@@ -110,32 +133,34 @@ func (c *AddCommand) Run(ctx context.Context, vals *values.Values) error {
 		repoName = settings_.RepoNameArg
 	}
 	if repoName == "" {
-		return errors.New("repository name is required (positional <repo-name> or --repo)")
+		return nil, errors.New("repository name is required (positional <repo-name> or --repo)")
 	}
 
 	wm, err := wsm.NewWorkspaceManager()
 	if err != nil {
-		return errors.Wrap(err, "failed to create workspace manager")
+		return nil, errors.Wrap(err, "failed to create workspace manager")
 	}
 
 	if err := wm.AddRepositoryToWorkspace(ctx, workspaceName, repoName, settings_.Branch, settings_.Force); err != nil {
-		return err
+		return nil, err
 	}
 
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		rows := []types.Row{types.NewRow(
-			types.MRP("workspace", workspaceName),
-			types.MRP("repository", repoName),
-			types.MRP("branch", settings_.Branch),
-			types.MRP("force", settings_.Force),
-			types.MRP("status", "added"),
-		)}
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit add rows")
-		}
-	}
+	return &addExecutionResult{
+		WorkspaceName: workspaceName,
+		RepoName:      repoName,
+		Branch:        settings_.Branch,
+		Force:         settings_.Force,
+	}, nil
+}
 
-	return nil
+func addResultToRow(result *addExecutionResult) types.Row {
+	return types.NewRow(
+		types.MRP("workspace", result.WorkspaceName),
+		types.MRP("repository", result.RepoName),
+		types.MRP("branch", result.Branch),
+		types.MRP("force", result.Force),
+		types.MRP("status", "added"),
+	)
 }
 
 func NewAddCobraCommand() (*cobra.Command, error) {
@@ -143,5 +168,5 @@ func NewAddCobraCommand() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build add command: %w", err)
 	}
-	return wsmcmdcommon.BuildCobraCommand(command)
+	return wsmcmdcommon.BuildCobraCommandDualMode(command)
 }
