@@ -392,29 +392,12 @@ func getCommitsAhead(ctx context.Context, repoPath, targetBranch string) (int, e
 }
 
 func hasRebaseConflicts(ctx context.Context, repoPath string) bool {
-	cmd := exec.CommandContext(ctx, "git", "status", "--porcelain")
-	cmd.Dir = repoPath
-	out, err := cmd.Output()
+	state, conflicts, err := wsm.Status(ctx, repoPath)
 	if err != nil {
 		return false
 	}
-
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
-		if len(line) >= 2 && (line[0] == 'U' || line[1] == 'U' ||
-			(line[0] == 'A' && line[1] == 'A') ||
-			(line[0] == 'D' && line[1] == 'D')) {
-			return true
-		}
-	}
-
-	rebaseMergeDir := filepath.Join(repoPath, ".git", "rebase-merge")
-	rebaseApplyDir := filepath.Join(repoPath, ".git", "rebase-apply")
-	if _, err := os.Stat(rebaseMergeDir); err == nil {
+	if len(conflicts) > 0 {
 		return true
 	}
-	if _, err := os.Stat(rebaseApplyDir); err == nil {
-		return true
-	}
-	return false
+	return state == wsm.RebaseStateInProgress || state == wsm.RebaseStateStoppedConflicts
 }

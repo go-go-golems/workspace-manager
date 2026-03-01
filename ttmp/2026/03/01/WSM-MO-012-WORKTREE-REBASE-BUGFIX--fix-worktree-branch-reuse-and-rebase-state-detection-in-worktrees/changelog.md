@@ -35,3 +35,13 @@ Task 2 complete: added unit and integration regression tests for existing-branch
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/gitclient/status_worktree_cli_test.go — Unit test for UseExistingBranch semantics
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/test/integration/scenarios/worktree_branch_reuse_test.go — Integration coverage for create/add branch reuse
 
+
+## 2026-03-01
+
+Task 3 complete: rebase in-progress detection now resolves git paths via 'git rev-parse --git-path', and rebase workflow conflict checks delegate to shared status detection.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/rebase_operations.go — Resolve rebase markers via gitdir-aware paths
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/rebase_workflow.go — Reuse shared rebase-state detection in workflow conflict signaling
+

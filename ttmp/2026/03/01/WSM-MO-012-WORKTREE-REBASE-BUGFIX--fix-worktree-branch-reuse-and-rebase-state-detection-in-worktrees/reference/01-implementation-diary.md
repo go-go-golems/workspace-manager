@@ -101,6 +101,33 @@ Result:
 
 - All new branch-reuse tests pass.
 
+### Phase 3 (Task 3): Fix Rebase Marker Detection for Worktrees
+
+Date: 2026-03-01
+
+Changes made:
+
+- Updated `pkg/wsm/rebase_operations.go`:
+  - Replaced direct `<repo>/.git/rebase-*` checks with gitdir-aware lookup:
+    - `git rev-parse --git-path rebase-merge`
+    - `git rev-parse --git-path rebase-apply`
+  - Added internal helper `rebasePathExists(...)` to resolve and stat git-managed paths.
+- Updated `pkg/wsm/workflows/rebase_workflow.go`:
+  - Removed duplicated hardcoded `.git/rebase-*` checks in `hasRebaseConflicts`.
+  - Delegated to shared `wsm.Status(...)` so workflow-level conflict signaling matches rebase status behavior.
+
+Validation commands:
+
+```bash
+gofmt -w pkg/wsm/rebase_operations.go pkg/wsm/workflows/rebase_workflow.go
+go test ./pkg/wsm ./pkg/wsm/workflows -count=1
+```
+
+Result:
+
+- Worktree rebase-state checks now resolve the actual gitdir paths instead of assuming `.git` is a directory.
+- Targeted package tests pass.
+
 ## Usage Examples
 
 Validation command patterns used during this ticket:

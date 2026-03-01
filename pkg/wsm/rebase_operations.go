@@ -114,16 +114,7 @@ func Abort(ctx context.Context, repoPath string) error {
 
 // Status returns current rebase state and any conflicts.
 func Status(ctx context.Context, repoPath string) (RebaseState, []ConflictInfo, error) {
-	// Check for rebase directories
-	rebaseMergeDir := filepath.Join(repoPath, ".git", "rebase-merge")
-	rebaseApplyDir := filepath.Join(repoPath, ".git", "rebase-apply")
-	inProgress := false
-	if _, err := os.Stat(rebaseMergeDir); err == nil {
-		inProgress = true
-	}
-	if _, err := os.Stat(rebaseApplyDir); err == nil {
-		inProgress = true
-	}
+	inProgress := rebasePathExists(ctx, repoPath, "rebase-merge") || rebasePathExists(ctx, repoPath, "rebase-apply")
 
 	// Inspect porcelain for conflicts
 	cmd := exec.CommandContext(ctx, "git", "status", "--porcelain")
@@ -207,4 +198,22 @@ func StageResolved(ctx context.Context, repoPath string, all bool, files []strin
 		return errors.Wrapf(err, "git add failed: %s", string(out))
 	}
 	return nil
+}
+
+func rebasePathExists(ctx context.Context, repoPath, gitPath string) bool {
+	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--git-path", gitPath)
+	cmd.Dir = repoPath
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	resolvedPath := strings.TrimSpace(string(out))
+	if resolvedPath == "" {
+		return false
+	}
+	if !filepath.IsAbs(resolvedPath) {
+		resolvedPath = filepath.Join(repoPath, resolvedPath)
+	}
+	_, err = os.Stat(resolvedPath)
+	return err == nil
 }
