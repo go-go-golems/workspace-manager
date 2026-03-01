@@ -35,6 +35,8 @@ RelatedFiles:
       Note: Workspace create command migrated to Run + RunIntoGlazeProcessor in phase 6
     - Path: cmd/wsm/cmds/workspace/fork.go
       Note: Workspace fork command migrated to Run + RunIntoGlazeProcessor in phase 7
+    - Path: cmd/wsm/cmds/workspace/merge.go
+      Note: Workspace merge command migrated to Run + RunIntoGlazeProcessor in phase 8
     - Path: ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/design-doc/01-wsm-glazed-dual-output-implementation-plan.md
       Note: |-
         Primary implementation document produced in this work
@@ -45,7 +47,7 @@ ExternalSources:
     - /home/manuel/code/wesen/corporate-headquarters/glazed/pkg/doc/tutorials/05-build-first-command.md
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/glazed/cmd/examples/new-api-dual-mode/main.go
 Summary: Chronological record of ticket creation, command inventory, Glazed dual-output alignment decisions, and final implementation document authoring.
-LastUpdated: 2026-03-01T12:22:00-05:00
+LastUpdated: 2026-03-01T12:37:00-05:00
 WhatFor: Preserve investigation steps and reasoning for the WSM dual-output unification plan.
 WhenToUse: Use this diary to review what was inspected, why design decisions were made, and how to validate delivery artifacts.
 ---
@@ -685,3 +687,81 @@ The migration preserves fork preview/success human narratives and cancellation b
   - `go test ./cmd/wsm/... -count=1`
   - `git add cmd/wsm/cmds/workspace/fork.go`
   - `git commit --no-verify -m "wsm(workspace): migrate fork to Run+RunIntoGlazeProcessor"`
+
+## Step 8: Migrate `wsm merge` to split Run/Glaze interfaces
+
+I completed the next workspace task by migrating `wsm merge` to the split Glazed interface style. This command now has a shared `execute(...)` path and a dedicated `RunIntoGlazeProcessor(...)` row projection, removing direct `EmitRows` handling.
+
+The workflow invocation remains unchanged so operational behavior is preserved; only the command-layer output integration was modernized.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 5)
+
+**Assistant interpretation:** Continue sequential rewrite tasks with phase commits and diary updates.
+
+**Inferred user intent:** Maintain progress discipline while minimizing behavior risk per command.
+
+**Commit (code):** `714b26aa308ebfecfc26ed3d7b250fb91bff23d5` — "wsm(workspace): migrate merge to Run+RunIntoGlazeProcessor"
+
+### What I did
+
+- Updated `cmd/wsm/cmds/workspace/merge.go`:
+  - Added `cmds.GlazeCommand` assertion.
+  - Added `mergeExecutionResult` with shared `execute(...)`.
+  - Implemented `RunIntoGlazeProcessor(...)` and `mergeResultToRow(...)`.
+  - Switched wrapper to `BuildCobraCommandDualMode(...)`.
+  - Removed command-local runtime output-mode branching.
+- Ran:
+  - `gofmt -w cmd/wsm/cmds/workspace/merge.go`
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+- Committed the phase code change.
+
+### Why
+
+- `merge` was next in task order and is a concise candidate to apply the same structural migration without touching lower-level merge workflow logic.
+
+### What worked
+
+- Migration compiled immediately and tests stayed green.
+- Command code is now aligned with the same split pattern used in other migrated commands.
+
+### What didn't work
+
+- N/A in this phase.
+
+### What I learned
+
+- Even when workflows still own extensive terminal messaging, command-level dual-interface migration can proceed safely and incrementally.
+
+### What was tricky to build
+
+- The tricky part was ensuring command behavior remains identical despite removing mode checks.
+- Symptom: previous code mixed execution and output-mode branching in one `Run`.
+- Approach: preserve workflow call exactly and isolate only response shaping in row helper + glazed path.
+
+### What warrants a second pair of eyes
+
+- Whether merge workflow should later gain a non-interactive/quiet execution mode for stricter no-human-output guarantees when using glazed output.
+
+### What should be done in the future
+
+- Continue workspace task queue with `add`, `remove`, `delete`, `info`, `status`.
+
+### Code review instructions
+
+- Start with:
+  - `cmd/wsm/cmds/workspace/merge.go`
+- Validate with:
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+
+### Technical details
+
+- Commands run:
+  - `gofmt -w cmd/wsm/cmds/workspace/merge.go`
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+  - `git add cmd/wsm/cmds/workspace/merge.go`
+  - `git commit --no-verify -m "wsm(workspace): migrate merge to Run+RunIntoGlazeProcessor"`
