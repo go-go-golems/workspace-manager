@@ -10,7 +10,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
 	github.com/dop251/goja v0.0.0-20260226184354-913bd86fb70c
 	github.com/dop251/goja_nodejs v0.0.0-20260212111938-1f56ff5bcf14
-	github.com/go-go-golems/clay v0.1.39
+	github.com/go-go-golems/clay v0.4.0
 	github.com/go-go-golems/glazed v1.0.4
 	github.com/mattn/go-isatty v0.0.20
 	github.com/pkg/errors v0.9.1
