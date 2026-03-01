@@ -32,6 +32,8 @@
 - Authored detailed implementation plan `design-doc/02-js-scripting-demo-suite-implementation-plan-and-scenario-mapping.md` (intern onboarding + script/scenario expected outcomes).
 - Uploaded bundle `WSM-MO-007 JS API Demo Suite Plan v5` to `/ai/2026/03/01/WSM-MO-007-JS-API-DESIGN`.
 - Attempted remote listing verification via `remarquee cloud ls`, but verification was blocked by DNS/network resolution errors to reMarkable cloud endpoints in this environment.
+- Added completion-level design document `design-doc/03-wsm-js-api-completion-and-consistency-design.md` covering all missing JS API surfaces, consistency rules, error/typing strategy, and phased implementation approach.
+- Expanded `tasks.md` with detailed Phase 5 backlog covering service/module implementation, typings/docs, demo scripts, integration scenarios, and validation/delivery steps.
 
 ## 2026-02-28 (doc rewrite session)
 

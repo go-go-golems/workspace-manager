@@ -698,3 +698,80 @@ Write up a detailed implementation plan on which scripts to build and how to exe
   - `remarquee upload bundle ... --name "WSM-MO-007 JS API Demo Suite Plan v5" --remote-dir "/ai/2026/03/01/WSM-MO-007-JS-API-DESIGN"`
 - Immediate post-upload listing verification command failed in this environment due DNS/network lookup failures against reMarkable cloud endpoints:
   - `remarquee cloud ls /ai/2026/03/01/WSM-MO-007-JS-API-DESIGN --long --non-interactive`
+
+## Step 8: Completion Design and Detailed Task Backlog for Missing JS API Surface
+
+I produced a new completion-focused design document and expanded the ticket task list with a full implementation backlog for all currently missing JS API areas.
+
+This step converts the previously identified gap list into an actionable execution framework so implementation can proceed consistently across service/module/types/tests/docs.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Create a detailed design document that address all these points and works them out, to make sure we have a great and consistent API (it could well be that the initial document is enough, but anything that needs to be more detailed or added should be in this new document). Then Create a detailed list of tasks to implement all the above (including test/demo scripts) and add them to the ticket."
+
+**Assistant interpretation:** Create a new, completion-level design spec that addresses all known JS API gaps and update ticket tasks with implementation-ready detail including tests/demo scripts.
+
+**Inferred user intent:** Move from gap analysis to concrete design and execution planning so delivery can be tracked and implemented systematically.
+
+**Commit (code):** Pending
+
+### What I did
+
+- Added new design document:
+  - `design-doc/03-wsm-js-api-completion-and-consistency-design.md`
+- The new document defines:
+  - full target API inventory (manager/namespaces/workspace handles),
+  - consistency rules,
+  - error model,
+  - typing strategy (`.d.ts`),
+  - module/service expansion plan,
+  - test/demo/integration rollout phases.
+- Expanded ticket `tasks.md` with new detailed implementation backlog:
+  - Phase 5A through 5G,
+  - includes service/module work, docs/typing, script expansion (`test/js/08-22`), scenario expansion, and validation/delivery steps.
+- Updated changelog to record both the new completion design doc and the expanded task backlog.
+
+### Why
+
+- The original design brainstorm provided direction but not a full completion contract for every missing method family.
+- A detailed backlog is needed to execute implementation without ambiguity and to let reviewers track progress incrementally.
+
+### What worked
+
+- New design doc was added cleanly in the same ticket workspace and aligned with existing architecture/workflow evidence.
+- Task expansion captured all missing areas identified from current module-vs-CLI/workflow gap map.
+
+### What didn't work
+
+- N/A for this planning/documentation step.
+
+### What I learned
+
+- The gap between current JS API and existing Go workflows is large enough that explicit phase partitioning (5A-5G) is necessary to avoid mixed-scope implementation PRs.
+
+### What was tricky to build
+
+- Tricky part: balancing strict consistency rules with backward compatibility for already-shipped baseline methods.
+- Resolution approach: keep completion design additive and include explicit migration/compatibility rules.
+
+### What warrants a second pair of eyes
+
+- Validate whether DTO camelCase normalization should happen immediately in wrappers or be staged behind compatibility aliases.
+- Validate whether commit API should include interactive selection semantics in JS or require explicit `selectedChanges` only.
+
+### What should be done in the future
+
+- Start implementing Phase 5B service expansion first, then module wrappers, then scripts/scenarios in matching bands.
+
+### Code review instructions
+
+- Review new design doc:
+  - `design-doc/03-wsm-js-api-completion-and-consistency-design.md`
+- Review expanded task backlog:
+  - `tasks.md` (Phase 5A-5G)
+- Review changelog update:
+  - `changelog.md`
+
+### Technical details
+
+- This step introduced planning/documentation artifacts only; no runtime behavior changed.
