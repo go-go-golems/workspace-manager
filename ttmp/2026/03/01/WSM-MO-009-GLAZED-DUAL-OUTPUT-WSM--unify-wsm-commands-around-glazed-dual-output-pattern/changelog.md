@@ -174,3 +174,13 @@ Phase 11: migrated `wsm delete` to the Glazed split interface (`Run` + `RunIntoG
 
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/workspace/delete.go — Replaced runtime output-mode branching and EmitRows usage with split interface methods; glaze mode now requires `--force` to avoid interactive prompts
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/tasks.md — Workspace delete rewrite task marked complete
+
+
+## 2026-03-01
+
+Phase 12: migrated `wsm info` to the Glazed split interface (`Run` + `RunIntoGlazeProcessor`) with shared execution and dual-mode cobra wrapper; committed as e1d3c41.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/workspace/info.go — Replaced runtime output-mode branching and EmitRows usage with split interface methods
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/tasks.md — Workspace info rewrite task marked complete

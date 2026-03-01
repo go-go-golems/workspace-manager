@@ -43,6 +43,8 @@ RelatedFiles:
       Note: Workspace remove command migrated to Run + RunIntoGlazeProcessor in phase 10
     - Path: cmd/wsm/cmds/workspace/delete.go
       Note: Workspace delete command migrated to Run + RunIntoGlazeProcessor in phase 11
+    - Path: cmd/wsm/cmds/workspace/info.go
+      Note: Workspace info command migrated to Run + RunIntoGlazeProcessor in phase 12
     - Path: ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/design-doc/01-wsm-glazed-dual-output-implementation-plan.md
       Note: |-
         Primary implementation document produced in this work
@@ -53,7 +55,7 @@ ExternalSources:
     - /home/manuel/code/wesen/corporate-headquarters/glazed/pkg/doc/tutorials/05-build-first-command.md
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/glazed/cmd/examples/new-api-dual-mode/main.go
 Summary: Chronological record of ticket creation, command inventory, Glazed dual-output alignment decisions, and final implementation document authoring.
-LastUpdated: 2026-03-01T13:16:00-05:00
+LastUpdated: 2026-03-01T13:29:00-05:00
 WhatFor: Preserve investigation steps and reasoning for the WSM dual-output unification plan.
 WhenToUse: Use this diary to review what was inspected, why design decisions were made, and how to validate delivery artifacts.
 ---
@@ -1012,3 +1014,85 @@ To avoid interactive prompts in structured mode, glaze execution now requires `-
   - `go test ./cmd/wsm/... -count=1`
   - `git add cmd/wsm/cmds/workspace/delete.go`
   - `git commit --no-verify -m "wsm(workspace): migrate delete to Run+RunIntoGlazeProcessor"`
+
+## Step 12: Migrate `wsm info` to split Run/Glaze interfaces
+
+I migrated `wsm info` to split methods and removed command-level output-mode branching. The command now executes once through `execute(...)`, prints either full human info or single-field value in `Run`, and emits a structured row in `RunIntoGlazeProcessor`.
+
+This also centralizes row shaping with `infoResultToRow(...)` and keeps field normalization behavior unchanged.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 5)
+
+**Assistant interpretation:** Continue command rewrites in order, committing each phase and documenting exact outcomes.
+
+**Inferred user intent:** Complete all remaining workspace command migrations with consistent structure and evidence.
+
+**Commit (code):** `e1d3c419ca647cb42c170bb7111111b85813ca87` — "wsm(workspace): migrate info to Run+RunIntoGlazeProcessor"
+
+### What I did
+
+- Updated `cmd/wsm/cmds/workspace/info.go`:
+  - Added `cmds.GlazeCommand` assertion.
+  - Added `infoExecutionResult`, shared `execute(...)`, and `infoResultToRow(...)`.
+  - Added `RunIntoGlazeProcessor(...)`.
+  - Switched wrapper to `BuildCobraCommandDualMode(...)`.
+  - Removed `ResolveOutputMode`/`EmitRows` branching.
+- Kept behavior:
+  - positional/flag workspace resolution
+  - `--field` value lookup and lowercasing
+  - full human info rendering for default mode
+- Ran:
+  - `gofmt -w cmd/wsm/cmds/workspace/info.go`
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+- Committed code phase.
+
+### Why
+
+- `info` is one of the last two workspace commands and is a good fit for pure split migration without workflow-side interaction complexity.
+
+### What worked
+
+- Migration compiled immediately and tests passed.
+- Both field and full-info paths remained straightforward after extraction.
+
+### What didn't work
+
+- N/A in this phase.
+
+### What I learned
+
+- Commands with multiple output shapes (`--field` vs full object) still map cleanly to one structured-row interface when execution output is normalized first.
+
+### What was tricky to build
+
+- The tricky part was preserving exact field behavior while changing control flow.
+- Symptom: easy to accidentally emit inconsistent field casing or full-row shape for field mode.
+- Approach: store normalized field/value in `infoExecutionResult` and derive rows from a single helper.
+
+### What warrants a second pair of eyes
+
+- Whether field-mode structured output should include additional context beyond `workspace`, `field`, `value` for downstream consumers.
+
+### What should be done in the future
+
+- Migrate the final workspace command task: `wsm status`.
+
+### Code review instructions
+
+- Start with:
+  - `cmd/wsm/cmds/workspace/info.go`
+- Validate with:
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+
+### Technical details
+
+- Commands run:
+  - `gofmt -w cmd/wsm/cmds/workspace/info.go`
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+  - `git add cmd/wsm/cmds/workspace/info.go`
+  - `git commit --no-verify -m "wsm(workspace): migrate info to Run+RunIntoGlazeProcessor"`
