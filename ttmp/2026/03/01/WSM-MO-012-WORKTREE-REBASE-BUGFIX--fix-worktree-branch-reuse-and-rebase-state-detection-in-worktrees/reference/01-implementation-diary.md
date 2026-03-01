@@ -71,6 +71,36 @@ Result:
 
 - Targeted packages pass.
 
+### Phase 2 (Task 2): Add Branch-Reuse Regression Tests
+
+Date: 2026-03-01
+
+Changes made:
+
+- Added gitclient unit test:
+  - `pkg/wsm/gitclient/status_worktree_cli_test.go`
+  - `TestCliWorktreeAdd_UsesExistingBranchWhenRequested`
+- Added integration scenario:
+  - `test/integration/scenarios/worktree_branch_reuse_test.go`
+  - Covers create + add repository flows using existing local branch reuse.
+
+Important nuance captured:
+
+- Using `main` directly for this regression is invalid in Git when `main` is already checked out in another worktree.
+- Tests were adjusted to use `feature/existing` branch that exists locally but is not currently checked out in source worktree.
+
+Validation commands:
+
+```bash
+gofmt -w pkg/wsm/gitclient/status_worktree_cli_test.go test/integration/scenarios/worktree_branch_reuse_test.go
+go test ./pkg/wsm/gitclient -count=1
+go test ./test/integration/scenarios -run TestWorktreeBranchReuse_CreateAndAddOnMain -count=1
+```
+
+Result:
+
+- All new branch-reuse tests pass.
+
 ## Usage Examples
 
 Validation command patterns used during this ticket:

@@ -105,3 +105,22 @@ func TestCliWorktreeList_PreservesPathsWithSpaces(t *testing.T) {
 		t.Fatalf("worktree path with spaces not found. want=%q got=%s", wantPath, strings.Join(paths, ", "))
 	}
 }
+
+func TestCliWorktreeAdd_UsesExistingBranchWhenRequested(t *testing.T) {
+	repo := createLocalRepoFixture(t)
+	runGitOrFail(t, repo, "checkout", "-b", "feature/existing")
+	runGitOrFail(t, repo, "checkout", "main")
+
+	targetPath := filepath.Join(filepath.Dir(repo), "worktrees", "feature existing")
+
+	w := NewCliWorktrees()
+	ctx := context.Background()
+	if err := w.Add(ctx, repo, "feature/existing", targetPath, WorktreeAddOptions{UseExistingBranch: true}); err != nil {
+		t.Fatalf("worktree add (existing branch) failed: %v", err)
+	}
+
+	current := runGitOrFail(t, targetPath, "rev-parse", "--abbrev-ref", "HEAD")
+	if current != "feature/existing" {
+		t.Fatalf("expected worktree on feature/existing, got %q", current)
+	}
+}

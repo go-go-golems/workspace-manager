@@ -25,3 +25,13 @@ Task 1 complete: worktree add now supports existing-branch reuse semantics and n
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/gitclient/worktree_cli.go — UseExistingBranch handling in worktree add
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workspace.go — Use-local branch resolution now requests existing-branch checkout
 
+
+## 2026-03-01
+
+Task 2 complete: added unit and integration regression tests for existing-branch worktree reuse, including create+add workflow coverage.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/gitclient/status_worktree_cli_test.go — Unit test for UseExistingBranch semantics
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/test/integration/scenarios/worktree_branch_reuse_test.go — Integration coverage for create/add branch reuse
+
