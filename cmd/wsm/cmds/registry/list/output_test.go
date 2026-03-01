@@ -156,7 +156,8 @@ func TestPrintReposHuman_WithRepos(t *testing.T) {
 	for _, expected := range []string{
 		"Repositories (1)",
 		"Filter tags: backend",
-		"- repo-a [main]",
+		"## repo-a",
+		"branch: main",
 		"path: /tmp/repo-a",
 		"tags: backend, go",
 		"remote: git@github.com:go/repo-a.git",
@@ -203,7 +204,8 @@ func TestPrintWorkspacesHuman_WithWorkspaces(t *testing.T) {
 
 	for _, expected := range []string{
 		"Workspaces (1)",
-		"- ws-a [feature/a]",
+		"## ws-a",
+		"branch: feature/a",
 		"path: /tmp/ws-a",
 		"repos: 2 (repo-a, repo-b)",
 		"base: main",

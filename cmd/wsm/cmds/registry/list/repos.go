@@ -148,10 +148,12 @@ func printReposHuman(repos []wsm.Repository, tags []string) error {
 			remote = remote[:93] + "..."
 		}
 
-		fmt.Printf("- %s [%s]\n", repo.Name, branch)
-		fmt.Printf("  path: %s\n", repo.Path)
-		fmt.Printf("  tags: %s\n", tagsJoined)
-		fmt.Printf("  remote: %s\n", remote)
+		fmt.Printf("## %s\n", repo.Name)
+		fmt.Printf("branch: %s\n", branch)
+		fmt.Printf("path: %s\n", repo.Path)
+		fmt.Printf("tags: %s\n", tagsJoined)
+		fmt.Printf("remote: %s\n", remote)
+		fmt.Println()
 	}
 
 	return nil

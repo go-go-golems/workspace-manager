@@ -131,11 +131,13 @@ func printWorkspacesHuman(workspaces []wsm.Workspace) error {
 			baseBranch = "-"
 		}
 
-		fmt.Printf("- %s [%s]\n", workspace.Name, branch)
-		fmt.Printf("  path: %s\n", workspace.Path)
-		fmt.Printf("  repos: %d (%s)\n", len(workspace.Repositories), repos)
-		fmt.Printf("  base: %s\n", baseBranch)
-		fmt.Printf("  created: %s\n", workspace.Created.Format("2006-01-02 15:04"))
+		fmt.Printf("## %s\n", workspace.Name)
+		fmt.Printf("branch: %s\n", branch)
+		fmt.Printf("path: %s\n", workspace.Path)
+		fmt.Printf("repos: %d (%s)\n", len(workspace.Repositories), repos)
+		fmt.Printf("base: %s\n", baseBranch)
+		fmt.Printf("created: %s\n", workspace.Created.Format("2006-01-02 15:04"))
+		fmt.Println()
 	}
 
 	return nil
