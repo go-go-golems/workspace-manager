@@ -43,7 +43,7 @@ func (sc *StatusChecker) GetWorkspaceStatusWithOptions(ctx context.Context, work
 	if maxJobs == 1 || repoCount <= 1 {
 		for i, repo := range workspace.Repositories {
 			repoPath := filepath.Join(workspace.Path, repo.Name)
-			status, err := sc.getRepositoryStatusWithClient(ctx, repo, repoPath, gc)
+			status, err := sc.getRepositoryStatusWithClient(ctx, repo, repoPath, workspace.BaseBranch, gc)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to get status for repository %s", repo.Name)
 			}
@@ -62,7 +62,7 @@ func (sc *StatusChecker) GetWorkspaceStatusWithOptions(ctx context.Context, work
 				defer sem.Release(1)
 				repo := workspace.Repositories[i]
 				repoPath := filepath.Join(workspace.Path, repo.Name)
-				status, err := sc.getRepositoryStatusWithClient(gctx, repo, repoPath, gc)
+				status, err := sc.getRepositoryStatusWithClient(gctx, repo, repoPath, workspace.BaseBranch, gc)
 				if err != nil {
 					return errors.Wrapf(err, "failed to get status for repository %s", repo.Name)
 				}
@@ -116,7 +116,7 @@ func (sc *StatusChecker) calculateOverallStatus(repoStatuses []RepositoryStatus)
 }
 
 // getRepositoryStatusWithClient uses the GitClient to compute repository status
-func (sc *StatusChecker) getRepositoryStatusWithClient(ctx context.Context, repo Repository, repoPath string, gc gitclient.GitClient) (*RepositoryStatus, error) {
+func (sc *StatusChecker) getRepositoryStatusWithClient(ctx context.Context, repo Repository, repoPath string, baseBranch string, gc gitclient.GitClient) (*RepositoryStatus, error) {
 	status := &RepositoryStatus{Repository: repo}
 
 	handle, err := gc.Open(ctx, repoPath)
@@ -143,10 +143,10 @@ func (sc *StatusChecker) getRepositoryStatusWithClient(ctx context.Context, repo
 	status.HasConflicts = false
 
 	// Preserve legacy semantics used by status table columns.
-	if isMerged, err := CheckBranchMerged(ctx, repoPath); err == nil {
+	if isMerged, err := CheckBranchMerged(ctx, repoPath, baseBranch); err == nil {
 		status.IsMerged = isMerged
 	}
-	if needsRebase, err := CheckBranchNeedsRebase(ctx, repoPath); err == nil {
+	if needsRebase, err := CheckBranchNeedsRebase(ctx, repoPath, baseBranch); err == nil {
 		status.NeedsRebase = needsRebase
 	}
 

@@ -1,5 +1,10 @@
 package branch
 
+import (
+	"os"
+	"strings"
+)
+
 // BranchName is a typed branch identifier (for example "main" or "feature/foo").
 type BranchName string
 
@@ -9,7 +14,25 @@ type RemoteName string
 const (
 	// DefaultRemoteName is used when a request does not specify a remote.
 	DefaultRemoteName RemoteName = "origin"
+	// DefaultBaseBranch is used when no explicit base branch is configured.
+	DefaultBaseBranch BranchName = "main"
 )
+
+// ResolveBaseBranch returns the configured base branch with a safe default.
+//
+// Priority:
+// 1. explicit argument
+// 2. WSM_BASE_BRANCH environment variable
+// 3. DefaultBaseBranch ("main")
+func ResolveBaseBranch(explicit string) BranchName {
+	if strings.TrimSpace(explicit) != "" {
+		return BranchName(strings.TrimSpace(explicit))
+	}
+	if v := strings.TrimSpace(os.Getenv("WSM_BASE_BRANCH")); v != "" {
+		return BranchName(v)
+	}
+	return DefaultBaseBranch
+}
 
 // ResolutionMode defines the operation context for branch planning.
 type ResolutionMode int

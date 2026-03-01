@@ -15,6 +15,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/types"
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
+	branchsvc "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm/workflows"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -94,10 +95,10 @@ func NewRebaseCommand() (*RebaseCommand, error) {
 		"rebase",
 		cmds.WithShort("Rebase workspace repositories"),
 		cmds.WithLong(`Rebase workspace repositories against a target branch.
-By default, rebases all repositories in the workspace against 'main'.`),
+By default, rebases all repositories in the workspace against the configured base branch (main if unset).`),
 		cmds.WithFlags(
 			fields.New("repository", fields.TypeString, fields.WithIsArgument(true), fields.WithHelp("Specific repository to rebase")),
-			fields.New("target", fields.TypeString, fields.WithDefault("main"), fields.WithHelp("Target branch to rebase onto")),
+			fields.New("target", fields.TypeString, fields.WithDefault(string(branchsvc.ResolveBaseBranch(""))), fields.WithHelp("Target branch to rebase onto")),
 			fields.New("dry-run", fields.TypeBool, fields.WithDefault(false), fields.WithHelp("Show what would be done without rebasing")),
 			fields.New("interactive", fields.TypeBool, fields.WithShortFlag("i"), fields.WithDefault(false), fields.WithHelp("Interactive rebase")),
 			fields.New("jobs", fields.TypeInteger, fields.WithDefault(1), fields.WithHelp("Maximum concurrent repositories to process")),
@@ -166,13 +167,14 @@ func (c *RebaseCommand) execute(ctx context.Context, vals *values.Values) (*reba
 		return nil, errors.Wrap(err, "failed to detect current workspace")
 	}
 	workflow := workflows.NewRebaseWorkflow(workspace)
+	targetBranch := string(branchsvc.ResolveBaseBranch(settings_.Target))
 
 	if settings_.Manual {
-		commands := workflow.ManualPlan(settings_.Repository, settings_.Target)
+		commands := workflow.ManualPlan(settings_.Repository, targetBranch)
 		return &rebaseExecutionResult{
 			WorkspaceName: workspace.Name,
 			Repository:    settings_.Repository,
-			TargetBranch:  settings_.Target,
+			TargetBranch:  targetBranch,
 			DryRun:        settings_.DryRun,
 			Interactive:   settings_.Interactive,
 			Jobs:          settings_.Jobs,
@@ -183,7 +185,7 @@ func (c *RebaseCommand) execute(ctx context.Context, vals *values.Values) (*reba
 
 	results, err := workflow.Rebase(ctx, workflows.RebaseRequest{
 		Repository:   settings_.Repository,
-		TargetBranch: settings_.Target,
+		TargetBranch: targetBranch,
 		Interactive:  settings_.Interactive,
 		DryRun:       settings_.DryRun,
 		Jobs:         settings_.Jobs,
@@ -195,7 +197,7 @@ func (c *RebaseCommand) execute(ctx context.Context, vals *values.Values) (*reba
 	return &rebaseExecutionResult{
 		WorkspaceName: workspace.Name,
 		Repository:    settings_.Repository,
-		TargetBranch:  settings_.Target,
+		TargetBranch:  targetBranch,
 		DryRun:        settings_.DryRun,
 		Interactive:   settings_.Interactive,
 		Jobs:          settings_.Jobs,

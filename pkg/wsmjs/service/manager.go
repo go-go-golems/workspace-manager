@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
+	branchsvc "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm/workflows"
 	"github.com/pkg/errors"
 )
@@ -786,7 +787,7 @@ func (m *Manager) RebaseRun(ctx context.Context, in RebaseRunInput) (*RebaseRunR
 	workflow := workflows.NewRebaseWorkflow(workspace)
 	targetBranch := in.TargetBranch
 	if targetBranch == "" {
-		targetBranch = "main"
+		targetBranch = string(branchsvc.ResolveBaseBranch(""))
 	}
 
 	result := &RebaseRunResult{

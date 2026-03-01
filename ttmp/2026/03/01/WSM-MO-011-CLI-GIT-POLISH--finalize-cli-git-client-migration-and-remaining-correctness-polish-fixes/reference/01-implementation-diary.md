@@ -1,0 +1,88 @@
+---
+Title: Implementation Diary
+Ticket: WSM-MO-011-CLI-GIT-POLISH
+Status: active
+Topics:
+    - workspace-manager
+    - git
+    - cli
+    - testing
+    - js-api
+DocType: reference
+Intent: long-term
+Owners: []
+RelatedFiles: []
+ExternalSources: []
+Summary: Chronological implementation diary for task-by-task execution and validation.
+LastUpdated: 2026-03-01T11:16:02.04673333-05:00
+WhatFor: ""
+WhenToUse: ""
+---
+
+# Implementation Diary
+
+## Goal
+
+Track task-by-task implementation for `WSM-MO-011-CLI-GIT-POLISH`, including exact code changes, validation commands, and commit boundaries.
+
+## Context
+
+This ticket addresses remaining cleanup after the CLI-only git backend migration:
+
+- configurable base branch semantics (`main` default),
+- parser hardening for git client output,
+- commit contract cleanup,
+- missing semantic tests,
+- migration wording cleanup in CI/Makefile.
+
+## Quick Reference
+
+### Phase 1 (Task 1): Configurable Base Branch + No Unconditional Fetch
+
+Date: 2026-03-01
+
+Changes made:
+
+- Added configurable base branch resolver in branch domain:
+  - `pkg/wsm/branch/types.go`
+  - Added `DefaultBaseBranch = "main"`
+  - Added `ResolveBaseBranch(explicit string)` with priority:
+    1. explicit argument
+    2. `WSM_BASE_BRANCH` env
+    3. default `main`
+- Updated merged/rebase status checks to use resolved base branch and removed unconditional `git fetch`:
+  - `pkg/wsm/git_utils.go`
+  - `CheckBranchMerged(ctx, path, baseBranch string)`
+  - `CheckBranchNeedsRebase(ctx, path, baseBranch string)`
+- Wired workspace base branch through status checker:
+  - `pkg/wsm/status.go`
+  - pass `workspace.BaseBranch` into merged/rebase checks
+- Aligned rebase default target branch with same resolver:
+  - `cmd/wsm/cmds/git/rebase/commands.go`
+  - `pkg/wsmjs/service/manager.go`
+
+Validation commands run:
+
+```bash
+go test ./pkg/wsm ./pkg/wsm/branch ./pkg/wsmjs/service ./cmd/wsm/cmds/git/rebase -count=1
+go test ./test/integration/scenarios -run TestSmokeStatusDiff -count=1
+gofmt -w pkg/wsm/branch/types.go pkg/wsm/git_utils.go pkg/wsm/status.go cmd/wsm/cmds/git/rebase/commands.go pkg/wsmjs/service/manager.go
+go test ./pkg/wsm ./pkg/wsm/branch ./pkg/wsmjs/service ./test/integration/scenarios -run TestSmokeStatusDiff -count=1
+```
+
+Outcome:
+
+- All targeted tests passed.
+- No blockers encountered.
+
+## Usage Examples
+
+Use `WSM_BASE_BRANCH` to override default base branch globally:
+
+```bash
+WSM_BASE_BRANCH=develop wsm status my-workspace
+```
+
+## Related
+
+- `design-doc/01-remaining-cli-git-migration-issues-and-fix-plan.md`
