@@ -27,7 +27,7 @@
 - [x] Rewrite `wsm remove` to `Run` + `RunIntoGlazeProcessor`
 - [x] Rewrite `wsm delete` to `Run` + `RunIntoGlazeProcessor`
 - [x] Rewrite `wsm info` to `Run` + `RunIntoGlazeProcessor`
-- [ ] Rewrite `wsm status` to `Run` + `RunIntoGlazeProcessor`
+- [x] Rewrite `wsm status` to `Run` + `RunIntoGlazeProcessor`
 
 ### Git Command Rewrites
 - [ ] Rewrite `wsm commit` to `Run` + `RunIntoGlazeProcessor`

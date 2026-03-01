@@ -45,6 +45,8 @@ RelatedFiles:
       Note: Workspace delete command migrated to Run + RunIntoGlazeProcessor in phase 11
     - Path: cmd/wsm/cmds/workspace/info.go
       Note: Workspace info command migrated to Run + RunIntoGlazeProcessor in phase 12
+    - Path: cmd/wsm/cmds/workspace/status.go
+      Note: Workspace status command migrated to Run + RunIntoGlazeProcessor in phase 13
     - Path: ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/design-doc/01-wsm-glazed-dual-output-implementation-plan.md
       Note: |-
         Primary implementation document produced in this work
@@ -55,7 +57,7 @@ ExternalSources:
     - /home/manuel/code/wesen/corporate-headquarters/glazed/pkg/doc/tutorials/05-build-first-command.md
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/glazed/cmd/examples/new-api-dual-mode/main.go
 Summary: Chronological record of ticket creation, command inventory, Glazed dual-output alignment decisions, and final implementation document authoring.
-LastUpdated: 2026-03-01T13:29:00-05:00
+LastUpdated: 2026-03-01T13:41:00-05:00
 WhatFor: Preserve investigation steps and reasoning for the WSM dual-output unification plan.
 WhenToUse: Use this diary to review what was inspected, why design decisions were made, and how to validate delivery artifacts.
 ---
@@ -1096,3 +1098,85 @@ This also centralizes row shaping with `infoResultToRow(...)` and keeps field no
   - `go test ./cmd/wsm/... -count=1`
   - `git add cmd/wsm/cmds/workspace/info.go`
   - `git commit --no-verify -m "wsm(workspace): migrate info to Run+RunIntoGlazeProcessor"`
+
+## Step 13: Migrate `wsm status` to split Run/Glaze interfaces
+
+I completed the final workspace command rewrite by migrating `wsm status` to split methods and shared execution. The command now runs status resolution once in `execute(...)`, prints short/detailed human output in `Run`, and emits per-repository structured rows from `RunIntoGlazeProcessor`.
+
+This removed command-level output-mode branching and moved row projection into a dedicated helper.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 5)
+
+**Assistant interpretation:** Finish the remaining workspace command rewrites with the same phased commit and diary process.
+
+**Inferred user intent:** Close the entire workspace migration chunk before moving on to git command rewrites.
+
+**Commit (code):** `63347cc3c087594d9f924a139d4cd2c7f6baae1b` — "wsm(workspace): migrate status to Run+RunIntoGlazeProcessor"
+
+### What I did
+
+- Updated `cmd/wsm/cmds/workspace/status.go`:
+  - Added `cmds.GlazeCommand` assertion.
+  - Added `statusExecutionResult`, shared `execute(...)`, and `statusToRows(...)`.
+  - Added `RunIntoGlazeProcessor(...)`.
+  - Switched wrapper to `BuildCobraCommandDualMode(...)`.
+  - Removed runtime output-mode checks and `EmitRows` path.
+- Preserved existing human behavior:
+  - `--short` renderer
+  - detailed renderer with file lists and sync markers
+  - `--untracked` handling
+- Ran:
+  - `gofmt -w cmd/wsm/cmds/workspace/status.go`
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+- Committed code phase.
+
+### Why
+
+- `status` was the last open workspace rewrite task, and finishing it closes one major migration section in the ticket.
+
+### What worked
+
+- Migration compiled on first pass.
+- Existing renderer behavior remained intact while structured emission moved fully into Glaze path.
+
+### What didn't work
+
+- N/A in this phase.
+
+### What I learned
+
+- Even for larger commands with multiple renderer functions, the split-interface pattern is still mostly mechanical if execution data is normalized first.
+
+### What was tricky to build
+
+- The tricky part was preserving `--untracked` behavior across both human and structured outputs while refactoring.
+- Symptom: row projection and human detailed output consume untracked files differently.
+- Approach: carry `Untracked` in execution result and pass it explicitly to both render and row projection helpers.
+
+### What warrants a second pair of eyes
+
+- Whether detailed human `status` output should eventually drop tabwriter formatting in favor of concise templates for consistency with registry list commands.
+
+### What should be done in the future
+
+- Move to the next ticket section: git command rewrites (`commit`, `diff`, `log`, branch/rebase commands).
+
+### Code review instructions
+
+- Start with:
+  - `cmd/wsm/cmds/workspace/status.go`
+- Validate with:
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+
+### Technical details
+
+- Commands run:
+  - `gofmt -w cmd/wsm/cmds/workspace/status.go`
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+  - `git add cmd/wsm/cmds/workspace/status.go`
+  - `git commit --no-verify -m "wsm(workspace): migrate status to Run+RunIntoGlazeProcessor"`
