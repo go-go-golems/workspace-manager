@@ -37,7 +37,7 @@ responsibility, and dependencies flow downward:
 │    workspace, discovery, git_operations, branch/ │
 ├──────────────────────────────────────────────────┤
 │  pkg/wsm/gitclient/     Git abstraction          │
-│    hybrid (pure-Go + CLI fallback)               │
+│    cli backend (system git)                      │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -94,14 +94,12 @@ The domain layer contains the foundational types and services:
 
 ### Layer 4: Git client (`pkg/wsm/gitclient/`)
 
-The git client provides an abstraction over git operations. WSM uses a hybrid
-approach:
+The git client provides an abstraction over git operations. WSM uses the system
+git CLI backend:
 
 - **`client.go`** -- Interface definition
-- **`gogit_client.go`** -- Pure-Go implementation via go-git (fast, no shell)
-- **`cli_client.go`** -- Falls back to `git` CLI for operations go-git cannot handle
-- **`hybrid_client.go`** -- Selects the right backend per operation
-- **`worktree_cli.go`** -- Worktree operations always go through CLI (go-git lacks worktree support)
+- **`cli_client.go`** -- Git operations via `git` CLI
+- **`worktree_cli.go`** -- Worktree operations via `git worktree`
 
 ## Branch resolution system
 

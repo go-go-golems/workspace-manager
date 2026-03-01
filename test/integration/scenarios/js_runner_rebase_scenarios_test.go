@@ -9,7 +9,6 @@ import (
 func TestJSRunnerRebaseScriptsHappyPath(t *testing.T) {
 	s := h.NewSandbox(t)
 	defer s.Cleanup()
-	s.SetBackend("hybrid")
 
 	prepareJSRebaseWorkspace(t, s)
 
@@ -27,7 +26,6 @@ func TestJSRunnerRebaseScriptsHappyPath(t *testing.T) {
 func TestJSRunnerRebaseScriptsConflictFlow(t *testing.T) {
 	s := h.NewSandbox(t)
 	defer s.Cleanup()
-	s.SetBackend("hybrid")
 
 	remote := s.InitBareRepo(t, "remote")
 	repo1 := s.InitRepo(t, "repo1", remote)

@@ -81,36 +81,9 @@ func TestCliRemoteTrackingBranchExists(t *testing.T) {
 	}
 }
 
-func TestGoGitRemoteTrackingBranchExists(t *testing.T) {
+func TestCliCreateBranch_FromRemoteTrackingBaseRef(t *testing.T) {
 	clientPath := createRemoteBranchFixture(t)
-	c := NewGoGit()
-	ctx := context.Background()
-
-	h, err := c.Open(ctx, clientPath)
-	if err != nil {
-		t.Fatalf("open repo: %v", err)
-	}
-
-	ok, err := c.RemoteTrackingBranchExists(ctx, h, "origin", "feature/remote-only")
-	if err != nil {
-		t.Fatalf("remote branch exists failed: %v", err)
-	}
-	if !ok {
-		t.Fatalf("expected remote branch to exist")
-	}
-
-	ok, err = c.RemoteTrackingBranchExists(ctx, h, "origin", "feature/missing")
-	if err != nil {
-		t.Fatalf("remote branch exists (missing) failed: %v", err)
-	}
-	if ok {
-		t.Fatalf("expected missing branch to return false")
-	}
-}
-
-func TestGoGitCreateBranch_FromRemoteTrackingBaseRef(t *testing.T) {
-	clientPath := createRemoteBranchFixture(t)
-	c := NewGoGit()
+	c := NewCli()
 	ctx := context.Background()
 
 	h, err := c.Open(ctx, clientPath)

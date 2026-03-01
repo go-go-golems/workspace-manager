@@ -10,7 +10,6 @@ import (
 func TestRebaseHappyPath(t *testing.T) {
 	s := h.NewSandbox(t)
 	defer s.Cleanup()
-	s.SetBackend("hybrid")
 	remote := s.InitBareRepo(t, "remote")
 	r1 := s.InitRepo(t, "repo1", remote)
 

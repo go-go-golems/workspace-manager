@@ -13,7 +13,6 @@ import (
 func TestJSRunnerDemoScriptsLifecycleScenario(t *testing.T) {
 	s := h.NewSandbox(t)
 	defer s.Cleanup()
-	s.SetBackend("hybrid")
 
 	remote := s.InitBareRepo(t, "remote")
 	_ = s.InitRepo(t, "repo1", remote)
@@ -76,7 +75,6 @@ func TestJSRunnerDemoScriptsLifecycleScenario(t *testing.T) {
 func TestJSRunnerDemoScriptsConvenienceScenario(t *testing.T) {
 	s := h.NewSandbox(t)
 	defer s.Cleanup()
-	s.SetBackend("hybrid")
 
 	remote := s.InitBareRepo(t, "remote")
 	_ = s.InitRepo(t, "repo1", remote)

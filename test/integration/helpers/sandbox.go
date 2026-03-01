@@ -106,11 +106,6 @@ func (s *Sandbox) Env(extra map[string]string) []string {
 	return out
 }
 
-// SetBackend sets default backend env for WSM subprocesses.
-func (s *Sandbox) SetBackend(backend string) {
-	s.defaultEnv["WSM_GIT_BACKEND"] = backend
-}
-
 // LoadWorkspacePath reads the workspace path from the config JSON persisted by WSM.
 func (s *Sandbox) LoadWorkspacePath(t *testing.T, name string) string {
 	t.Helper()

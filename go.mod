@@ -7,7 +7,6 @@ require (
 	github.com/carapace-sh/carapace v1.8.3
 	github.com/charmbracelet/huh v0.7.0
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
-	github.com/go-git/go-git/v5 v5.16.2
 	github.com/go-go-golems/clay v0.1.39
 	github.com/go-go-golems/glazed v0.5.50
 	github.com/pkg/errors v0.9.1
@@ -43,8 +42,6 @@ require (
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
-	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
-	github.com/go-git/go-billy/v5 v5.6.2 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.3.0 // indirect

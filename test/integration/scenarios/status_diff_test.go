@@ -13,7 +13,6 @@ import (
 func TestSmokeStatusDiff(t *testing.T) {
 	s := h.NewSandbox(t)
 	defer s.Cleanup()
-	s.SetBackend("hybrid")
 
 	// Setup bare remote and two local repos
 	remote := s.InitBareRepo(t, "remote")

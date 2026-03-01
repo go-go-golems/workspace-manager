@@ -58,38 +58,26 @@ func createWorkspaceBranchFixture(t *testing.T) string {
 func TestBranchServiceRemoteTrackingExists_BackendMatrix(t *testing.T) {
 	repoPath := createWorkspaceBranchFixture(t)
 	ctx := context.Background()
-
-	for _, backend := range []string{"cli", "gogit", "hybrid"} {
-		t.Run(backend, func(t *testing.T) {
-			t.Setenv("WSM_GIT_BACKEND", backend)
-			service := BuildBranchService(ctx)
-			ok, err := service.RemoteTrackingExists(ctx, repoPath, branchsvc.DefaultRemoteName, branchsvc.BranchName("feature/remote-only"))
-			if err != nil {
-				t.Fatalf("check remote branch exists failed: %v", err)
-			}
-			if !ok {
-				t.Fatalf("expected branch to exist in backend=%s", backend)
-			}
-		})
+	service := BuildBranchService(ctx)
+	ok, err := service.RemoteTrackingExists(ctx, repoPath, branchsvc.DefaultRemoteName, branchsvc.BranchName("feature/remote-only"))
+	if err != nil {
+		t.Fatalf("check remote branch exists failed: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected branch to exist")
 	}
 }
 
 func TestBranchServiceRemoteTrackingExists_MissingBranch(t *testing.T) {
 	repoPath := createWorkspaceBranchFixture(t)
 	ctx := context.Background()
-
-	for _, backend := range []string{"cli", "gogit", "hybrid"} {
-		t.Run(backend, func(t *testing.T) {
-			t.Setenv("WSM_GIT_BACKEND", backend)
-			service := BuildBranchService(ctx)
-			ok, err := service.RemoteTrackingExists(ctx, repoPath, branchsvc.DefaultRemoteName, branchsvc.BranchName("feature/missing"))
-			if err != nil {
-				t.Fatalf("check remote branch exists failed: %v", err)
-			}
-			if ok {
-				t.Fatalf("expected missing branch to return false in backend=%s", backend)
-			}
-		})
+	service := BuildBranchService(ctx)
+	ok, err := service.RemoteTrackingExists(ctx, repoPath, branchsvc.DefaultRemoteName, branchsvc.BranchName("feature/missing"))
+	if err != nil {
+		t.Fatalf("check remote branch exists failed: %v", err)
+	}
+	if ok {
+		t.Fatalf("expected missing branch to return false")
 	}
 }
 
