@@ -41,6 +41,36 @@ This ticket addresses two concrete regressions:
 - Confirmed worktree rebase state detection bug remains in `pkg/wsm/rebase_operations.go` (direct `<repo>/.git/rebase-*` checks).
 - Created task-by-task execution plan with five tasks in ticket `tasks.md`.
 
+### Phase 1 (Task 1): Fix Existing-Branch Worktree Add Semantics
+
+Date: 2026-03-01
+
+Changes made:
+
+- Added explicit option to indicate existing branch checkout:
+  - `pkg/wsm/gitclient/client.go`
+  - `WorktreeAddOptions.UseExistingBranch`
+- Updated CLI worktree add argument builder:
+  - `pkg/wsm/gitclient/worktree_cli.go`
+  - when `UseExistingBranch=true`, use:
+    - `git worktree add <target> <branch>`
+    - without `-b`
+- Wired use-local resolution paths to set this option:
+  - `pkg/wsm/workspace.go`
+  - `createWorktree` for `ResolutionStrategyUseLocal`
+  - `CreateWorktreeForAdd` for non-overwrite `ResolutionStrategyUseLocal`
+
+Validation commands:
+
+```bash
+gofmt -w pkg/wsm/gitclient/client.go pkg/wsm/gitclient/worktree_cli.go pkg/wsm/workspace.go
+go test ./pkg/wsm ./pkg/wsm/gitclient -count=1
+```
+
+Result:
+
+- Targeted packages pass.
+
 ## Usage Examples
 
 Validation command patterns used during this ticket:

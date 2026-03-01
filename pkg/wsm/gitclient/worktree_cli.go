@@ -15,11 +15,13 @@ func (w *CliWorktrees) Add(ctx context.Context, repoPath string, branch string, 
 	args := []string{"worktree", "add"}
 	if opts.Overwrite {
 		args = append(args, "-B", branch)
-	} else if branch != "" {
+	} else if branch != "" && !opts.UseExistingBranch {
 		args = append(args, "-b", branch)
 	}
 	args = append(args, targetPath)
-	if opts.RemoteBranch != "" {
+	if branch != "" && opts.UseExistingBranch {
+		args = append(args, branch)
+	} else if opts.RemoteBranch != "" {
 		args = append(args, opts.RemoteBranch)
 	} else if opts.BaseRef != "" && !opts.Overwrite {
 		// for non-overwrite new branch creation from base ref

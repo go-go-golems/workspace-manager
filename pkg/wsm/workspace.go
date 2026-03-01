@@ -281,6 +281,7 @@ func (wm *WorkspaceManager) createWorktree(ctx context.Context, workspace *Works
 	opts := gitclient.WorktreeAddOptions{}
 	if plan.Strategy == branchsvc.ResolutionStrategyUseLocal {
 		// Use existing branch as-is (non-destructive default)
+		opts.UseExistingBranch = true
 		return wtm.Add(ctx, repo.Path, workspace.Branch, targetPath, opts)
 	}
 
@@ -1045,6 +1046,7 @@ func (wm *WorkspaceManager) CreateWorktreeForAdd(ctx context.Context, workspace 
 			opts.Overwrite = true
 			return wtm.Add(ctx, repo.Path, branch, targetPath, opts)
 		}
+		opts.UseExistingBranch = true
 		return wtm.Add(ctx, repo.Path, branch, targetPath, opts)
 	}
 

@@ -27,9 +27,10 @@ type Status struct {
 
 // WorktreeAddOptions controls worktree add behavior.
 type WorktreeAddOptions struct {
-	BaseRef      string // base ref to create branch from, optional
-	Overwrite    bool   // use -B semantics when true
-	RemoteBranch string // origin/<branch> when creating from remote
+	BaseRef           string // base ref to create branch from, optional
+	Overwrite         bool   // use -B semantics when true
+	RemoteBranch      string // origin/<branch> when creating from remote
+	UseExistingBranch bool   // when true, checkout existing branch without creating a new one
 }
 
 // WorktreeInfo describes an existing worktree.
