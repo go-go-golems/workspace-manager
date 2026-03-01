@@ -33,6 +33,8 @@ RelatedFiles:
       Note: list parent currently assembled in registry root
     - Path: cmd/wsm/cmds/workspace/create.go
       Note: Workspace create command migrated to Run + RunIntoGlazeProcessor in phase 6
+    - Path: cmd/wsm/cmds/workspace/fork.go
+      Note: Workspace fork command migrated to Run + RunIntoGlazeProcessor in phase 7
     - Path: ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/design-doc/01-wsm-glazed-dual-output-implementation-plan.md
       Note: |-
         Primary implementation document produced in this work
@@ -43,7 +45,7 @@ ExternalSources:
     - /home/manuel/code/wesen/corporate-headquarters/glazed/pkg/doc/tutorials/05-build-first-command.md
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/glazed/cmd/examples/new-api-dual-mode/main.go
 Summary: Chronological record of ticket creation, command inventory, Glazed dual-output alignment decisions, and final implementation document authoring.
-LastUpdated: 2026-03-01T12:05:00-05:00
+LastUpdated: 2026-03-01T12:22:00-05:00
 WhatFor: Preserve investigation steps and reasoning for the WSM dual-output unification plan.
 WhenToUse: Use this diary to review what was inspected, why design decisions were made, and how to validate delivery artifacts.
 ---
@@ -598,3 +600,88 @@ This keeps behavior consistent for interactive cancellation and dry-run preview 
   - `go test ./cmd/wsm/... -count=1`
   - `git add cmd/wsm/cmds/workspace/create.go`
   - `git commit --no-verify -m "wsm(workspace): migrate create to Run+RunIntoGlazeProcessor"`
+
+## Step 7: Migrate `wsm fork` to split Run/Glaze interfaces
+
+I continued with the next workspace rewrite task and migrated `wsm fork` to the same split-interface structure used in `discover`, `list`, and `create`. The command now routes all business logic through `execute(...)`, keeping human output in `Run` and structured output in `RunIntoGlazeProcessor`.
+
+The migration preserves fork preview/success human narratives and cancellation behavior while removing legacy runtime output-mode branching and `EmitRows` usage.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 5)
+
+**Assistant interpretation:** Keep executing remaining command rewrite tasks sequentially, with focused code commits and diary-backed documentation after each phase.
+
+**Inferred user intent:** Ensure each migration step is isolated, reviewable, and fully documented before moving to the next command.
+
+**Commit (code):** `9598c66f11ca7382e9c7edb049e644c542c3a09a` — "wsm(workspace): migrate fork to Run+RunIntoGlazeProcessor"
+
+### What I did
+
+- Rewrote `cmd/wsm/cmds/workspace/fork.go`:
+  - Added `cmds.GlazeCommand` assertion.
+  - Added `forkExecutionResult` and `execute(ctx, vals)` core path.
+  - Implemented `RunIntoGlazeProcessor(...)` for structured output.
+  - Moved row construction to `forkResultToRow(...)`.
+  - Switched Cobra wrapper to `BuildCobraCommandDualMode(...)`.
+- Kept human output semantics:
+  - base-branch and auto-branch messages
+  - AGENT source inheritance message
+  - preview vs success detail blocks
+  - cancellation prints only in human mode path
+- Ran:
+  - `gofmt -w cmd/wsm/cmds/workspace/fork.go`
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+- Committed the phase code change.
+
+### Why
+
+- `fork` is the next queued workspace rewrite and shares similar multi-step output behavior with `create`, making it the next logical command to migrate with low conceptual overhead.
+
+### What worked
+
+- The migration compiled cleanly and package tests remained green.
+- Shared `execute(...)` path reduced duplicated request/plan logic and simplified renderer responsibilities.
+
+### What didn't work
+
+- An early intermediate edit introduced an incorrect temporary struct shape while converting the file.
+- Resolution:
+  - replaced `fork.go` with a full, coherent migrated version in one pass, then reran format/tests.
+
+### What I learned
+
+- For command files with many intertwined branches (plan preview + execution + output variants), full-file replacement can be safer than piecemeal patching during structural migrations.
+
+### What was tricky to build
+
+- The tricky part was preserving “informational preamble” output (plan-derived messages) while decoupling from runtime mode checks.
+- Symptom: these messages were previously guarded by `ShouldOutputHuman(...)` checks in a single method.
+- Approach: move plan and request-state into `forkExecutionResult`, then let `Run` own all preamble rendering.
+
+### What warrants a second pair of eyes
+
+- Whether `forkResultToRow(...)` should expose additional flags (for example whether branch was auto-generated) to match human-output semantics.
+
+### What should be done in the future
+
+- Continue the workspace rewrite queue with `merge`, then `add`, `remove`, `delete`, `info`, and `status`.
+
+### Code review instructions
+
+- Start with:
+  - `cmd/wsm/cmds/workspace/fork.go`
+- Validate with:
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+
+### Technical details
+
+- Commands run:
+  - `gofmt -w cmd/wsm/cmds/workspace/fork.go`
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+  - `git add cmd/wsm/cmds/workspace/fork.go`
+  - `git commit --no-verify -m "wsm(workspace): migrate fork to Run+RunIntoGlazeProcessor"`

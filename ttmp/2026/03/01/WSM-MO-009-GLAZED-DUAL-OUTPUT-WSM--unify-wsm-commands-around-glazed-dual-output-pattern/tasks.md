@@ -21,7 +21,7 @@
 
 ### Workspace Command Rewrites
 - [x] Rewrite `wsm create` to `Run` + `RunIntoGlazeProcessor`
-- [ ] Rewrite `wsm fork` to `Run` + `RunIntoGlazeProcessor`
+- [x] Rewrite `wsm fork` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm merge` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm add` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm remove` to `Run` + `RunIntoGlazeProcessor`
