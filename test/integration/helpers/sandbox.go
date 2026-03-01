@@ -98,11 +98,8 @@ func (s *Sandbox) Env(extra map[string]string) []string {
 		merged[k] = v
 	}
 	// Convert to ["K=V", ...]
-	var out []string
-	// Start from current process env, but override with merged to avoid missing basics like PATH
-	for _, e := range os.Environ() {
-		out = append(out, e)
-	}
+	// Start from current process env, but override with merged to avoid missing basics like PATH.
+	out := append([]string{}, os.Environ()...)
 	for k, v := range merged {
 		out = upsertEnv(out, k, v)
 	}
@@ -117,12 +114,8 @@ func (s *Sandbox) SetBackend(backend string) {
 // LoadWorkspacePath reads the workspace path from the config JSON persisted by WSM.
 func (s *Sandbox) LoadWorkspacePath(t *testing.T, name string) string {
 	t.Helper()
-	cfgDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatalf("config dir: %v", err)
-	}
 	// Respect sandbox HOME by deriving from HOME
-	cfgDir = filepath.Join(s.HomeDir, ".config")
+	cfgDir := filepath.Join(s.HomeDir, ".config")
 	wsFile := filepath.Join(cfgDir, "workspace-manager", "workspaces", name+".json")
 	data, err := os.ReadFile(wsFile)
 	if err != nil {
@@ -157,10 +150,10 @@ func (s *Sandbox) DebugFS(t *testing.T) {
 			t.Logf("[debug] ls %s: %v", path, err)
 			return
 		}
-		max := 20
+		maxEntries := 20
 		for i, e := range entries {
-			if i >= max {
-				t.Logf("[debug] ... (%d more)", len(entries)-max)
+			if i >= maxEntries {
+				t.Logf("[debug] ... (%d more)", len(entries)-maxEntries)
 				break
 			}
 			info, _ := e.Info()

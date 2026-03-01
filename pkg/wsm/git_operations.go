@@ -273,11 +273,15 @@ type DiffOptions struct {
 // GetDiffWithOptions gets unified diff across repositories, with concurrency options.
 func (gops *GitOperations) GetDiffWithOptions(ctx context.Context, staged bool, repoFilter string, opts DiffOptions) (string, error) {
 	maxJobs := opts.MaxJobs
-	if maxJobs < 1 { maxJobs = 1 }
+	if maxJobs < 1 {
+		maxJobs = 1
+	}
 
 	repos := make([]Repository, 0, len(gops.workspace.Repositories))
 	for _, r := range gops.workspace.Repositories {
-		if repoFilter != "" && r.Name != repoFilter { continue }
+		if repoFilter != "" && r.Name != repoFilter {
+			continue
+		}
 		repos = append(repos, r)
 	}
 
@@ -292,9 +296,13 @@ func (gops *GitOperations) GetDiffWithOptions(ctx context.Context, staged bool, 
 		for _, repo := range repos {
 			repoPath := filepath.Join(gops.workspace.Path, repo.Name)
 			h, err := gc.Open(ctx, repoPath)
-			if err != nil { return "", errors.Wrapf(err, "open repo %s", repo.Name) }
+			if err != nil {
+				return "", errors.Wrapf(err, "open repo %s", repo.Name)
+			}
 			d, err := gc.Diff(ctx, h, staged)
-			if err != nil { return "", errors.Wrapf(err, "failed to get diff for %s", repo.Name) }
+			if err != nil {
+				return "", errors.Wrapf(err, "failed to get diff for %s", repo.Name)
+			}
 			if d != "" {
 				parts = append(parts, fmt.Sprintf("=== Repository: %s ===", repo.Name), d)
 			}
@@ -302,18 +310,27 @@ func (gops *GitOperations) GetDiffWithOptions(ctx context.Context, staged bool, 
 	} else {
 		sem := semaphore.NewWeighted(int64(maxJobs))
 		g, gctx := errgroup.WithContext(ctx)
-		results := make([]struct{ header string; body string }, len(repos))
+		results := make([]struct {
+			header string
+			body   string
+		}, len(repos))
 		for i := range repos {
 			i := i
-			if err := sem.Acquire(gctx, 1); err != nil { return "", err }
+			if err := sem.Acquire(gctx, 1); err != nil {
+				return "", err
+			}
 			g.Go(func() error {
 				defer sem.Release(1)
 				repo := repos[i]
 				repoPath := filepath.Join(gops.workspace.Path, repo.Name)
 				h, err := gc.Open(gctx, repoPath)
-				if err != nil { return errors.Wrapf(err, "open repo %s", repo.Name) }
+				if err != nil {
+					return errors.Wrapf(err, "open repo %s", repo.Name)
+				}
 				d, err := gc.Diff(gctx, h, staged)
-				if err != nil { return errors.Wrapf(err, "failed to get diff for %s", repo.Name) }
+				if err != nil {
+					return errors.Wrapf(err, "failed to get diff for %s", repo.Name)
+				}
 				if d != "" {
 					results[i].header = fmt.Sprintf("=== Repository: %s ===", repo.Name)
 					results[i].body = d
@@ -321,7 +338,9 @@ func (gops *GitOperations) GetDiffWithOptions(ctx context.Context, staged bool, 
 				return nil
 			})
 		}
-		if err := g.Wait(); err != nil { return "", err }
+		if err := g.Wait(); err != nil {
+			return "", err
+		}
 		for _, r := range results {
 			if r.body != "" {
 				parts = append(parts, r.header, r.body)
