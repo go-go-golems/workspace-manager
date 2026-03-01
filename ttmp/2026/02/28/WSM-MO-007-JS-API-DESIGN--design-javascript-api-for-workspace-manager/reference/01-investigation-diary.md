@@ -39,14 +39,23 @@ RelatedFiles:
       Note: Diary tracks runner integration validation
     - Path: pkg/wsmjs/service/manager.go
       Note: Diary tracks task-by-task service facade implementation
+    - Path: test/integration/scenarios/js_runner_api_scenarios_test.go
+      Note: Diary tracks scenario-based script execution harness
+    - Path: test/js/00-module-surface.js
+      Note: Diary tracks module surface demo script
+    - Path: test/js/04-convenience-lifecycle.js
+      Note: Diary tracks convenience wrapper demo script
     - Path: ttmp/2026/02/28/WSM-MO-007-JS-API-DESIGN--design-javascript-api-for-workspace-manager/design-doc/01-workspace-manager-javascript-api-brainstorm-and-design-options.md
       Note: Primary design deliverable documented by this diary
+    - Path: ttmp/2026/02/28/WSM-MO-007-JS-API-DESIGN--design-javascript-api-for-workspace-manager/design-doc/02-js-scripting-demo-suite-implementation-plan-and-scenario-mapping.md
+      Note: Diary references the new long-form implementation plan
 ExternalSources: []
 Summary: Chronological diary of ticket setup, evidence gathering, design synthesis, validation, and reMarkable delivery.
 LastUpdated: 2026-02-28T19:42:00-05:00
 WhatFor: Preserve implementation context and decision trail for future contributors.
 WhenToUse: Use to review how design conclusions were derived and to continue implementation work.
 ---
+
 
 
 
@@ -575,3 +584,117 @@ This step is small but important for handoff: the intern can now follow one tick
 ### Technical details
 
 - No runtime/code behavior changed; this is documentation traceability only.
+
+## Step 7: Build JS Demo Script Suite and Wire Integration Scenario Execution
+
+I implemented a full `test/js/` demo suite and connected it to integration scenarios so the JS API is continuously validated through `wsm runner` using realistic sandbox repository/workspace setups.
+
+This step closes a practical gap between the implemented JS API and ongoing regression confidence. We now have script-level documentation artifacts that are also test artifacts.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Work on docmgr ticket WSM-MO-007-JS-API-DESIGN and read the spec and diary, then write a whole set of demo examples for JS scripting in test/js/ that showcases the JS API and tests it and uses the different test scenariots in test/integration/ to then run then as part of testing.
+
+Write up a detailed implementation plan on which scripts to build and how to exercize them and write it up in a detailed fashion that explains to a new intern how the scripts work and what they do and how the test scenarios test them and what the epexfcted results are. 7+ pages. Upload to remarkable when done."
+
+**Assistant interpretation:** Add a comprehensive JS demo script catalog under `test/js`, execute those scripts via integration scenarios, produce a long intern-facing implementation plan (7+ pages), and publish updated ticket docs to reMarkable.
+
+**Inferred user intent:** Convert JS API examples into executable and CI-validated teaching artifacts, then document the whole process so onboarding contributors can extend and troubleshoot confidently.
+
+**Commit (code):** Pending
+
+### What I did
+
+- Created new script folder and script catalog:
+  - `test/js/00-module-surface.js`
+  - `test/js/01-discover-and-list.js`
+  - `test/js/02-create-workspace.js`
+  - `test/js/03-status-namespace-parity.js`
+  - `test/js/04-convenience-lifecycle.js`
+  - `test/js/05-list-repository-parity.js`
+  - `test/js/06-validation-errors.js`
+  - `test/js/07-default-jobs-status.js`
+  - `test/js/README.md`
+- Added integration scenario harness:
+  - `test/integration/scenarios/js_runner_api_scenarios_test.go`
+  - Includes two scenario tests:
+    - `TestJSRunnerDemoScriptsLifecycleScenario`
+    - `TestJSRunnerDemoScriptsConvenienceScenario`
+  - Includes helper functions to:
+    - locate project root,
+    - run `wsm runner` with absolute script paths,
+    - parse JSON rows in `--output-mode data`,
+    - assert row-level and script-level contracts.
+- Ran validation:
+  - `go test ./test/integration/scenarios -run 'TestJSRunnerDemoScripts' -v`
+  - `go test ./test/integration/scenarios`
+- Created detailed long-form implementation plan document:
+  - `design-doc/02-js-scripting-demo-suite-implementation-plan-and-scenario-mapping.md`
+  - Word count check: `3720` words (7+ page target satisfied).
+- Updated ticket state docs:
+  - `tasks.md` (new Phase 4 checklist, all complete)
+  - `changelog.md` (added JS demo suite + scenario validation + plan doc entries)
+
+### Why
+
+- Demo scripts are now both teaching tools and regression checks.
+- Integration execution through runner validates the full JS path (`runner -> module -> service -> workflows`) rather than only unit-level behavior.
+- A long-form plan provides continuity and onboarding quality for future contributors.
+
+### What worked
+
+- New JS scripts executed successfully via runner data mode in sandbox tests.
+- Scenario assertions reliably validated both runner row shape and script semantic output.
+- Full integration scenario package passed after adding JS runner scenarios.
+- Long-form plan was completed with concrete script/scenario mappings and expected results.
+
+### What didn't work
+
+- N/A in this implementation slice (no failing commands after script/test harness was in place).
+
+### What I learned
+
+- Using absolute script paths is important when running scripts from different scenario working directories (for example `s.ReposDir` for discover scripts).
+- Data mode output (`--output-mode data --output json --print-result=false`) is the most robust parse path for integration assertions.
+- Separating scripts by behavior category makes failures dramatically easier to localize than using one large smoke script.
+
+### What was tricky to build
+
+- Tricky part: balancing script readability (intern-friendly examples) with deterministic integration behavior.
+- Symptom: several scripts need specific CWD/state assumptions (for discovery and expected workspace names).
+- Resolution approach: encoded setup dependencies explicitly in scenario order and kept script names/workspace names stable.
+
+### What warrants a second pair of eyes
+
+- Confirm whether we should add runner argument injection in a follow-up so script constants can be parameterized.
+- Confirm long-term preference for maintaining self-contained scripts versus shared JS assertion helpers.
+
+### What should be done in the future
+
+- Extend `test/js/` coverage when JS module grows (commit/rebase/delete flows).
+- Keep each new script paired with at least one integration scenario assertion path.
+- Update the long-form implementation-plan doc whenever expected script outputs change.
+
+### Code review instructions
+
+- Review JS script catalog first:
+  - `test/js/*.js`
+  - `test/js/README.md`
+- Review integration harness and parser/assertion logic:
+  - `test/integration/scenarios/js_runner_api_scenarios_test.go`
+- Re-run validation:
+  - `go test ./test/integration/scenarios -run 'TestJSRunnerDemoScripts' -v`
+  - `go test ./test/integration/scenarios`
+- Review planning documentation update:
+  - `design-doc/02-js-scripting-demo-suite-implementation-plan-and-scenario-mapping.md`
+
+### Technical details
+
+- JS scenario tests run scripts in data mode and parse row-level fields: `script`, `result`, `has_result`, `status`.
+- Script contract requires final object with at least `{ ok: true, script: <id> }`.
+- Lifecycle scenario executes scripts in dependency order: module surface -> discover/list -> create -> status parity -> default jobs -> validation errors.
+- Convenience scenario validates top-level wrappers and auto-branch generation behavior independently.
+- reMarkable upload command succeeded:
+  - `remarquee upload bundle ... --name "WSM-MO-007 JS API Demo Suite Plan v5" --remote-dir "/ai/2026/03/01/WSM-MO-007-JS-API-DESIGN"`
+- Immediate post-upload listing verification command failed in this environment due DNS/network lookup failures against reMarkable cloud endpoints:
+  - `remarquee cloud ls /ai/2026/03/01/WSM-MO-007-JS-API-DESIGN --long --non-interactive`

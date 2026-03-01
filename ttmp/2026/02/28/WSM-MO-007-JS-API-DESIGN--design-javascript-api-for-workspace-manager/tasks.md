@@ -27,3 +27,11 @@
 - [x] Run formatting and tests for touched packages
 - [x] Update `WSM-MO-007` diary with implementation steps, failures, and review instructions
 - [x] Update changelog/task states and upload refreshed deliverable to reMarkable
+
+## Phase 4: JS Demo Suite and Scenario Coverage
+
+- [x] Create a full `test/js/` demo script suite that showcases current `require("wsm")` API surfaces
+- [x] Add integration scenario tests that execute `test/js` scripts via `wsm runner` in sandboxed environments
+- [x] Validate the new JS scenario tests and full integration scenario package
+- [x] Author a detailed intern-facing 7+ page implementation plan documenting script behavior, scenario mapping, and expected results
+- [x] Upload refreshed ticket bundle containing the new implementation plan to reMarkable

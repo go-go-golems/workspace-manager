@@ -24,3 +24,20 @@
 - Verified with `go test ./pkg/wsmjs/... ./cmd/wsm/...`, `go test ./...`, and `go run ./cmd/wsm runner demo/js/wsm-api-smoke.js`.
 - Recorded implementation commit `88b8f52` for JS API core + runner verb delivery.
 - Uploaded refreshed reMarkable bundle `WSM-MO-007 JS API Brainstorm v4` and verified remote listing.
+- Added comprehensive JS demo script suite under `test/js/` (8 scripts + README) covering module surface, discovery, create/status flows, namespace parity, convenience wrappers, validation behavior, and default manager options.
+- Added integration scenario harness `test/integration/scenarios/js_runner_api_scenarios_test.go` to execute `test/js` scripts through `wsm runner` with structured data assertions.
+- Validated JS script scenario coverage with:
+  - `go test ./test/integration/scenarios -run 'TestJSRunnerDemoScripts' -v`
+  - `go test ./test/integration/scenarios`
+- Authored detailed implementation plan `design-doc/02-js-scripting-demo-suite-implementation-plan-and-scenario-mapping.md` (intern onboarding + script/scenario expected outcomes).
+- Uploaded bundle `WSM-MO-007 JS API Demo Suite Plan v5` to `/ai/2026/03/01/WSM-MO-007-JS-API-DESIGN`.
+- Attempted remote listing verification via `remarquee cloud ls`, but verification was blocked by DNS/network resolution errors to reMarkable cloud endpoints in this environment.
+
+## 2026-02-28 (doc rewrite session)
+
+- Audited all six embedded help pages in `pkg/docs/` against Cobra command definitions.
+- Identified extensive omissions: most flags missing from command reference, JS API surface incomplete, architecture page lacked package paths, persistence page missing concrete examples.
+- Rewrote all six help pages: `01-getting-started.md`, `02-command-reference.md`, `03-js-api-and-runner.md`, `04-architecture-overview.md`, `05-persistence-and-state.md`, `06-troubleshooting.md`.
+- Verified all help page slugs still load via `go test ./pkg/docs/` (PASS).
+- Created `scripts/verify-doc-flags.sh` for comparing `--help` output against documentation.
+- Recorded diary entry `reference/02-doc-rewrite-diary.md` documenting verification approach, findings, and review instructions.
