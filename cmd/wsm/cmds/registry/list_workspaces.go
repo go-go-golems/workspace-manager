@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
@@ -22,6 +23,7 @@ type ListWorkspacesCommand struct {
 }
 
 var _ cmds.BareCommand = &ListWorkspacesCommand{}
+var _ cmds.GlazeCommand = &ListWorkspacesCommand{}
 
 func NewListWorkspacesCommand() (*ListWorkspacesCommand, error) {
 	desc, err := wsmcmdcommon.BuildDescription(
@@ -35,53 +37,60 @@ func NewListWorkspacesCommand() (*ListWorkspacesCommand, error) {
 	return &ListWorkspacesCommand{CommandDescription: desc}, nil
 }
 
-func (c *ListWorkspacesCommand) Run(ctx context.Context, vals *values.Values) error {
-	workflow, err := workflows.NewListWorkflow()
+func (c *ListWorkspacesCommand) Run(ctx context.Context, _ *values.Values) error {
+	workspaces, err := c.execute(ctx)
 	if err != nil {
 		return err
+	}
+
+	return printWorkspacesHuman(workspaces)
+}
+
+func (c *ListWorkspacesCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	_ *values.Values,
+	gp middlewares.Processor,
+) error {
+	workspaces, err := c.execute(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, workspace := range workspaces {
+		repoNames := make([]string, 0, len(workspace.Repositories))
+		for _, repo := range workspace.Repositories {
+			repoNames = append(repoNames, repo.Name)
+		}
+
+		row := types.NewRow(
+			types.MRP("name", workspace.Name),
+			types.MRP("path", workspace.Path),
+			types.MRP("branch", workspace.Branch),
+			types.MRP("base_branch", workspace.BaseBranch),
+			types.MRP("repository_count", len(workspace.Repositories)),
+			types.MRP("repositories", repoNames),
+			types.MRP("created", workspace.Created),
+		)
+		if err := gp.AddRow(ctx, row); err != nil {
+			return errors.Wrap(err, "failed to add workspace row")
+		}
+	}
+
+	return nil
+}
+
+func (c *ListWorkspacesCommand) execute(_ context.Context) ([]wsm.Workspace, error) {
+	workflow, err := workflows.NewListWorkflow()
+	if err != nil {
+		return nil, err
 	}
 
 	workspaces, err := workflow.ListWorkspaces()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		if err := printWorkspacesHuman(workspaces); err != nil {
-			return err
-		}
-	}
-
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		rows := make([]types.Row, 0, len(workspaces))
-		for _, workspace := range workspaces {
-			repoNames := make([]string, 0, len(workspace.Repositories))
-			for _, repo := range workspace.Repositories {
-				repoNames = append(repoNames, repo.Name)
-			}
-
-			rows = append(rows, types.NewRow(
-				types.MRP("name", workspace.Name),
-				types.MRP("path", workspace.Path),
-				types.MRP("branch", workspace.Branch),
-				types.MRP("base_branch", workspace.BaseBranch),
-				types.MRP("repository_count", len(workspace.Repositories)),
-				types.MRP("repositories", repoNames),
-				types.MRP("created", workspace.Created),
-			))
-		}
-
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit workspace rows")
-		}
-	}
-
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
-	}
-
-	return nil
+	return workspaces, nil
 }
 
 func printWorkspacesHuman(workspaces []wsm.Workspace) error {
@@ -130,5 +139,5 @@ func NewListWorkspacesCobraCommand() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build list workspaces command: %w", err)
 	}
-	return wsmcmdcommon.BuildCobraCommand(command)
+	return wsmcmdcommon.BuildCobraCommandDualMode(command)
 }

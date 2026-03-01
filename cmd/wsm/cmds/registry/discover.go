@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
@@ -29,6 +30,12 @@ type DiscoverSettings struct {
 }
 
 var _ cmds.BareCommand = &DiscoverCommand{}
+var _ cmds.GlazeCommand = &DiscoverCommand{}
+
+type discoverExecutionResult struct {
+	Paths           []string
+	RepositoryCount int
+}
 
 func NewDiscoverCommand() (*DiscoverCommand, error) {
 	desc, err := wsmcmdcommon.BuildDescription(
@@ -37,10 +44,7 @@ func NewDiscoverCommand() (*DiscoverCommand, error) {
 		cmds.WithLong(`Discover git repositories in the specified directories and add them to the registry.
 If no paths are specified, defaults to current directory.
 
-Output behavior:
-  --output-mode human   Human-readable output (default)
-  --output-mode data    Structured glazed output only
-  --output-mode both    Human output first, then structured output`),
+Use --with-glaze-output to emit structured rows.`),
 		cmds.WithFlags(
 			fields.New(
 				"paths",
@@ -71,14 +75,46 @@ Output behavior:
 }
 
 func (c *DiscoverCommand) Run(ctx context.Context, vals *values.Values) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	output.PrintInfo("Discovering repositories in %v", result.Paths)
+	output.PrintSuccess("Discovery complete! Found %d repositories", result.RepositoryCount)
+	if result.RepositoryCount > 0 {
+		output.PrintInfo("Use 'wsm list repos' to see all discovered repositories")
+	}
+
+	return nil
+}
+
+func (c *DiscoverCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	row := types.NewRow(
+		types.MRP("paths", result.Paths),
+		types.MRP("repository_count", result.RepositoryCount),
+	)
+	return gp.AddRow(ctx, row)
+}
+
+func (c *DiscoverCommand) execute(ctx context.Context, vals *values.Values) (*discoverExecutionResult, error) {
 	settings_ := &DiscoverSettings{}
 	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrap(err, "failed to decode discover settings")
+		return nil, errors.Wrap(err, "failed to decode discover settings")
 	}
 
 	workflow, err := workflows.NewDiscoverWorkflow()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	result, err := workflow.Discover(ctx, workflows.DiscoverRequest{
@@ -87,33 +123,13 @@ func (c *DiscoverCommand) Run(ctx context.Context, vals *values.Values) error {
 		MaxDepth:  settings_.MaxDepth,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		output.PrintInfo("Discovering repositories in %v", result.Paths)
-		output.PrintSuccess("Discovery complete! Found %d repositories", result.RepositoryCount)
-		if result.RepositoryCount > 0 {
-			output.PrintInfo("Use 'wsm list repos' to see all discovered repositories")
-		}
-	}
-
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		rows := []types.Row{types.NewRow(
-			types.MRP("paths", result.Paths),
-			types.MRP("repository_count", result.RepositoryCount),
-		)}
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit discover rows")
-		}
-	}
-
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
-	}
-
-	return nil
+	return &discoverExecutionResult{
+		Paths:           result.Paths,
+		RepositoryCount: result.RepositoryCount,
+	}, nil
 }
 
 func NewDiscoverCobraCommand() (*cobra.Command, error) {
@@ -121,5 +137,5 @@ func NewDiscoverCobraCommand() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build discover command: %w", err)
 	}
-	return wsmcmdcommon.BuildCobraCommand(command)
+	return wsmcmdcommon.BuildCobraCommandDualMode(command)
 }

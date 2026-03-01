@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
@@ -29,6 +30,7 @@ type ListReposSettings struct {
 }
 
 var _ cmds.BareCommand = &ListReposCommand{}
+var _ cmds.GlazeCommand = &ListReposCommand{}
 
 func NewListReposCommand() (*ListReposCommand, error) {
 	desc, err := wsmcmdcommon.BuildDescription(
@@ -50,49 +52,57 @@ func NewListReposCommand() (*ListReposCommand, error) {
 }
 
 func (c *ListReposCommand) Run(ctx context.Context, vals *values.Values) error {
+	repos, tags, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	return printReposHuman(repos, tags)
+}
+
+func (c *ListReposCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	repos, _, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	for _, repo := range repos {
+		row := types.NewRow(
+			types.MRP("name", repo.Name),
+			types.MRP("path", repo.Path),
+			types.MRP("current_branch", repo.CurrentBranch),
+			types.MRP("remote_url", repo.RemoteURL),
+			types.MRP("categories", repo.Categories),
+			types.MRP("last_updated", repo.LastUpdated),
+		)
+		if err := gp.AddRow(ctx, row); err != nil {
+			return errors.Wrap(err, "failed to add repository row")
+		}
+	}
+
+	return nil
+}
+
+func (c *ListReposCommand) execute(_ context.Context, vals *values.Values) ([]wsm.Repository, []string, error) {
 	settings_ := &ListReposSettings{}
 	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrap(err, "failed to decode list repos settings")
+		return nil, nil, errors.Wrap(err, "failed to decode list repos settings")
 	}
 
 	workflow, err := workflows.NewListWorkflow()
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	repos, err := workflow.ListRepositories(settings_.Tags)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		if err := printReposHuman(repos, settings_.Tags); err != nil {
-			return err
-		}
-	}
-
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		rows := make([]types.Row, 0, len(repos))
-		for _, repo := range repos {
-			rows = append(rows, types.NewRow(
-				types.MRP("name", repo.Name),
-				types.MRP("path", repo.Path),
-				types.MRP("current_branch", repo.CurrentBranch),
-				types.MRP("remote_url", repo.RemoteURL),
-				types.MRP("categories", repo.Categories),
-				types.MRP("last_updated", repo.LastUpdated),
-			))
-		}
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit repository rows")
-		}
-	}
-
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
-	}
-
-	return nil
+	return repos, settings_.Tags, nil
 }
 
 func printReposHuman(repos []wsm.Repository, tags []string) error {
@@ -145,5 +155,5 @@ func NewListReposCobraCommand() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build list repos command: %w", err)
 	}
-	return wsmcmdcommon.BuildCobraCommand(command)
+	return wsmcmdcommon.BuildCobraCommandDualMode(command)
 }

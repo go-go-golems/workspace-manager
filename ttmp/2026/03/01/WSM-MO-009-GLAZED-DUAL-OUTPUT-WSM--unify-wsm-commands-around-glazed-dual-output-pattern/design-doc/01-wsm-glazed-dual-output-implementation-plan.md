@@ -19,6 +19,7 @@ RelatedFiles:
       Note: |-
         Current Cobra builder wrapper; needs dual-mode wiring
         Builder wrapper to migrate to native dual-mode options
+        Added transitional dual-mode builder used by migrated registry commands
     - Path: cmd/wsm/cmds/common/runtime.go
       Note: |-
         Current custom dual-output helper (output-mode + EmitRows) to be replaced by GlazeCommand pattern
@@ -36,11 +37,17 @@ RelatedFiles:
     - Path: cmd/wsm/cmds/registry
       Note: Registry command set migration scope
     - Path: cmd/wsm/cmds/registry/discover.go
-      Note: Representative simple command migration target
+      Note: |-
+        Representative simple command migration target
+        Migrated to Run + RunIntoGlazeProcessor with execute helper
     - Path: cmd/wsm/cmds/registry/list_repos.go
-      Note: Concrete target for concise human-template output refinement
+      Note: |-
+        Concrete target for concise human-template output refinement
+        Migrated to Run + RunIntoGlazeProcessor while keeping concise human template
     - Path: cmd/wsm/cmds/registry/list_workspaces.go
-      Note: Concrete target for concise human-template output refinement
+      Note: |-
+        Concrete target for concise human-template output refinement
+        Migrated to Run + RunIntoGlazeProcessor while keeping concise human template
     - Path: cmd/wsm/cmds/registry/root.go
       Note: Current list parent registration to move under registry/list/root.go
     - Path: cmd/wsm/cmds/workspace
@@ -55,6 +62,7 @@ LastUpdated: 2026-03-01T11:10:00-05:00
 WhatFor: Provide an implementation-ready command-by-command plan for unifying WSM around the Glazed dual-output pattern.
 WhenToUse: Use this document when implementing or reviewing WSM CLI command migrations away from EmitRows to RunIntoGlazeProcessor.
 ---
+
 
 
 
