@@ -5,7 +5,9 @@ import (
 	"io"
 	"os"
 
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-isatty"
 )
 
 var (
@@ -64,6 +66,30 @@ func PrintWarning(format string, args ...interface{}) {
 func PrintHeader(format string, args ...interface{}) {
 	msg := HeaderStyle.Render(fmt.Sprintf(format, args...))
 	fmt.Println(msg)
+}
+
+// PrintMarkdown renders markdown with glamour on interactive terminals and
+// falls back to plain markdown when output is piped or rendering fails.
+func PrintMarkdown(content string) {
+	if content == "" {
+		return
+	}
+
+	if isatty.IsTerminal(os.Stdout.Fd()) {
+		renderer, err := glamour.NewTermRenderer(
+			glamour.WithAutoStyle(),
+			glamour.WithWordWrap(120),
+		)
+		if err == nil {
+			rendered, err := renderer.Render(content)
+			if err == nil {
+				fmt.Print(rendered)
+				return
+			}
+		}
+	}
+
+	fmt.Print(content)
 }
 
 // LogInfo logs at info level while also printing pretty output to user

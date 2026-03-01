@@ -154,13 +154,13 @@ func TestPrintReposHuman_WithRepos(t *testing.T) {
 	})
 
 	for _, expected := range []string{
-		"Repositories (1)",
-		"Filter tags: backend",
+		"# Repositories (1)",
+		"> Filter tags: `backend`",
 		"## repo-a",
-		"branch: main",
-		"path: /tmp/repo-a",
-		"tags: backend, go",
-		"remote: git@github.com:go/repo-a.git",
+		"- **Branch:** `main`",
+		"- **Path:** `/tmp/repo-a`",
+		"- **Tags:** backend, go",
+		"- **Remote:** `git@github.com:go/repo-a.git`",
 	} {
 		if !strings.Contains(output, expected) {
 			t.Fatalf("output missing %q: %q", expected, output)
@@ -203,13 +203,13 @@ func TestPrintWorkspacesHuman_WithWorkspaces(t *testing.T) {
 	})
 
 	for _, expected := range []string{
-		"Workspaces (1)",
+		"# Workspaces (1)",
 		"## ws-a",
-		"branch: feature/a",
-		"path: /tmp/ws-a",
-		"repos: 2 (repo-a, repo-b)",
-		"base: main",
-		"created: 2026-03-01 13:45",
+		"- **Branch:** `feature/a`",
+		"- **Path:** `/tmp/ws-a`",
+		"- **Repos:** 2 (repo-a, repo-b)",
+		"- **Base:** `main`",
+		"- **Created:** `2026-03-01 13:45`",
 	} {
 		if !strings.Contains(output, expected) {
 			t.Fatalf("output missing %q: %q", expected, output)
