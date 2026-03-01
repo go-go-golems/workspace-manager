@@ -30,18 +30,12 @@ linters:
       - linters:
           - staticcheck
         text: 'SA1019: cli.CreateProcessorLegacy'
-      - linters:
-          - gosec
-        text: 'G703:'
   settings:
     errcheck:
       exclude-functions:
         - (io.Closer).Close
         - fmt.Fprintf
         - fmt.Fprintln
-    gosec:
-      excludes:
-        - G204
 
 # Formatters configuration
 formatters:
