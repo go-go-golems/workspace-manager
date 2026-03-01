@@ -7,4 +7,4 @@
 - [x] Add tests for worktree branch-reuse behavior (unit/integration as needed)
 - [x] Fix rebase in-progress detection in git worktrees by resolving actual gitdir paths
 - [x] Add tests for rebase state detection in worktrees (including in-progress with no unresolved conflicts)
-- [ ] Run full validation, update docs/changelog/diary, and close ticket
+- [x] Run full validation, update docs/changelog/diary, and close ticket

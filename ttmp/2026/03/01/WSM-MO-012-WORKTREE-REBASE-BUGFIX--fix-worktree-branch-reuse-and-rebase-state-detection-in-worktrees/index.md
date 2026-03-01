@@ -1,7 +1,7 @@
 ---
 Title: Fix worktree branch reuse and rebase-state detection in worktrees
 Ticket: WSM-MO-012-WORKTREE-REBASE-BUGFIX
-Status: active
+Status: complete
 Topics:
     - workspace-manager
     - git
@@ -19,14 +19,18 @@ RelatedFiles:
       Note: Rebase in-progress detection in worktree context
     - Path: pkg/wsm/rebase_operations_test.go
       Note: Tests that reproduce and lock rebase-state behavior in worktrees
+    - Path: pkg/wsm/workflows/rebase_workflow.go
+      Note: Workflow conflict signaling now reuses shared rebase-state detection
     - Path: pkg/wsm/workspace.go
       Note: Callers selecting ResolutionStrategyUseLocal
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-03-01T11:32:09.930615113-05:00
+LastUpdated: 2026-03-01T11:41:11.320301576-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
+
 
 
 
