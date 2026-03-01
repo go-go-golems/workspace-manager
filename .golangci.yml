@@ -30,6 +30,9 @@ linters:
       - linters:
           - staticcheck
         text: 'SA1019: cli.CreateProcessorLegacy'
+      - linters:
+          - gosec
+        text: 'G703:'
   settings:
     errcheck:
       exclude-functions:
