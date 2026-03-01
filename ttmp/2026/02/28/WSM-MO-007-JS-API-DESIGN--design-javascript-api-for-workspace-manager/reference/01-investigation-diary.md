@@ -516,3 +516,62 @@ This step ensures the implementation work is continuation-friendly for the next 
 
 - Doctor output: `✅ All checks passed`.
 - Remote listing includes `WSM-MO-007 JS API Brainstorm v4`.
+
+## Step 6: Add Glazed Help Pages Diary Entry
+
+I added a dedicated diary step after implementing the new Glazed help pages so the ticket record stays complete and continuation-friendly. This captures the `pkg/docs` documentation work, root command help-system wiring, and validation commands in the same chronological artifact as the JS API implementation.
+
+This step is small but important for handoff: the intern can now follow one ticket diary from design through implementation and docs delivery without jumping to shell history.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Add diary"
+
+**Assistant interpretation:** Add a diary entry documenting the recent docs/help-page implementation work.
+
+**Inferred user intent:** Keep the ticket’s implementation narrative current and explicit.
+
+**Commit (code):** Pending docs-only diary commit
+
+### What I did
+
+- Appended this Step 6 section to:
+  - `ttmp/2026/02/28/WSM-MO-007-JS-API-DESIGN--design-javascript-api-for-workspace-manager/reference/01-investigation-diary.md`
+- Included context and intent for the follow-up request.
+
+### Why
+
+- The diary is the primary continuation artifact for this ticket.
+- Without this step, the help-page work exists in git history but not in ticket narrative.
+
+### What worked
+
+- Diary update was straightforward and remained consistent with existing step structure.
+
+### What didn't work
+
+- N/A for this step.
+
+### What I learned
+
+- Small maintenance prompts still need explicit diary capture to preserve audit continuity.
+
+### What was tricky to build
+
+- Tricky part: none technically; the main concern was keeping chronology clear and non-duplicative.
+
+### What warrants a second pair of eyes
+
+- Verify the diary remains concise and does not over-repeat changelog details.
+
+### What should be done in the future
+
+- Continue adding one step per meaningful follow-up so ticket replay stays linear.
+
+### Code review instructions
+
+- Review only the appended section under `Step 6` in the diary file.
+
+### Technical details
+
+- No runtime/code behavior changed; this is documentation traceability only.
