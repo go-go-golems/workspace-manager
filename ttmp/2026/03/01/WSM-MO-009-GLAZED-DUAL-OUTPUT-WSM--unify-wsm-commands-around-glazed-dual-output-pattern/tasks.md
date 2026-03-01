@@ -33,9 +33,9 @@
 - [x] Rewrite `wsm commit` to `Run` + `RunIntoGlazeProcessor`
 - [x] Rewrite `wsm diff` to `Run` + `RunIntoGlazeProcessor`
 - [x] Rewrite `wsm log` to `Run` + `RunIntoGlazeProcessor`
-- [ ] Rewrite `wsm branch create` to `Run` + `RunIntoGlazeProcessor`
-- [ ] Rewrite `wsm branch switch` to `Run` + `RunIntoGlazeProcessor`
-- [ ] Rewrite `wsm branch list` to `Run` + `RunIntoGlazeProcessor`
+- [x] Rewrite `wsm branch create` to `Run` + `RunIntoGlazeProcessor`
+- [x] Rewrite `wsm branch switch` to `Run` + `RunIntoGlazeProcessor`
+- [x] Rewrite `wsm branch list` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm rebase` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm rebase status` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm rebase continue` to `Run` + `RunIntoGlazeProcessor`

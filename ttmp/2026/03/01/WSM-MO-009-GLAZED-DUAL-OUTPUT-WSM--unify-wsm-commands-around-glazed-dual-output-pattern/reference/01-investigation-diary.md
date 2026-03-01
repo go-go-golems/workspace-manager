@@ -19,8 +19,8 @@ RelatedFiles:
         Diary evidence for current helper-based data output
     - Path: cmd/wsm/cmds/git/branch.go
       Note: |-
-        Grouped branch commands currently co-located in one file
-        Diary evidence for grouped command layout change
+        Branch create/switch/list migrated to Run + RunIntoGlazeProcessor
+        Directory split to git/branch/* still pending
     - Path: cmd/wsm/cmds/git/rebase.go
       Note: Grouped rebase commands currently co-located in one file
     - Path: cmd/wsm/cmds/registry/list_repos.go
@@ -63,7 +63,7 @@ ExternalSources:
     - /home/manuel/code/wesen/corporate-headquarters/glazed/pkg/doc/tutorials/05-build-first-command.md
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/glazed/cmd/examples/new-api-dual-mode/main.go
 Summary: Chronological record of ticket creation, command inventory, Glazed dual-output alignment decisions, and final implementation document authoring.
-LastUpdated: 2026-03-01T14:22:00-05:00
+LastUpdated: 2026-03-01T14:34:00-05:00
 WhatFor: Preserve investigation steps and reasoning for the WSM dual-output unification plan.
 WhenToUse: Use this diary to review what was inspected, why design decisions were made, and how to validate delivery artifacts.
 ---
@@ -1434,3 +1434,90 @@ This keeps the existing per-repository sort order and empty-log handling while a
   - `go test ./cmd/wsm/... -count=1`
   - `git add cmd/wsm/cmds/git/log.go`
   - `git commit --no-verify -m "wsm(git): migrate log to Run+RunIntoGlazeProcessor"`
+
+## Step 17: Migrate `wsm branch create/switch/list` to split Run/Glaze interfaces
+
+I migrated all three branch subcommands in one coherent pass because they share data structures, helper rendering, and parent command wiring. This replaced runtime output-mode branching and `EmitRows` with split `Run`/`RunIntoGlazeProcessor` methods for create, switch, and list.
+
+The branch commands remain in `cmd/wsm/cmds/git/branch.go` for now; directory normalization to `git/branch/*` is still tracked as a separate task phase.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 5)
+
+**Assistant interpretation:** Continue task-by-task execution through git command rewrites with focused commits and diary entries.
+
+**Inferred user intent:** Keep progress efficient while still producing reviewable, phase-scoped commits.
+
+**Commit (code):** `efa448ff453a094b6829a1be27250d264257520d` — "wsm(git): migrate branch commands to Run+RunIntoGlazeProcessor"
+
+### What I did
+
+- Reworked `cmd/wsm/cmds/git/branch.go`:
+  - Added `cmds.GlazeCommand` assertions for create/switch/list command types.
+  - Added shared execution/result structs:
+    - `branchCreateExecutionResult`
+    - `branchSwitchExecutionResult`
+    - `branchListExecutionResult`
+  - Added per-command `RunIntoGlazeProcessor(...)` implementations.
+  - Added row projection helpers:
+    - `branchCreateResultToRows(...)`
+    - `branchSwitchResultToRows(...)`
+    - `branchListResultToRows(...)`
+  - Kept human output helpers:
+    - `printBranchResults(...)`
+    - `printBranchListHuman(...)`
+  - Switched subcommand cobra wrappers to `BuildCobraCommandDualMode(...)`.
+- Ran:
+  - `gofmt -w cmd/wsm/cmds/git/branch.go`
+  - `go test ./cmd/wsm/cmds/git -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+- Committed the code phase.
+
+### Why
+
+- Branch commands are tightly coupled, so migrating them together reduces duplicate churn and avoids temporary mixed patterns inside one file.
+
+### What worked
+
+- Migration compiled cleanly and package checks passed.
+- Human output shape was preserved, including existing summary/status displays.
+
+### What didn't work
+
+- N/A in this phase.
+
+### What I learned
+
+- Grouped command files benefit from being migrated as a unit when they share helper logic and registration wiring.
+
+### What was tricky to build
+
+- The tricky part was preserving list-command status derivation and human table output while separating execution from output layers.
+- Symptom: list command previously built rows and human table in a single loop.
+- Approach: introduce typed list entries from `execute(...)`, then independently render or project to rows.
+
+### What warrants a second pair of eyes
+
+- Whether branch list human output should move away from tabwriter to align with the concise template style requested for registry list commands.
+
+### What should be done in the future
+
+- Continue with rebase command rewrites, then perform the git branch/rebase directory split tasks.
+
+### Code review instructions
+
+- Start with:
+  - `cmd/wsm/cmds/git/branch.go`
+- Validate with:
+  - `go test ./cmd/wsm/cmds/git -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+
+### Technical details
+
+- Commands run:
+  - `gofmt -w cmd/wsm/cmds/git/branch.go`
+  - `go test ./cmd/wsm/cmds/git -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+  - `git add cmd/wsm/cmds/git/branch.go`
+  - `git commit --no-verify -m "wsm(git): migrate branch commands to Run+RunIntoGlazeProcessor"`
