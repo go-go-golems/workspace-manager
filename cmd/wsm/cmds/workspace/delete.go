@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
@@ -32,6 +33,18 @@ type DeleteSettings struct {
 }
 
 var _ cmds.BareCommand = &DeleteCommand{}
+var _ cmds.GlazeCommand = &DeleteCommand{}
+
+type deleteExecutionResult struct {
+	WorkspaceName   string
+	WorkspacePath   string
+	RepositoryCount int
+	Force           bool
+	ForceWorktrees  bool
+	RemoveFiles     bool
+	StatusError     string
+	Cancelled       bool
+}
 
 func NewDeleteCommand() (*DeleteCommand, error) {
 	desc, err := wsmcmdcommon.BuildDescription(
@@ -54,14 +67,53 @@ Use with caution.`),
 }
 
 func (c *DeleteCommand) Run(ctx context.Context, vals *values.Values) error {
-	settings_ := &DeleteSettings{}
-	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrap(err, "failed to decode delete settings")
+	result, err := c.execute(ctx, vals, true, true)
+	if err != nil {
+		return err
 	}
 
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
+	if result.Cancelled {
+		output.PrintInfo("Operation cancelled.")
+		return nil
+	}
+
+	if result.RemoveFiles {
+		output.PrintSuccess("Workspace '%s' and all files deleted successfully", result.WorkspaceName)
+	} else {
+		output.PrintSuccess("Workspace configuration '%s' deleted successfully", result.WorkspaceName)
+		output.PrintInfo("Files remain at: %s", result.WorkspacePath)
+	}
+
+	return nil
+}
+
+func (c *DeleteCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := c.execute(ctx, vals, false, false)
+	if err != nil {
+		return err
+	}
+
+	if result.Cancelled {
+		return nil
+	}
+
+	row := deleteResultToRow(result)
+	return gp.AddRow(ctx, row)
+}
+
+func (c *DeleteCommand) execute(
+	ctx context.Context,
+	vals *values.Values,
+	emitHuman bool,
+	allowPrompt bool,
+) (*deleteExecutionResult, error) {
+	settings_ := &DeleteSettings{}
+	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
+		return nil, errors.Wrap(err, "failed to decode delete settings")
 	}
 
 	workspaceName := settings_.WorkspaceName
@@ -69,21 +121,21 @@ func (c *DeleteCommand) Run(ctx context.Context, vals *values.Values) error {
 		workspaceName = settings_.WorkspaceNameArg
 	}
 	if workspaceName == "" {
-		return errors.New("workspace name is required")
+		return nil, errors.New("workspace name is required")
 	}
 
 	workflow, err := workflows.NewDeleteWorkflow()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	preview, err := workflow.Preview(ctx, workspaceName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	workspace := preview.Workspace
 
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
+	if emitHuman {
 		output.PrintHeader("Current workspace status")
 		if preview.StatusError == nil {
 			if err := printStatusDetailed(preview.Status, false); err != nil {
@@ -115,6 +167,10 @@ func (c *DeleteCommand) Run(ctx context.Context, vals *values.Values) error {
 	}
 
 	if !settings_.Force {
+		if !allowPrompt {
+			return nil, errors.New("--force is required when using --with-glaze-output")
+		}
+
 		var confirmed bool
 		form := huh.NewForm(
 			huh.NewGroup(
@@ -126,55 +182,46 @@ func (c *DeleteCommand) Run(ctx context.Context, vals *values.Values) error {
 		)
 		if err := form.Run(); err != nil {
 			if isUserCancelledError(err) {
-				if wsmcmdcommon.ShouldOutputHuman(mode) {
-					output.PrintInfo("Operation cancelled.")
-				}
-				return nil
+				return &deleteExecutionResult{Cancelled: true}, nil
 			}
-			return errors.Wrap(err, "confirmation failed")
+			return nil, errors.Wrap(err, "confirmation failed")
 		}
 		if !confirmed {
-			if wsmcmdcommon.ShouldOutputHuman(mode) {
-				output.PrintInfo("Operation cancelled.")
-			}
-			return nil
+			return &deleteExecutionResult{Cancelled: true}, nil
 		}
 	}
 
 	if err := workflow.Delete(ctx, workspaceName, settings_.RemoveFiles, settings_.ForceWorktrees); err != nil {
-		return err
+		return nil, err
 	}
 
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		if settings_.RemoveFiles {
-			output.PrintSuccess("Workspace '%s' and all files deleted successfully", workspaceName)
-		} else {
-			output.PrintSuccess("Workspace configuration '%s' deleted successfully", workspaceName)
-			output.PrintInfo("Files remain at: %s", workspace.Path)
-		}
+	statusErr := ""
+	if preview.StatusError != nil {
+		statusErr = preview.StatusError.Error()
 	}
 
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		statusErr := ""
-		if preview.StatusError != nil {
-			statusErr = preview.StatusError.Error()
-		}
-		rows := []types.Row{types.NewRow(
-			types.MRP("workspace", workspace.Name),
-			types.MRP("workspace_path", workspace.Path),
-			types.MRP("repository_count", len(workspace.Repositories)),
-			types.MRP("force", settings_.Force),
-			types.MRP("force_worktrees", settings_.ForceWorktrees),
-			types.MRP("remove_files", settings_.RemoveFiles),
-			types.MRP("status_error", statusErr),
-			types.MRP("status", "deleted"),
-		)}
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit delete rows")
-		}
-	}
+	return &deleteExecutionResult{
+		WorkspaceName:   workspace.Name,
+		WorkspacePath:   workspace.Path,
+		RepositoryCount: len(workspace.Repositories),
+		Force:           settings_.Force,
+		ForceWorktrees:  settings_.ForceWorktrees,
+		RemoveFiles:     settings_.RemoveFiles,
+		StatusError:     statusErr,
+	}, nil
+}
 
-	return nil
+func deleteResultToRow(result *deleteExecutionResult) types.Row {
+	return types.NewRow(
+		types.MRP("workspace", result.WorkspaceName),
+		types.MRP("workspace_path", result.WorkspacePath),
+		types.MRP("repository_count", result.RepositoryCount),
+		types.MRP("force", result.Force),
+		types.MRP("force_worktrees", result.ForceWorktrees),
+		types.MRP("remove_files", result.RemoveFiles),
+		types.MRP("status_error", result.StatusError),
+		types.MRP("status", "deleted"),
+	)
 }
 
 func NewDeleteCobraCommand() (*cobra.Command, error) {
@@ -182,5 +229,5 @@ func NewDeleteCobraCommand() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build delete command: %w", err)
 	}
-	return wsmcmdcommon.BuildCobraCommand(command)
+	return wsmcmdcommon.BuildCobraCommandDualMode(command)
 }
