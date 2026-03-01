@@ -11,6 +11,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
@@ -54,10 +55,39 @@ type RebaseActionSettings struct {
 	Jobs       int    `glazed:"jobs"`
 }
 
+type rebaseExecutionResult struct {
+	WorkspaceName string
+	Repository    string
+	TargetBranch  string
+	DryRun        bool
+	Interactive   bool
+	Jobs          int
+	Manual        bool
+	Commands      []string
+	Results       []workflows.RebaseResult
+}
+
+type rebaseStatusExecutionResult struct {
+	WorkspaceName string
+	Jobs          int
+	Rows          []workflows.RebaseStatusRow
+}
+
+type rebaseActionExecutionResult struct {
+	WorkspaceName string
+	Mode          string
+	Jobs          int
+	Rows          []workflows.RebaseActionRow
+}
+
 var _ cmds.BareCommand = &RebaseCommand{}
+var _ cmds.GlazeCommand = &RebaseCommand{}
 var _ cmds.BareCommand = &RebaseStatusCommand{}
+var _ cmds.GlazeCommand = &RebaseStatusCommand{}
 var _ cmds.BareCommand = &RebaseContinueCommand{}
+var _ cmds.GlazeCommand = &RebaseContinueCommand{}
 var _ cmds.BareCommand = &RebaseAbortCommand{}
+var _ cmds.GlazeCommand = &RebaseAbortCommand{}
 
 func NewRebaseCommand() (*RebaseCommand, error) {
 	desc, err := wsmcmdcommon.BuildDescription(
@@ -81,57 +111,74 @@ By default, rebases all repositories in the workspace against 'main'.`),
 }
 
 func (c *RebaseCommand) Run(ctx context.Context, vals *values.Values) error {
-	settings_ := &RebaseSettings{}
-	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrap(err, "failed to decode rebase settings")
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
 	}
 
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
+	if result.Repository != "" {
+		output.PrintHeader("Rebasing repository '%s' onto '%s'", result.Repository, result.TargetBranch)
+	} else {
+		output.PrintHeader("Rebasing all repositories onto '%s'", result.TargetBranch)
+	}
+	if result.DryRun {
+		output.PrintInfo("Dry run mode - no changes will be made")
+	}
+
+	if result.Manual {
+		fmt.Println("Manual mode: use the following commands.")
+		for _, command := range result.Commands {
+			fmt.Println(command)
+		}
+		return nil
+	}
+
+	return printRebaseResults(result.Results)
+}
+
+func (c *RebaseCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	for _, row := range rebaseResultToRows(result) {
+		if err := gp.AddRow(ctx, row); err != nil {
+			return errors.Wrap(err, "failed to add rebase row")
+		}
+	}
+
+	return nil
+}
+
+func (c *RebaseCommand) execute(ctx context.Context, vals *values.Values) (*rebaseExecutionResult, error) {
+	settings_ := &RebaseSettings{}
+	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
+		return nil, errors.Wrap(err, "failed to decode rebase settings")
 	}
 
 	workspace, err := detectCurrentWorkspace()
 	if err != nil {
-		return errors.Wrap(err, "failed to detect current workspace")
+		return nil, errors.Wrap(err, "failed to detect current workspace")
 	}
 	workflow := workflows.NewRebaseWorkflow(workspace)
 
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		if settings_.Repository != "" {
-			output.PrintHeader("Rebasing repository '%s' onto '%s'", settings_.Repository, settings_.Target)
-		} else {
-			output.PrintHeader("Rebasing all repositories onto '%s'", settings_.Target)
-		}
-		if settings_.DryRun {
-			output.PrintInfo("Dry run mode - no changes will be made")
-		}
-	}
-
 	if settings_.Manual {
 		commands := workflow.ManualPlan(settings_.Repository, settings_.Target)
-		if wsmcmdcommon.ShouldOutputHuman(mode) {
-			fmt.Println("Manual mode: use the following commands.")
-			for _, command := range commands {
-				fmt.Println(command)
-			}
-		}
-		if wsmcmdcommon.ShouldOutputData(mode) {
-			rows := make([]types.Row, 0, len(commands))
-			for _, command := range commands {
-				rows = append(rows, types.NewRow(
-					types.MRP("workspace", workspace.Name),
-					types.MRP("repository", settings_.Repository),
-					types.MRP("target_branch", settings_.Target),
-					types.MRP("manual", true),
-					types.MRP("command", command),
-				))
-			}
-			if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-				return errors.Wrap(err, "failed to emit rebase manual rows")
-			}
-		}
-		return nil
+		return &rebaseExecutionResult{
+			WorkspaceName: workspace.Name,
+			Repository:    settings_.Repository,
+			TargetBranch:  settings_.Target,
+			DryRun:        settings_.DryRun,
+			Interactive:   settings_.Interactive,
+			Jobs:          settings_.Jobs,
+			Manual:        true,
+			Commands:      commands,
+		}, nil
 	}
 
 	results, err := workflow.Rebase(ctx, workflows.RebaseRequest{
@@ -142,39 +189,55 @@ func (c *RebaseCommand) Run(ctx context.Context, vals *values.Values) error {
 		Jobs:         settings_.Jobs,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		if err := printRebaseResults(results); err != nil {
-			return err
-		}
-	}
+	return &rebaseExecutionResult{
+		WorkspaceName: workspace.Name,
+		Repository:    settings_.Repository,
+		TargetBranch:  settings_.Target,
+		DryRun:        settings_.DryRun,
+		Interactive:   settings_.Interactive,
+		Jobs:          settings_.Jobs,
+		Manual:        false,
+		Results:       results,
+	}, nil
+}
 
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		rows := make([]types.Row, 0, len(results))
-		for _, result := range results {
+func rebaseResultToRows(result *rebaseExecutionResult) []types.Row {
+	if result.Manual {
+		rows := make([]types.Row, 0, len(result.Commands))
+		for _, command := range result.Commands {
 			rows = append(rows, types.NewRow(
-				types.MRP("workspace", workspace.Name),
+				types.MRP("workspace", result.WorkspaceName),
 				types.MRP("repository", result.Repository),
-				types.MRP("success", result.Success),
-				types.MRP("error", result.Error),
-				types.MRP("rebased", result.Rebased),
-				types.MRP("conflicts", result.Conflicts),
-				types.MRP("commits_before", result.CommitsBefore),
-				types.MRP("commits_after", result.CommitsAfter),
 				types.MRP("target_branch", result.TargetBranch),
-				types.MRP("dry_run", settings_.DryRun),
-				types.MRP("interactive", settings_.Interactive),
-				types.MRP("jobs", settings_.Jobs),
+				types.MRP("manual", true),
+				types.MRP("command", command),
 			))
 		}
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit rebase rows")
-		}
+		return rows
 	}
 
-	return nil
+	rows := make([]types.Row, 0, len(result.Results))
+	for _, row := range result.Results {
+		rows = append(rows, types.NewRow(
+			types.MRP("workspace", result.WorkspaceName),
+			types.MRP("repository", row.Repository),
+			types.MRP("success", row.Success),
+			types.MRP("error", row.Error),
+			types.MRP("rebased", row.Rebased),
+			types.MRP("conflicts", row.Conflicts),
+			types.MRP("commits_before", row.CommitsBefore),
+			types.MRP("commits_after", row.CommitsAfter),
+			types.MRP("target_branch", row.TargetBranch),
+			types.MRP("dry_run", result.DryRun),
+			types.MRP("interactive", result.Interactive),
+			types.MRP("jobs", result.Jobs),
+		))
+	}
+
+	return rows
 }
 
 func NewRebaseStatusCommand() (*RebaseStatusCommand, error) {
@@ -193,51 +256,70 @@ func NewRebaseStatusCommand() (*RebaseStatusCommand, error) {
 }
 
 func (c *RebaseStatusCommand) Run(ctx context.Context, vals *values.Values) error {
-	settings_ := &RebaseStatusSettings{}
-	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrap(err, "failed to decode rebase status settings")
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
 	}
 
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
+	return printRebaseStatusRows(result.Rows)
+}
+
+func (c *RebaseStatusCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	for _, row := range rebaseStatusResultToRows(result) {
+		if err := gp.AddRow(ctx, row); err != nil {
+			return errors.Wrap(err, "failed to add rebase status row")
+		}
+	}
+
+	return nil
+}
+
+func (c *RebaseStatusCommand) execute(ctx context.Context, vals *values.Values) (*rebaseStatusExecutionResult, error) {
+	settings_ := &RebaseStatusSettings{}
+	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
+		return nil, errors.Wrap(err, "failed to decode rebase status settings")
 	}
 
 	workspace, err := detectCurrentWorkspace()
 	if err != nil {
-		return errors.Wrap(err, "failed to detect current workspace")
+		return nil, errors.Wrap(err, "failed to detect current workspace")
 	}
 	workflow := workflows.NewRebaseWorkflow(workspace)
 
 	rows, err := workflow.Status(ctx, settings_.Repository, settings_.Jobs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		if err := printRebaseStatusRows(rows); err != nil {
-			return err
-		}
-	}
+	return &rebaseStatusExecutionResult{
+		WorkspaceName: workspace.Name,
+		Jobs:          settings_.Jobs,
+		Rows:          rows,
+	}, nil
+}
 
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		outRows := make([]types.Row, 0, len(rows))
-		for _, row := range rows {
-			outRows = append(outRows, types.NewRow(
-				types.MRP("workspace", workspace.Name),
-				types.MRP("repository", row.Repository),
-				types.MRP("state", string(row.State)),
-				types.MRP("conflicts", row.Conflicts),
-				types.MRP("error", row.Error),
-				types.MRP("jobs", settings_.Jobs),
-			))
-		}
-		if err := wsmcmdcommon.EmitRows(ctx, vals, outRows); err != nil {
-			return errors.Wrap(err, "failed to emit rebase status rows")
-		}
+func rebaseStatusResultToRows(result *rebaseStatusExecutionResult) []types.Row {
+	rows := make([]types.Row, 0, len(result.Rows))
+	for _, row := range result.Rows {
+		rows = append(rows, types.NewRow(
+			types.MRP("workspace", result.WorkspaceName),
+			types.MRP("repository", row.Repository),
+			types.MRP("state", string(row.State)),
+			types.MRP("conflicts", row.Conflicts),
+			types.MRP("error", row.Error),
+			types.MRP("jobs", result.Jobs),
+		))
 	}
-
-	return nil
+	return rows
 }
 
 func NewRebaseContinueCommand() (*RebaseContinueCommand, error) {
@@ -256,7 +338,28 @@ func NewRebaseContinueCommand() (*RebaseContinueCommand, error) {
 }
 
 func (c *RebaseContinueCommand) Run(ctx context.Context, vals *values.Values) error {
-	return runRebaseAction(ctx, vals, "continue")
+	result, err := executeRebaseAction(ctx, vals, "continue")
+	if err != nil {
+		return err
+	}
+	return printRebaseActionRows("continue", result.Rows)
+}
+
+func (c *RebaseContinueCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := executeRebaseAction(ctx, vals, "continue")
+	if err != nil {
+		return err
+	}
+	for _, row := range rebaseActionResultToRows(result) {
+		if err := gp.AddRow(ctx, row); err != nil {
+			return errors.Wrap(err, "failed to add rebase continue row")
+		}
+	}
+	return nil
 }
 
 func NewRebaseAbortCommand() (*RebaseAbortCommand, error) {
@@ -275,23 +378,39 @@ func NewRebaseAbortCommand() (*RebaseAbortCommand, error) {
 }
 
 func (c *RebaseAbortCommand) Run(ctx context.Context, vals *values.Values) error {
-	return runRebaseAction(ctx, vals, "abort")
+	result, err := executeRebaseAction(ctx, vals, "abort")
+	if err != nil {
+		return err
+	}
+	return printRebaseActionRows("abort", result.Rows)
 }
 
-func runRebaseAction(ctx context.Context, vals *values.Values, mode string) error {
+func (c *RebaseAbortCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := executeRebaseAction(ctx, vals, "abort")
+	if err != nil {
+		return err
+	}
+	for _, row := range rebaseActionResultToRows(result) {
+		if err := gp.AddRow(ctx, row); err != nil {
+			return errors.Wrap(err, "failed to add rebase abort row")
+		}
+	}
+	return nil
+}
+
+func executeRebaseAction(ctx context.Context, vals *values.Values, mode string) (*rebaseActionExecutionResult, error) {
 	settings_ := &RebaseActionSettings{}
 	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrapf(err, "failed to decode rebase %s settings", mode)
-	}
-
-	outputMode := wsmcmdcommon.ResolveOutputMode(vals)
-	if !wsmcmdcommon.ShouldOutputHuman(outputMode) && !wsmcmdcommon.ShouldOutputData(outputMode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(outputMode)
+		return nil, errors.Wrapf(err, "failed to decode rebase %s settings", mode)
 	}
 
 	workspace, err := detectCurrentWorkspace()
 	if err != nil {
-		return errors.Wrap(err, "failed to detect current workspace")
+		return nil, errors.Wrap(err, "failed to detect current workspace")
 	}
 	workflow := workflows.NewRebaseWorkflow(workspace)
 
@@ -302,36 +421,33 @@ func runRebaseAction(ctx context.Context, vals *values.Values, mode string) erro
 	case "abort":
 		rows, err = workflow.Abort(ctx, settings_.Repository, settings_.Jobs)
 	default:
-		return errors.Errorf("unsupported rebase action mode: %s", mode)
+		return nil, errors.Errorf("unsupported rebase action mode: %s", mode)
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if wsmcmdcommon.ShouldOutputHuman(outputMode) {
-		if err := printRebaseActionRows(mode, rows); err != nil {
-			return err
-		}
-	}
+	return &rebaseActionExecutionResult{
+		WorkspaceName: workspace.Name,
+		Mode:          mode,
+		Jobs:          settings_.Jobs,
+		Rows:          rows,
+	}, nil
+}
 
-	if wsmcmdcommon.ShouldOutputData(outputMode) {
-		outRows := make([]types.Row, 0, len(rows))
-		for _, row := range rows {
-			outRows = append(outRows, types.NewRow(
-				types.MRP("workspace", workspace.Name),
-				types.MRP("mode", mode),
-				types.MRP("repository", row.Repository),
-				types.MRP("success", row.Success),
-				types.MRP("error", row.Error),
-				types.MRP("jobs", settings_.Jobs),
-			))
-		}
-		if err := wsmcmdcommon.EmitRows(ctx, vals, outRows); err != nil {
-			return errors.Wrapf(err, "failed to emit rebase %s rows", mode)
-		}
+func rebaseActionResultToRows(result *rebaseActionExecutionResult) []types.Row {
+	rows := make([]types.Row, 0, len(result.Rows))
+	for _, row := range result.Rows {
+		rows = append(rows, types.NewRow(
+			types.MRP("workspace", result.WorkspaceName),
+			types.MRP("mode", result.Mode),
+			types.MRP("repository", row.Repository),
+			types.MRP("success", row.Success),
+			types.MRP("error", row.Error),
+			types.MRP("jobs", result.Jobs),
+		))
 	}
-
-	return nil
+	return rows
 }
 
 func printRebaseResults(results []workflows.RebaseResult) error {
@@ -469,19 +585,19 @@ func NewRebaseCobraCommand() (*cobra.Command, error) {
 		return nil, errors.Wrap(err, "failed to build rebase abort command")
 	}
 
-	rebaseCobra, err := wsmcmdcommon.BuildCobraCommand(rebaseCmd)
+	rebaseCobra, err := wsmcmdcommon.BuildCobraCommandDualMode(rebaseCmd)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build rebase cobra command")
 	}
-	statusCobra, err := wsmcmdcommon.BuildCobraCommand(statusCmd)
+	statusCobra, err := wsmcmdcommon.BuildCobraCommandDualMode(statusCmd)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build rebase status cobra command")
 	}
-	continueCobra, err := wsmcmdcommon.BuildCobraCommand(continueCmd)
+	continueCobra, err := wsmcmdcommon.BuildCobraCommandDualMode(continueCmd)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build rebase continue cobra command")
 	}
-	abortCobra, err := wsmcmdcommon.BuildCobraCommand(abortCmd)
+	abortCobra, err := wsmcmdcommon.BuildCobraCommandDualMode(abortCmd)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build rebase abort cobra command")
 	}
