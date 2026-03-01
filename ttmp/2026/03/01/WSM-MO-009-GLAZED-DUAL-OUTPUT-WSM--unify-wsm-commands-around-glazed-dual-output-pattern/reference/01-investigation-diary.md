@@ -51,6 +51,8 @@ RelatedFiles:
       Note: Git commit command migrated to Run + RunIntoGlazeProcessor in phase 14
     - Path: cmd/wsm/cmds/git/diff.go
       Note: Git diff command migrated to Run + RunIntoGlazeProcessor in phase 15
+    - Path: cmd/wsm/cmds/git/log.go
+      Note: Git log command migrated to Run + RunIntoGlazeProcessor in phase 16
     - Path: ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/design-doc/01-wsm-glazed-dual-output-implementation-plan.md
       Note: |-
         Primary implementation document produced in this work
@@ -61,7 +63,7 @@ ExternalSources:
     - /home/manuel/code/wesen/corporate-headquarters/glazed/pkg/doc/tutorials/05-build-first-command.md
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/glazed/cmd/examples/new-api-dual-mode/main.go
 Summary: Chronological record of ticket creation, command inventory, Glazed dual-output alignment decisions, and final implementation document authoring.
-LastUpdated: 2026-03-01T14:09:00-05:00
+LastUpdated: 2026-03-01T14:22:00-05:00
 WhatFor: Preserve investigation steps and reasoning for the WSM dual-output unification plan.
 WhenToUse: Use this diary to review what was inspected, why design decisions were made, and how to validate delivery artifacts.
 ---
@@ -1350,3 +1352,85 @@ This keeps human output unchanged while aligning structured output with the Glaz
   - `go test ./cmd/wsm/... -count=1`
   - `git add cmd/wsm/cmds/git/diff.go`
   - `git commit --no-verify -m "wsm(git): migrate diff to Run+RunIntoGlazeProcessor"`
+
+## Step 16: Migrate `wsm log` to split Run/Glaze interfaces
+
+I migrated `wsm log` to split methods and removed command-level output-mode branching. The command now resolves workspace history once in `execute(...)`, renders sorted repository logs in `Run`, and emits structured rows via `RunIntoGlazeProcessor`.
+
+This keeps the existing per-repository sort order and empty-log handling while aligning structured output with Glaze processor usage.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 5)
+
+**Assistant interpretation:** Continue the git migration queue task-by-task with commits and diary updates per phase.
+
+**Inferred user intent:** Sustain execution rhythm through the remaining command backlog while keeping output architecture consistent.
+
+**Commit (code):** `82d71eaf04a2488964c7e6838d3a49c89b24fa80` — "wsm(git): migrate log to Run+RunIntoGlazeProcessor"
+
+### What I did
+
+- Updated `cmd/wsm/cmds/git/log.go`:
+  - Added `cmds.GlazeCommand` assertion.
+  - Added `logExecutionResult`, shared `execute(...)`, and `logResultToRows(...)`.
+  - Added `RunIntoGlazeProcessor(...)`.
+  - Switched wrapper to `BuildCobraCommandDualMode(...)`.
+  - Removed `ResolveOutputMode`/`EmitRows` branching.
+- Preserved behavior:
+  - workspace heading and `--since` annotation
+  - sorted per-repository output blocks
+  - explicit no-commits message
+- Ran:
+  - `gofmt -w cmd/wsm/cmds/git/log.go`
+  - `go test ./cmd/wsm/cmds/git -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+- Committed code phase.
+
+### Why
+
+- `log` was next in task order and completes the top-level git command trio before branch/rebase restructuring.
+
+### What worked
+
+- Migration compiled and tests passed without additional fixes.
+- Result helper pattern cleanly handled empty and non-empty log cases.
+
+### What didn't work
+
+- N/A in this phase.
+
+### What I learned
+
+- Sorting logic should be retained in both human and structured paths to keep deterministic outputs for review and automation.
+
+### What was tricky to build
+
+- The tricky part was avoiding duplicated sort/path logic across `Run` and structured emission.
+- Symptom: easy drift between human and machine outputs if each path sorts independently with different criteria.
+- Approach: execute once, then reuse normalized result in both renderers and row builder.
+
+### What warrants a second pair of eyes
+
+- Whether to include an aggregated summary row (total repositories with logs) for machine consumers in addition to per-repository rows.
+
+### What should be done in the future
+
+- Proceed to the branch/rebase command migration and directory normalization tasks.
+
+### Code review instructions
+
+- Start with:
+  - `cmd/wsm/cmds/git/log.go`
+- Validate with:
+  - `go test ./cmd/wsm/cmds/git -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+
+### Technical details
+
+- Commands run:
+  - `gofmt -w cmd/wsm/cmds/git/log.go`
+  - `go test ./cmd/wsm/cmds/git -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+  - `git add cmd/wsm/cmds/git/log.go`
+  - `git commit --no-verify -m "wsm(git): migrate log to Run+RunIntoGlazeProcessor"`

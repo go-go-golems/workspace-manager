@@ -32,7 +32,7 @@
 ### Git Command Rewrites
 - [x] Rewrite `wsm commit` to `Run` + `RunIntoGlazeProcessor`
 - [x] Rewrite `wsm diff` to `Run` + `RunIntoGlazeProcessor`
-- [ ] Rewrite `wsm log` to `Run` + `RunIntoGlazeProcessor`
+- [x] Rewrite `wsm log` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm branch create` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm branch switch` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm branch list` to `Run` + `RunIntoGlazeProcessor`
