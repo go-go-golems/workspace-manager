@@ -30,7 +30,7 @@
 - [x] Rewrite `wsm status` to `Run` + `RunIntoGlazeProcessor`
 
 ### Git Command Rewrites
-- [ ] Rewrite `wsm commit` to `Run` + `RunIntoGlazeProcessor`
+- [x] Rewrite `wsm commit` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm diff` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm log` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm branch create` to `Run` + `RunIntoGlazeProcessor`

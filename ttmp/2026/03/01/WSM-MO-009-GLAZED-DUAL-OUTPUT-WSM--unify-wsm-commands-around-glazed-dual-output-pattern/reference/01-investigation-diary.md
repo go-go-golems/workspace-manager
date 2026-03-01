@@ -47,6 +47,8 @@ RelatedFiles:
       Note: Workspace info command migrated to Run + RunIntoGlazeProcessor in phase 12
     - Path: cmd/wsm/cmds/workspace/status.go
       Note: Workspace status command migrated to Run + RunIntoGlazeProcessor in phase 13
+    - Path: cmd/wsm/cmds/git/commit.go
+      Note: Git commit command migrated to Run + RunIntoGlazeProcessor in phase 14
     - Path: ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/design-doc/01-wsm-glazed-dual-output-implementation-plan.md
       Note: |-
         Primary implementation document produced in this work
@@ -57,7 +59,7 @@ ExternalSources:
     - /home/manuel/code/wesen/corporate-headquarters/glazed/pkg/doc/tutorials/05-build-first-command.md
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/glazed/cmd/examples/new-api-dual-mode/main.go
 Summary: Chronological record of ticket creation, command inventory, Glazed dual-output alignment decisions, and final implementation document authoring.
-LastUpdated: 2026-03-01T13:41:00-05:00
+LastUpdated: 2026-03-01T13:56:00-05:00
 WhatFor: Preserve investigation steps and reasoning for the WSM dual-output unification plan.
 WhenToUse: Use this diary to review what was inspected, why design decisions were made, and how to validate delivery artifacts.
 ---
@@ -1180,3 +1182,87 @@ This removed command-level output-mode branching and moved row projection into a
   - `go test ./cmd/wsm/... -count=1`
   - `git add cmd/wsm/cmds/workspace/status.go`
   - `git commit --no-verify -m "wsm(workspace): migrate status to Run+RunIntoGlazeProcessor"`
+
+## Step 14: Migrate `wsm commit` to split Run/Glaze interfaces
+
+I started the git command rewrite section with `wsm commit`. The command now uses shared execution state and emits structured rows via `RunIntoGlazeProcessor`, removing direct runtime mode branching and `EmitRows`.
+
+For structured mode, I added an explicit guard that rejects `--interactive` so automated consumers do not hit prompt-based output.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 5)
+
+**Assistant interpretation:** Continue command-by-command migration beyond workspace commands and keep phase commits and diary detail.
+
+**Inferred user intent:** Maintain the same disciplined migration process while moving into the git command family.
+
+**Commit (code):** `a7110070ec640ab91e3572d2bd8d3160e444d18a` — "wsm(git): migrate commit to Run+RunIntoGlazeProcessor"
+
+### What I did
+
+- Rewrote `cmd/wsm/cmds/git/commit.go`:
+  - Added `cmds.GlazeCommand` assertion.
+  - Added `commitExecutionResult`, shared `execute(...)`, and `commitResultToRows(...)`.
+  - Added `RunIntoGlazeProcessor(...)`.
+  - Switched wrapper to `BuildCobraCommandDualMode(...)`.
+  - Removed runtime output-mode checks and direct `EmitRows`.
+- Preserved behavior for:
+  - no changes and no selection outcomes
+  - commit message validation
+  - dry-run/push reporting in human mode
+- Added structured-mode safety:
+  - `--interactive` now errors in glaze mode (`--interactive is only supported in human output mode`).
+- Ran:
+  - `gofmt -w cmd/wsm/cmds/git/commit.go`
+  - `go test ./cmd/wsm/cmds/git -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+- Committed code phase.
+
+### Why
+
+- `commit` is the first git rewrite task and one of the highest-value commands to align with Glazed-native output boundaries.
+
+### What worked
+
+- Migration compiled immediately and tests passed.
+- Result normalization made row emission and status branching simpler to reason about.
+
+### What didn't work
+
+- N/A in this phase.
+
+### What I learned
+
+- Commands with multiple terminal outcomes (`no_changes`, `no_selection`, `executed`) benefit from explicit status modeling in execution result structs.
+
+### What was tricky to build
+
+- The tricky part was preserving interactive workflow behavior in human mode while keeping glaze mode machine-safe.
+- Symptom: existing interactive selector prints directly to terminal.
+- Approach: parameterize execution with `allowInteractive` and reject interactive mode in structured path.
+
+### What warrants a second pair of eyes
+
+- Whether interactive restrictions should be codified uniformly for all future git commands that may prompt.
+
+### What should be done in the future
+
+- Continue git rewrites in task order: `diff`, then `log`, then branch/rebase commands.
+
+### Code review instructions
+
+- Start with:
+  - `cmd/wsm/cmds/git/commit.go`
+- Validate with:
+  - `go test ./cmd/wsm/cmds/git -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+
+### Technical details
+
+- Commands run:
+  - `gofmt -w cmd/wsm/cmds/git/commit.go`
+  - `go test ./cmd/wsm/cmds/git -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+  - `git add cmd/wsm/cmds/git/commit.go`
+  - `git commit --no-verify -m "wsm(git): migrate commit to Run+RunIntoGlazeProcessor"`
