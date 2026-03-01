@@ -1075,7 +1075,7 @@ func (wm *WorkspaceManager) CreateWorktreeForAdd(ctx context.Context, workspace 
 
 	plan, err := wm.resolveBranchPlan(ctx, repo.Path, branchsvc.BranchResolutionRequest{
 		TargetBranch: branchsvc.BranchName(branch),
-		BaseBranch:   branchsvc.BranchName(workspace.Branch),
+		BaseBranch:   branchsvc.BranchName(workspace.BaseBranch),
 		Remote:       branchsvc.DefaultRemoteName,
 		Mode:         branchsvc.ResolutionModeAddRepository,
 	})
