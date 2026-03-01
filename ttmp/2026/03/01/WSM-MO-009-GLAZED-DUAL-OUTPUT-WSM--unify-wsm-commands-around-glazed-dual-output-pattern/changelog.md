@@ -234,3 +234,13 @@ Phase 17: migrated `wsm branch create/switch/list` to the Glazed split interface
 
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/branch.go — Replaced runtime output-mode branching and EmitRows usage for all branch subcommands; switched to dual-mode cobra wrappers
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/tasks.md — Branch create/switch/list rewrite tasks marked complete
+
+
+## 2026-03-01
+
+Phase 18: migrated `wsm rebase` command set (`rebase`, `status`, `continue`, `abort`) to the Glazed split interface (`Run` + `RunIntoGlazeProcessor`) in a single coherent update; committed as b394f4e.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/rebase.go — Replaced runtime output-mode branching and EmitRows usage for rebase root and subcommands; switched to dual-mode cobra wrappers
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/tasks.md — Rebase rewrite tasks marked complete

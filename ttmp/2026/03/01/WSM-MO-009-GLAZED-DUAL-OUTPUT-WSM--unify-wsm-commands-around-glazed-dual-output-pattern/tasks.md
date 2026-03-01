@@ -36,10 +36,10 @@
 - [x] Rewrite `wsm branch create` to `Run` + `RunIntoGlazeProcessor`
 - [x] Rewrite `wsm branch switch` to `Run` + `RunIntoGlazeProcessor`
 - [x] Rewrite `wsm branch list` to `Run` + `RunIntoGlazeProcessor`
-- [ ] Rewrite `wsm rebase` to `Run` + `RunIntoGlazeProcessor`
-- [ ] Rewrite `wsm rebase status` to `Run` + `RunIntoGlazeProcessor`
-- [ ] Rewrite `wsm rebase continue` to `Run` + `RunIntoGlazeProcessor`
-- [ ] Rewrite `wsm rebase abort` to `Run` + `RunIntoGlazeProcessor`
+- [x] Rewrite `wsm rebase` to `Run` + `RunIntoGlazeProcessor`
+- [x] Rewrite `wsm rebase status` to `Run` + `RunIntoGlazeProcessor`
+- [x] Rewrite `wsm rebase continue` to `Run` + `RunIntoGlazeProcessor`
+- [x] Rewrite `wsm rebase abort` to `Run` + `RunIntoGlazeProcessor`
 
 ### JS Command Rewrites
 - [ ] Rewrite `wsm runner` to `Run` + `RunIntoGlazeProcessor`
