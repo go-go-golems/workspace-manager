@@ -159,6 +159,31 @@ Outcome:
 - Both new tests pass.
 - Coverage now explicitly checks the semantic fields that previously regressed.
 
+### Phase 5 (Task 5): Remove Residual Backend Matrix Wording
+
+Date: 2026-03-01
+
+Changes made:
+
+- Updated Makefile Dagger targets to CLI-only expectations:
+  - `Makefile`
+  - removed `--backends=...` usage from `dagger`, `dagger-test`, `dagger-test-smoke`
+- Simplified Dagger pipeline to single backend run:
+  - `ci/dagger/main.go`
+  - removed backend matrix flag and loop
+  - runs once under fixed `cli` label for artifact names
+
+Validation commands run:
+
+```bash
+gofmt -w ci/dagger/main.go
+go test ./ci/dagger -count=1
+```
+
+Outcome:
+
+- CI helper code and Makefile now match CLI-only backend model.
+
 ## Usage Examples
 
 Use `WSM_BASE_BRANCH` to override default base branch globally:

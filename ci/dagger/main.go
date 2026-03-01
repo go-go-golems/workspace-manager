@@ -6,18 +6,16 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"dagger.io/dagger"
 )
 
 func main() {
 	var (
-		backendsStr = flag.String("backends", "hybrid", "comma-separated backends: hybrid,cli,gogit")
-		race        = flag.Bool("race", false, "enable -race")
-		coverage    = flag.Bool("cover", false, "enable coverage")
-		smoke       = flag.Bool("smoke", false, "run a smaller subset with -run")
-		outDir      = flag.String("out", ".out", "host artifacts directory")
+		race     = flag.Bool("race", false, "enable -race")
+		coverage = flag.Bool("cover", false, "enable coverage")
+		smoke    = flag.Bool("smoke", false, "run a smaller subset with -run")
+		outDir   = flag.String("out", ".out", "host artifacts directory")
 	)
 	flag.Parse()
 
@@ -27,8 +25,6 @@ func main() {
 		log.Fatal(err)
 	}
 	defer func() { _ = client.Close() }()
-
-	backends := strings.Split(*backendsStr, ",")
 
 	src := client.Host().Directory(".", dagger.HostDirectoryOpts{
 		Include: []string{"**/*"},
@@ -58,33 +54,32 @@ func main() {
 
 	goBin := "/usr/local/go/bin/go"
 
-	for _, be := range backends {
-		fmt.Printf("\n=== Running backend: %s ===\n", be)
-		c := base.WithEnvVariable("WSM_GIT_BACKEND", be)
+	backend := "cli"
+	fmt.Printf("\n=== Running backend: %s ===\n", backend)
+	c := base
 
-		// Build wsm
-		c = c.WithExec([]string{"bash", "-lc", goBin + " build -o .out/wsm ./cmd/wsm"})
+	// Build wsm
+	c = c.WithExec([]string{"bash", "-lc", goBin + " build -o .out/wsm ./cmd/wsm"})
 
-		// Build test command (no guard: fail loudly and capture output)
-		baseTest := goBin + " test ./test/integration/... -v -count=1"
-		if *race {
-			baseTest += " -race"
-		}
-		if *coverage {
-			baseTest += " -coverprofile=.out/coverage-" + be + ".out"
-		}
-		if *smoke {
-			baseTest += " -run 'Test(Smoke|Status|Diff)'"
-		}
-		fullCmd := "set -euo pipefail; " + baseTest + " | tee .out/test-" + be + ".log"
+	// Build test command (no guard: fail loudly and capture output)
+	baseTest := goBin + " test ./test/integration/... -v -count=1"
+	if *race {
+		baseTest += " -race"
+	}
+	if *coverage {
+		baseTest += " -coverprofile=.out/coverage-" + backend + ".out"
+	}
+	if *smoke {
+		baseTest += " -run 'Test(Smoke|Status|Diff)'"
+	}
+	fullCmd := "set -euo pipefail; " + baseTest + " | tee .out/test-" + backend + ".log"
 
-		// Run tests (or skip) and write logs
-		c = c.WithExec([]string{"bash", "-lc", fullCmd})
+	// Run tests and write logs
+	c = c.WithExec([]string{"bash", "-lc", fullCmd})
 
-		// Export artifacts
-		if _, err := c.Directory("/workspace/.out").Export(ctx, *outDir); err != nil {
-			log.Fatalf("export artifacts: %v", err)
-		}
+	// Export artifacts
+	if _, err := c.Directory("/workspace/.out").Export(ctx, *outDir); err != nil {
+		log.Fatalf("export artifacts: %v", err)
 	}
 
 	fmt.Println("Dagger pipeline completed.")

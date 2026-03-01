@@ -34,13 +34,13 @@ build:
 
 .PHONY: dagger dagger-test dagger-test-backends
 dagger:
-	go run ./ci/dagger --backends=hybrid
+	go run ./ci/dagger
 
 dagger-test:
-	go run ./ci/dagger --backends=hybrid,cli,gogit --race
+	go run ./ci/dagger --race
 
 dagger-test-smoke:
-	go run ./ci/dagger --backends=hybrid --smoke
+	go run ./ci/dagger --smoke
 
 goreleaser:
 	goreleaser release --skip=sign --snapshot --clean

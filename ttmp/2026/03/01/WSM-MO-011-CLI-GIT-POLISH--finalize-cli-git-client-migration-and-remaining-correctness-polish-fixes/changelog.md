@@ -56,3 +56,13 @@ Task 4 complete: added semantic status regression coverage (is_merged/needs_reba
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/gitclient/status_worktree_cli_test.go — Parser edge-case coverage
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/test/integration/scenarios/status_semantics_test.go — Semantic status assertions
 
+
+## 2026-03-01
+
+Task 5 complete: removed residual hybrid/gogit backend matrix references from Makefile and simplified Dagger pipeline to CLI-only execution.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/Makefile — CLI-only Dagger target flags
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ci/dagger/main.go — Removed backend matrix loop
+
