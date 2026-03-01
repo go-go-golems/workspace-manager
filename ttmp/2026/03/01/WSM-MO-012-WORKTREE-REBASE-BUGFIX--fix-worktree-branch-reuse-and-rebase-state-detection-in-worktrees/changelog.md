@@ -45,3 +45,12 @@ Task 3 complete: rebase in-progress detection now resolves git paths via 'git re
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/rebase_operations.go — Resolve rebase markers via gitdir-aware paths
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/workflows/rebase_workflow.go — Reuse shared rebase-state detection in workflow conflict signaling
 
+
+## 2026-03-01
+
+Task 4 complete: added rebase-state regression tests for git worktrees, including unresolved-conflict and resolved-but-in-progress states.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/rebase_operations_test.go — Regression coverage for worktree rebase-state detection
+

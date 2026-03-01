@@ -17,6 +17,8 @@ RelatedFiles:
       Note: Worktree add behavior for existing vs new branches
     - Path: pkg/wsm/rebase_operations.go
       Note: Rebase in-progress detection in worktree context
+    - Path: pkg/wsm/rebase_operations_test.go
+      Note: Tests that reproduce and lock rebase-state behavior in worktrees
     - Path: pkg/wsm/workspace.go
       Note: Callers selecting ResolutionStrategyUseLocal
 ExternalSources: []
@@ -25,6 +27,7 @@ LastUpdated: 2026-03-01T11:32:09.930615113-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Fix worktree branch reuse and rebase-state detection in worktrees

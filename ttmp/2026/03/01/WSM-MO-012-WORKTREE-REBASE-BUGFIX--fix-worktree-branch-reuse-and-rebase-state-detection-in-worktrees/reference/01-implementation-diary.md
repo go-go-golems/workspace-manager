@@ -128,6 +128,30 @@ Result:
 - Worktree rebase-state checks now resolve the actual gitdir paths instead of assuming `.git` is a directory.
 - Targeted package tests pass.
 
+### Phase 4 (Task 4): Add Rebase-State Regression Tests for Worktrees
+
+Date: 2026-03-01
+
+Changes made:
+
+- Added `pkg/wsm/rebase_operations_test.go` with deterministic worktree fixtures that force a rebase conflict.
+- Added test coverage for both critical states:
+  - `TestStatus_WorktreeRebaseStoppedConflicts`
+  - `TestStatus_WorktreeRebaseInProgressWithoutConflicts`
+- The second test explicitly verifies the previous regression case:
+  - rebase is still active after conflict resolution (`git add`) but before `git rebase --continue`.
+
+Validation commands:
+
+```bash
+gofmt -w pkg/wsm/rebase_operations_test.go
+go test ./pkg/wsm ./pkg/wsm/workflows -count=1
+```
+
+Result:
+
+- Rebase state detection in worktree layouts is now covered by regression tests for both conflict and no-conflict in-progress states.
+
 ## Usage Examples
 
 Validation command patterns used during this ticket:
