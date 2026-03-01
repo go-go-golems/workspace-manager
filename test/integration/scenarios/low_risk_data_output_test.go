@@ -28,7 +28,7 @@ func TestLowRiskCommandsDataOutput(t *testing.T) {
 	}
 
 	// list repos (data mode)
-	res = s.RunWSM(t, nil, "", "list", "repos", "--output-mode", "data", "--output", "json")
+	res = s.RunWSM(t, nil, "", "list", "repos", "--with-glaze-output", "--output", "json")
 	if res.ExitCode != 0 {
 		t.Fatalf("list repos data failed: %s\n%s", res.Stdout, res.Stderr)
 	}
@@ -38,7 +38,7 @@ func TestLowRiskCommandsDataOutput(t *testing.T) {
 	}
 
 	// list workspaces (data mode)
-	res = s.RunWSM(t, nil, "", "list", "workspaces", "--output-mode", "data", "--output", "json")
+	res = s.RunWSM(t, nil, "", "list", "workspaces", "--with-glaze-output", "--output", "json")
 	if res.ExitCode != 0 {
 		t.Fatalf("list workspaces data failed: %s\n%s", res.Stdout, res.Stderr)
 	}
@@ -48,7 +48,7 @@ func TestLowRiskCommandsDataOutput(t *testing.T) {
 	}
 
 	// info (data mode)
-	res = s.RunWSM(t, nil, "", "info", wsName, "--output-mode", "data", "--output", "json")
+	res = s.RunWSM(t, nil, "", "info", wsName, "--with-glaze-output", "--output", "json")
 	if res.ExitCode != 0 {
 		t.Fatalf("info data failed: %s\n%s", res.Stdout, res.Stderr)
 	}

@@ -42,7 +42,7 @@ func TestBranchAndLogHumanDataParity(t *testing.T) {
 	}
 
 	// branch list: data
-	res = s.RunWSM(t, nil, wsPath, "branch", "list", "--output-mode", "data", "--output", "json")
+	res = s.RunWSM(t, nil, wsPath, "branch", "list", "--with-glaze-output", "--output", "json")
 	if res.ExitCode != 0 {
 		t.Fatalf("branch list data failed: %s\n%s", res.Stdout, res.Stderr)
 	}
@@ -61,7 +61,7 @@ func TestBranchAndLogHumanDataParity(t *testing.T) {
 	}
 
 	// log: data
-	res = s.RunWSM(t, nil, wsPath, "log", "--limit", "5", "--oneline", "--output-mode", "data", "--output", "json")
+	res = s.RunWSM(t, nil, wsPath, "log", "--limit", "5", "--oneline", "--with-glaze-output", "--output", "json")
 	if res.ExitCode != 0 {
 		t.Fatalf("log data failed: %s\n%s", res.Stdout, res.Stderr)
 	}

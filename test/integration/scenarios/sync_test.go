@@ -29,7 +29,7 @@ func TestRebaseDataModeDryRun(t *testing.T) {
 	h.RunForTest(t, s, wsPath+"/repo1", nil, "bash", "-lc", "echo local >> l.txt && git add l.txt && git commit -m local")
 
 	// Dry-run in data mode should succeed and include structured rows.
-	res = s.RunWSM(t, nil, wsPath, "rebase", "--target", "main", "--dry-run", "--output-mode", "data", "--output", "json")
+	res = s.RunWSM(t, nil, wsPath, "rebase", "--target", "main", "--dry-run", "--with-glaze-output", "--output", "json")
 	if res.ExitCode != 0 {
 		t.Fatalf("rebase dry-run failed: %s\n%s", res.Stdout, res.Stderr)
 	}

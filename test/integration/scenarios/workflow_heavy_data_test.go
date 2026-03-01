@@ -23,7 +23,7 @@ func TestWorkflowHeavyCommandsDataOutput(t *testing.T) {
 	}
 
 	// create (data mode)
-	res = s.RunWSM(t, nil, "", "create", "ws-heavy-source", "--repos", "repo1,repo2", "--branch", "feature/heavy", "--output-mode", "data", "--output", "json")
+	res = s.RunWSM(t, nil, "", "create", "ws-heavy-source", "--repos", "repo1,repo2", "--branch", "feature/heavy", "--with-glaze-output", "--output", "json")
 	if res.ExitCode != 0 {
 		t.Fatalf("create data failed: %s\n%s", res.Stdout, res.Stderr)
 	}
@@ -37,7 +37,7 @@ func TestWorkflowHeavyCommandsDataOutput(t *testing.T) {
 	h.RunForTest(t, s, wsPath+"/repo2", nil, "bash", "-lc", "echo heavy-data >> heavy.txt")
 
 	// commit (data mode)
-	res = s.RunWSM(t, nil, wsPath, "commit", "--add-all", "-m", "workflow heavy data", "--output-mode", "data", "--output", "json")
+	res = s.RunWSM(t, nil, wsPath, "commit", "--add-all", "-m", "workflow heavy data", "--with-glaze-output", "--output", "json")
 	if res.ExitCode != 0 {
 		t.Fatalf("commit data failed: %s\n%s", res.Stdout, res.Stderr)
 	}
@@ -47,7 +47,7 @@ func TestWorkflowHeavyCommandsDataOutput(t *testing.T) {
 	}
 
 	// delete (data mode)
-	res = s.RunWSM(t, nil, "", "delete", "ws-heavy-source", "--force", "--remove-files", "--force-worktrees", "--output-mode", "data", "--output", "json")
+	res = s.RunWSM(t, nil, "", "delete", "ws-heavy-source", "--force", "--remove-files", "--force-worktrees", "--with-glaze-output", "--output", "json")
 	if res.ExitCode != 0 {
 		t.Fatalf("delete data failed: %s\n%s", res.Stdout, res.Stderr)
 	}

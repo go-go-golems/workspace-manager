@@ -101,7 +101,7 @@ func runRunnerScriptResult(t *testing.T, s *h.Sandbox, workDir, scriptRelPath st
 		t.Fatalf("script not found: %s (%v)", scriptPath, err)
 	}
 
-	res := s.RunWSM(t, nil, workDir, "runner", scriptPath, "--output-mode", "data", "--output", "json", "--print-result=false")
+	res := s.RunWSM(t, nil, workDir, "runner", scriptPath, "--with-glaze-output", "--output", "json", "--print-result=false")
 	if res.ExitCode != 0 {
 		t.Fatalf("runner failed for %s:\nstdout:\n%s\nstderr:\n%s", scriptRelPath, res.Stdout, res.Stderr)
 	}
