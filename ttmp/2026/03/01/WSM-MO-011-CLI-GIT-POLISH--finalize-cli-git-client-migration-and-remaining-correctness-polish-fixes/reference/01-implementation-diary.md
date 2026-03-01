@@ -132,6 +132,33 @@ Outcome:
 - Contract is now explicit and non-misleading.
 - Targeted tests passed.
 
+### Phase 4 (Task 4): Add Semantic and Parser Coverage
+
+Date: 2026-03-01
+
+Changes made:
+
+- Added gitclient parser-focused unit tests:
+  - `pkg/wsm/gitclient/status_worktree_cli_test.go`
+  - Covers porcelain `-z` status parsing with spaces/rename behavior
+  - Covers worktree list parsing for paths containing spaces
+- Added integration semantic status regression test:
+  - `test/integration/scenarios/status_semantics_test.go`
+  - Asserts `is_merged=false` and `needs_rebase=true` after advancing remote main and fetching refs
+
+Validation commands run:
+
+```bash
+gofmt -w pkg/wsm/gitclient/status_worktree_cli_test.go test/integration/scenarios/status_semantics_test.go
+go test ./pkg/wsm/gitclient -count=1
+go test ./test/integration/scenarios -run TestStatusSemanticMergedAndNeedsRebase -count=1
+```
+
+Outcome:
+
+- Both new tests pass.
+- Coverage now explicitly checks the semantic fields that previously regressed.
+
 ## Usage Examples
 
 Use `WSM_BASE_BRANCH` to override default base branch globally:

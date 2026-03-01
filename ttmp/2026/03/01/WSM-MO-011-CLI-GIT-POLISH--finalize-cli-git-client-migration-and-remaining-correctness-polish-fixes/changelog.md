@@ -46,3 +46,13 @@ Task 3 complete: simplified GitClient commit contract by removing unused CommitO
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/gitclient/cli_client.go — Commit implementation simplified
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/gitclient/client.go — Commit interface simplified
 
+
+## 2026-03-01
+
+Task 4 complete: added semantic status regression coverage (is_merged/needs_rebase) and parser-focused gitclient tests for status/worktree edge cases including path spaces.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/gitclient/status_worktree_cli_test.go — Parser edge-case coverage
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/test/integration/scenarios/status_semantics_test.go — Semantic status assertions
+
