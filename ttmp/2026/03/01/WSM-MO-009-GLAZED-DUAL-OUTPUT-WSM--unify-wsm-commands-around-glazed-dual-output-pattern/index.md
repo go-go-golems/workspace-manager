@@ -1,7 +1,7 @@
 ---
 Title: Unify WSM Commands Around Glazed Dual Output Pattern
 Ticket: WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM
-Status: active
+Status: complete
 Topics:
     - architecture
     - glazed
@@ -13,7 +13,7 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: "Implementation planning ticket for migrating WSM commands to native Glazed dual-mode output with grouped-verb directory normalization."
-LastUpdated: 2026-03-01T05:51:48.998770015-05:00
+LastUpdated: 2026-03-01T07:21:05-05:00
 WhatFor: "Track planning artifacts for unifying WSM command output around Run/RunIntoGlazeProcessor boundaries and grouped command layout."
 WhenToUse: "Use this ticket when implementing or reviewing WSM Glazed dual-mode migration work."
 ---
@@ -34,7 +34,7 @@ It also includes a structural layout decision: grouped verbs should be split int
 
 ## Status
 
-Current status: **active**
+Current status: **complete**
 
 ## Topics
 

@@ -1,7 +1,7 @@
 ---
 Title: Investigation diary
 Ticket: WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM
-Status: active
+Status: complete
 Topics:
     - architecture
     - glazed
@@ -69,7 +69,7 @@ ExternalSources:
     - /home/manuel/code/wesen/corporate-headquarters/glazed/pkg/doc/tutorials/05-build-first-command.md
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/glazed/cmd/examples/new-api-dual-mode/main.go
 Summary: Chronological record of ticket creation, command inventory, Glazed dual-output alignment decisions, and final implementation document authoring.
-LastUpdated: 2026-03-01T15:20:00-05:00
+LastUpdated: 2026-03-01T07:21:05-05:00
 WhatFor: Preserve investigation steps and reasoning for the WSM dual-output unification plan.
 WhenToUse: Use this diary to review what was inspected, why design decisions were made, and how to validate delivery artifacts.
 ---
@@ -1884,3 +1884,88 @@ I also updated root command help text to explicitly state that human output is d
   - `go test ./cmd/wsm/... -count=1`
   - `git add cmd/wsm/cmds/common/build.go cmd/wsm/cmds/common/runtime.go cmd/wsm/root.go`
   - `git commit --no-verify -m "wsm(common): remove legacy output-mode runtime plumbing"`
+
+## Step 22: Final closure validation and reMarkable re-publication
+
+I ran a final closure pass across code and documentation to confirm that all remaining tasks were complete and no legacy output plumbing references remained. This included a full command-package test run and ticket doctor validation.
+
+I then republished the ticket bundle to reMarkable as a final labeled artifact and verified the remote folder listing contains the new document.
+
+### Prompt Context
+
+**User prompt (verbatim):** "do all the tasks"
+
+**Assistant interpretation:** Complete every remaining execution task end-to-end, including final validation, documentation closure, and delivery refresh.
+
+**Inferred user intent:** Finish the migration ticket completely with auditable proof, not just partial implementation.
+
+**Commit (code):** N/A (documentation and delivery closure step)
+
+### What I did
+
+- Ran final checks:
+  - `rg -n "EmitRows\\(|ResolveOutputMode\\(|ShouldOutputHuman\\(|ShouldOutputData\\(|output-mode" cmd/wsm -S`
+  - `go test ./cmd/wsm/... -count=1`
+  - `docmgr doctor --ticket WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM`
+- Performed reMarkable dry run upload:
+  - `remarquee upload bundle --dry-run ... --name "WSM-MO-009 Glazed Dual Output WSM Final" --remote-dir "/ai/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM" --toc-depth 2`
+- Performed live upload:
+  - `remarquee upload bundle ... --name "WSM-MO-009 Glazed Dual Output WSM Final" --remote-dir "/ai/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM" --toc-depth 2`
+- Verified remote folder:
+  - `remarquee cloud ls /ai/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM --long --non-interactive`
+
+### Why
+
+- Final validation and re-publication provides closure evidence that reflects the completed state after all implementation phases.
+
+### What worked
+
+- Command tests passed.
+- `docmgr doctor` reported all checks passed.
+- Upload succeeded and remote listing shows:
+  - `WSM-MO-009 Glazed Dual Output Plan`
+  - `WSM-MO-009 Glazed Dual Output Plan v2`
+  - `WSM-MO-009 Glazed Dual Output WSM Final`
+
+### What didn't work
+
+- `docmgr doctor ttmp/...` initially failed with:
+  - `Too many arguments`
+- Resolution:
+  - Switched to the correct invocation: `docmgr doctor --ticket WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM`.
+
+### What I learned
+
+- The closure workflow is cleanest when validation and upload are executed as one final, traceable phase after all commits are complete.
+
+### What was tricky to build
+
+- The main sharp edge was command syntax drift across tools (`docmgr doctor` expects flags, not path positional arguments).
+- Symptom: immediate argument parsing failure before any validation ran.
+- Approach: reran with `--ticket` targeting and continued with the remaining closure sequence.
+
+### What warrants a second pair of eyes
+
+- N/A.
+
+### What should be done in the future
+
+- N/A.
+
+### Code review instructions
+
+- Validate closure evidence in:
+  - `ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/changelog.md`
+  - `ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/index.md`
+- Re-run:
+  - `go test ./cmd/wsm/... -count=1`
+  - `docmgr doctor --ticket WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM`
+
+### Technical details
+
+- Uploaded bundle included:
+  - `index.md`
+  - `design-doc/01-wsm-glazed-dual-output-implementation-plan.md`
+  - `tasks.md`
+  - `changelog.md`
+  - `reference/01-investigation-diary.md`
