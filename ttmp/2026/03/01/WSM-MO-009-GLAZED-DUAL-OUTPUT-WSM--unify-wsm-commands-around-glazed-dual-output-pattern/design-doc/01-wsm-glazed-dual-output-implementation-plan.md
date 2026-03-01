@@ -37,6 +37,10 @@ RelatedFiles:
       Note: Registry command set migration scope
     - Path: cmd/wsm/cmds/registry/discover.go
       Note: Representative simple command migration target
+    - Path: cmd/wsm/cmds/registry/list_repos.go
+      Note: Concrete target for concise human-template output refinement
+    - Path: cmd/wsm/cmds/registry/list_workspaces.go
+      Note: Concrete target for concise human-template output refinement
     - Path: cmd/wsm/cmds/registry/root.go
       Note: Current list parent registration to move under registry/list/root.go
     - Path: cmd/wsm/cmds/workspace
@@ -51,6 +55,7 @@ LastUpdated: 2026-03-01T11:10:00-05:00
 WhatFor: Provide an implementation-ready command-by-command plan for unifying WSM around the Glazed dual-output pattern.
 WhenToUse: Use this document when implementing or reviewing WSM CLI command migrations away from EmitRows to RunIntoGlazeProcessor.
 ---
+
 
 
 # WSM Glazed Dual Output Implementation Plan
