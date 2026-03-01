@@ -25,7 +25,7 @@
 - [x] Rewrite `wsm merge` to `Run` + `RunIntoGlazeProcessor`
 - [x] Rewrite `wsm add` to `Run` + `RunIntoGlazeProcessor`
 - [x] Rewrite `wsm remove` to `Run` + `RunIntoGlazeProcessor`
-- [ ] Rewrite `wsm delete` to `Run` + `RunIntoGlazeProcessor`
+- [x] Rewrite `wsm delete` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm info` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm status` to `Run` + `RunIntoGlazeProcessor`
 

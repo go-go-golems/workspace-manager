@@ -41,6 +41,8 @@ RelatedFiles:
       Note: Workspace add command migrated to Run + RunIntoGlazeProcessor in phase 9
     - Path: cmd/wsm/cmds/workspace/remove.go
       Note: Workspace remove command migrated to Run + RunIntoGlazeProcessor in phase 10
+    - Path: cmd/wsm/cmds/workspace/delete.go
+      Note: Workspace delete command migrated to Run + RunIntoGlazeProcessor in phase 11
     - Path: ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/design-doc/01-wsm-glazed-dual-output-implementation-plan.md
       Note: |-
         Primary implementation document produced in this work
@@ -51,7 +53,7 @@ ExternalSources:
     - /home/manuel/code/wesen/corporate-headquarters/glazed/pkg/doc/tutorials/05-build-first-command.md
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/glazed/cmd/examples/new-api-dual-mode/main.go
 Summary: Chronological record of ticket creation, command inventory, Glazed dual-output alignment decisions, and final implementation document authoring.
-LastUpdated: 2026-03-01T13:02:00-05:00
+LastUpdated: 2026-03-01T13:16:00-05:00
 WhatFor: Preserve investigation steps and reasoning for the WSM dual-output unification plan.
 WhenToUse: Use this diary to review what was inspected, why design decisions were made, and how to validate delivery artifacts.
 ---
@@ -925,3 +927,88 @@ Structured output now goes through `RunIntoGlazeProcessor` via a dedicated row h
   - `go test ./cmd/wsm/... -count=1`
   - `git add cmd/wsm/cmds/workspace/remove.go`
   - `git commit --no-verify -m "wsm(workspace): migrate remove to Run+RunIntoGlazeProcessor"`
+
+## Step 11: Migrate `wsm delete` to split Run/Glaze interfaces
+
+I migrated `wsm delete` to the split command interface pattern and removed command-level `EmitRows` usage. Human mode still renders preview/status/confirmation and final success messages, while the structured path now emits a single row from `RunIntoGlazeProcessor`.
+
+To avoid interactive prompts in structured mode, glaze execution now requires `--force` and returns an explicit error otherwise.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 5)
+
+**Assistant interpretation:** Continue sequential workspace rewrites and keep both commit and diary tracking detailed.
+
+**Inferred user intent:** Complete migration with practical operator-safe defaults for structured mode automation.
+
+**Commit (code):** `0d15d043a37fd24f97ff4f4a2fa91d42e50c5b4a` — "wsm(workspace): migrate delete to Run+RunIntoGlazeProcessor"
+
+### What I did
+
+- Rewrote `cmd/wsm/cmds/workspace/delete.go`:
+  - Added `cmds.GlazeCommand` assertion.
+  - Added `deleteExecutionResult`, shared `execute(...)`, and `deleteResultToRow(...)`.
+  - Added `RunIntoGlazeProcessor(...)`.
+  - Switched wrapper to `BuildCobraCommandDualMode(...)`.
+  - Removed runtime output-mode branching and `EmitRows`.
+- Preserved human behavior for:
+  - pre-delete status preview
+  - destructive action warning block
+  - confirmation dialog (unless `--force`)
+  - cancellation and success messaging
+- Added structured-mode guard:
+  - when using glaze output without `--force`, return `--force is required when using --with-glaze-output`.
+- Ran:
+  - `gofmt -w cmd/wsm/cmds/workspace/delete.go`
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+- Committed code phase.
+
+### Why
+
+- `delete` is the most safety-sensitive workspace command; enforcing non-interactive behavior in structured mode prevents prompt leakage into automation paths.
+
+### What worked
+
+- Migration compiled and tests passed.
+- Human-mode UX remained intact with no functional regression in preview and confirmation flow.
+
+### What didn't work
+
+- N/A in this phase.
+
+### What I learned
+
+- Some commands need explicit policy differences between human and structured modes (especially around prompts), not just mechanical method splitting.
+
+### What was tricky to build
+
+- The tricky part was keeping the pre-delete preview in human mode while preventing prompt-based flow in structured mode.
+- Symptom: original single `Run` path mixed preview, confirmation, delete, and data output.
+- Approach: parameterize `execute(...)` with `emitHuman` and `allowPrompt` to preserve UX while enforcing machine-safe behavior.
+
+### What warrants a second pair of eyes
+
+- Whether the new structured-mode `--force` requirement should also be applied to other potentially interactive commands for consistency.
+
+### What should be done in the future
+
+- Continue with `wsm info` and `wsm status` migrations.
+
+### Code review instructions
+
+- Start with:
+  - `cmd/wsm/cmds/workspace/delete.go`
+- Validate with:
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+
+### Technical details
+
+- Commands run:
+  - `gofmt -w cmd/wsm/cmds/workspace/delete.go`
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+  - `git add cmd/wsm/cmds/workspace/delete.go`
+  - `git commit --no-verify -m "wsm(workspace): migrate delete to Run+RunIntoGlazeProcessor"`
