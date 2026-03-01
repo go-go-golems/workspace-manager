@@ -141,8 +141,14 @@ func (sc *StatusChecker) getRepositoryStatusWithClient(ctx context.Context, repo
 	}
 
 	status.HasConflicts = false
-	status.IsMerged = false
-	status.NeedsRebase = false
+
+	// Preserve legacy semantics used by status table columns.
+	if isMerged, err := CheckBranchMerged(ctx, repoPath); err == nil {
+		status.IsMerged = isMerged
+	}
+	if needsRebase, err := CheckBranchNeedsRebase(ctx, repoPath); err == nil {
+		status.NeedsRebase = needsRebase
+	}
 
 	return status, nil
 }
