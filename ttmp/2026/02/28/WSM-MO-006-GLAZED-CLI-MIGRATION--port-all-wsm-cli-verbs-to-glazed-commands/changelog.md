@@ -64,3 +64,8 @@
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/workspace/merge.go — Migrated `merge` Glazed command
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/rebase.go — Migrated `rebase*` Glazed commands
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/cmds — Legacy command layer removed
+
+## 2026-03-01
+
+Closed after completing all migration tasks and validations.
+

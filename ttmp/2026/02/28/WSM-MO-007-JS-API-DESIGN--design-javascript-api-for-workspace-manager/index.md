@@ -1,7 +1,7 @@
 ---
 Title: Design JavaScript API for Workspace Manager
 Ticket: WSM-MO-007-JS-API-DESIGN
-Status: active
+Status: complete
 Topics:
     - architecture
     - api-design
@@ -15,10 +15,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: Ticket workspace for designing a JavaScript API over workspace-manager using evidence from go-go-goja and geppetto JS module patterns.
-LastUpdated: 2026-02-28T19:42:00-05:00
+LastUpdated: 2026-03-01T09:34:29.811757658-05:00
 WhatFor: Track and deliver the JS API architecture decision document for user review.
 WhenToUse: Use when implementing or reviewing `require("wsm")` API design choices.
 ---
+
 
 # Design JavaScript API for Workspace Manager
 

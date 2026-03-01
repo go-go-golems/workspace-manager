@@ -1,7 +1,7 @@
 ---
 Title: Port All WSM CLI Verbs to Glazed Commands
 Ticket: WSM-MO-006-GLAZED-CLI-MIGRATION
-Status: active
+Status: complete
 Topics:
     - architecture
     - refactor
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-02-28T16:11:06.715943053-05:00
+LastUpdated: 2026-03-01T09:34:29.741667653-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Port All WSM CLI Verbs to Glazed Commands
 
