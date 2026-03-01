@@ -1,6 +1,8 @@
 package git
 
 import (
+	branchcmd "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/git/branch"
+	rebasecmd "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/git/rebase"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -22,16 +24,14 @@ func Register(root *cobra.Command) error {
 		return errors.Wrap(err, "failed to build log command")
 	}
 
-	branchCmd, err := NewBranchCobraCommand()
-	if err != nil {
-		return errors.Wrap(err, "failed to build branch command")
+	if err := branchcmd.Register(root); err != nil {
+		return errors.Wrap(err, "failed to register branch commands")
 	}
 
-	rebaseCmd, err := NewRebaseCobraCommand()
-	if err != nil {
-		return errors.Wrap(err, "failed to build rebase command")
+	if err := rebasecmd.Register(root); err != nil {
+		return errors.Wrap(err, "failed to register rebase commands")
 	}
 
-	root.AddCommand(commitCmd, diffCmd, logCmd, branchCmd, rebaseCmd)
+	root.AddCommand(commitCmd, diffCmd, logCmd)
 	return nil
 }

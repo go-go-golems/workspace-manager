@@ -1,6 +1,7 @@
 package registry
 
 import (
+	listcmd "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/registry/list"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -12,23 +13,10 @@ func Register(root *cobra.Command) error {
 		return errors.Wrap(err, "failed to build discover command")
 	}
 
-	listReposCmd, err := NewListReposCobraCommand()
-	if err != nil {
-		return errors.Wrap(err, "failed to build list repos command")
+	if err := listcmd.Register(root); err != nil {
+		return errors.Wrap(err, "failed to register list commands")
 	}
 
-	listWorkspacesCmd, err := NewListWorkspacesCobraCommand()
-	if err != nil {
-		return errors.Wrap(err, "failed to build list workspaces command")
-	}
-
-	listCmd := &cobra.Command{
-		Use:   "list",
-		Short: "List repositories and workspaces",
-		Long:  "List discovered repositories and created workspaces.",
-	}
-	listCmd.AddCommand(listReposCmd, listWorkspacesCmd)
-
-	root.AddCommand(discoverCmd, listCmd)
+	root.AddCommand(discoverCmd)
 	return nil
 }
