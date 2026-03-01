@@ -244,6 +244,7 @@ Update, then create tasks for all the tasks (granular), then work on them task b
 **Commit (code):**
 - `bd1599b953a12ade8a518d81a2332fe6b91d9e1f` — "docs(ticket): refine WSM-MO-009 plan and add granular execution tasks"
 - `bbc4bffc2bcfad283501e232f8cfdc57c6b0e814` — "wsm(registry): switch list human output to concise templates"
+- `f279cbc360169d8a2b4b5f12a2ec9b562b7bb775` — "docs(ticket): record registry list execution diary and phase status"
 
 ### What I did
 

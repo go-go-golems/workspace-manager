@@ -13,4 +13,4 @@
 - [x] Run targeted registry command tests/build checks
 - [x] Update diary with phase-by-phase execution and commit references
 - [x] Update changelog and file relations for this registry list refinement
-- [ ] Create phase commits for design/task setup, code changes, and documentation wrap-up
+- [x] Create phase commits for design/task setup, code changes, and documentation wrap-up
