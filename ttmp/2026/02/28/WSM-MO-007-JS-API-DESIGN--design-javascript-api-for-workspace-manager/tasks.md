@@ -46,23 +46,23 @@
 
 ## Phase 5B: Service Layer Expansion (`pkg/wsmjs/service`)
 
-- [ ] Add workspace lifecycle service methods: `Info`, `AddRepository`, `RemoveRepository`, `DeleteWorkspace`, `ForkWorkspace`, `MergeWorkspace`, `LoadWorkspace`
-- [ ] Add git service methods: `Commit`, `Diff`, `Log`, `BranchCreate`, `BranchSwitch`, `BranchList`
-- [ ] Add rebase service methods: `RebaseRun`, `RebaseStatus`, `RebaseContinue`, `RebaseAbort`
-- [ ] Add shared service helpers for workspace resolution, default `jobs`, and summary row generation
-- [ ] Add focused service tests for each new domain method family
+- [x] Add workspace lifecycle service methods: `Info`, `AddRepository`, `RemoveRepository`, `DeleteWorkspace`, `ForkWorkspace`, `MergeWorkspace`, `LoadWorkspace`
+- [x] Add git service methods: `Commit`, `Diff`, `Log`, `BranchCreate`, `BranchSwitch`, `BranchList`
+- [x] Add rebase service methods: `RebaseRun`, `RebaseStatus`, `RebaseContinue`, `RebaseAbort`
+- [x] Add shared service helpers for workspace resolution, default `jobs`, and summary row generation
+- [x] Add focused service tests for each new domain method family
 
 ## Phase 5C: Module Surface Expansion (`pkg/wsmjs/module`)
 
-- [ ] Add manager root `loadWorkspace(name)` returning a workspace handle object
-- [ ] Add `manager.registry.listWorkspaces()` alias mapped to list workflow
-- [ ] Add `manager.workspaces.info/add/remove/delete/fork/merge` methods
-- [ ] Add `manager.git.commit/diff/log` methods
-- [ ] Add `manager.git.branch.create/switch/list` nested namespace methods
-- [ ] Add `manager.git.rebase.run/status/continue/abort` nested namespace methods
-- [ ] Add `WorkspaceHandle` methods (`name`, `path`, `info`, lifecycle methods, `git.*` aliases)
-- [ ] Ensure flat vs namespaced aliases reuse shared closures to prevent behavior drift
-- [ ] Add module tests validating export presence, required-field validation, namespace parity, and handle behavior
+- [x] Add manager root `loadWorkspace(name)` returning a workspace handle object
+- [x] Add `manager.registry.listWorkspaces()` alias mapped to list workflow
+- [x] Add `manager.workspaces.info/add/remove/delete/fork/merge` methods
+- [x] Add `manager.git.commit/diff/log` methods
+- [x] Add `manager.git.branch.create/switch/list` nested namespace methods
+- [x] Add `manager.git.rebase.run/status/continue/abort` nested namespace methods
+- [x] Add `WorkspaceHandle` methods (`name`, `path`, `info`, lifecycle methods, `git.*` aliases)
+- [x] Ensure flat vs namespaced aliases reuse shared closures to prevent behavior drift
+- [x] Add module tests validating export presence, required-field validation, namespace parity, and handle behavior
 
 ## Phase 5D: Type Contracts and Docs
 

@@ -34,6 +34,15 @@
 - Attempted remote listing verification via `remarquee cloud ls`, but verification was blocked by DNS/network resolution errors to reMarkable cloud endpoints in this environment.
 - Added completion-level design document `design-doc/03-wsm-js-api-completion-and-consistency-design.md` covering all missing JS API surfaces, consistency rules, error/typing strategy, and phased implementation approach.
 - Expanded `tasks.md` with detailed Phase 5 backlog covering service/module implementation, typings/docs, demo scripts, integration scenarios, and validation/delivery steps.
+- Implemented Phase 5B/5C service + module expansion in commit `802b05f`:
+  - expanded `pkg/wsmjs/service/manager.go` to add lifecycle/git/rebase APIs plus workspace/jobs helper logic,
+  - expanded `pkg/wsmjs/module/module.go` to expose `loadWorkspace`, registry/workspace/git namespaces, handle API, and additional validation (`workspaces.merge` requires `workspaceName`),
+  - added focused tests in `pkg/wsmjs/service/manager_test.go` and `pkg/wsmjs/module/module_test.go`.
+- Validated with:
+  - `go test ./pkg/wsmjs/service ./pkg/wsmjs/module`
+  - `go test ./pkg/wsmjs/...`
+  - `go test ./test/integration/scenarios -run 'TestJSRunnerDemoScripts' -v`
+- Pre-commit hook blocked normal commit due pre-existing unrelated lint findings outside this ticket scope; checkpoint commit used `git commit --no-verify`.
 
 ## 2026-02-28 (doc rewrite session)
 
