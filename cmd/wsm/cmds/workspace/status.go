@@ -11,6 +11,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
@@ -35,6 +36,13 @@ type StatusSettings struct {
 }
 
 var _ cmds.BareCommand = &StatusCommand{}
+var _ cmds.GlazeCommand = &StatusCommand{}
+
+type statusExecutionResult struct {
+	Status    *wsm.WorkspaceStatus
+	Short     bool
+	Untracked bool
+}
 
 func NewStatusCommand() (*StatusCommand, error) {
 	desc, err := wsmcmdcommon.BuildDescription(
@@ -81,14 +89,47 @@ If no workspace name is provided, attempts to detect the current workspace.`),
 }
 
 func (c *StatusCommand) Run(ctx context.Context, vals *values.Values) error {
-	settings_ := &StatusSettings{}
-	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrap(err, "failed to decode status settings")
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
 	}
 
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
+	if result.Short {
+		if err := printStatusShort(result.Status, result.Untracked); err != nil {
+			return err
+		}
+	} else {
+		if err := printStatusDetailed(result.Status, result.Untracked); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *StatusCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	for _, row := range statusToRows(result.Status, result.Untracked) {
+		if err := gp.AddRow(ctx, row); err != nil {
+			return errors.Wrap(err, "failed to add status row")
+		}
+	}
+
+	return nil
+}
+
+func (c *StatusCommand) execute(ctx context.Context, vals *values.Values) (*statusExecutionResult, error) {
+	settings_ := &StatusSettings{}
+	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
+		return nil, errors.Wrap(err, "failed to decode status settings")
 	}
 
 	workspaceName := settings_.WorkspaceName
@@ -102,57 +143,46 @@ func (c *StatusCommand) Run(ctx context.Context, vals *values.Values) error {
 		Jobs:          settings_.Jobs,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		if settings_.Short {
-			if err := printStatusShort(status, settings_.Untracked); err != nil {
-				return err
-			}
-		} else {
-			if err := printStatusDetailed(status, settings_.Untracked); err != nil {
-				return err
-			}
+	return &statusExecutionResult{
+		Status:    status,
+		Short:     settings_.Short,
+		Untracked: settings_.Untracked,
+	}, nil
+}
+
+func statusToRows(status *wsm.WorkspaceStatus, includeUntracked bool) []types.Row {
+	rows := make([]types.Row, 0, len(status.Repositories))
+	for _, repoStatus := range status.Repositories {
+		untrackedFiles := []string{}
+		if includeUntracked {
+			untrackedFiles = repoStatus.UntrackedFiles
 		}
+
+		rows = append(rows, types.NewRow(
+			types.MRP("workspace", status.Workspace.Name),
+			types.MRP("workspace_path", status.Workspace.Path),
+			types.MRP("overall", status.Overall),
+			types.MRP("repository", repoStatus.Repository.Name),
+			types.MRP("repository_path", repoStatus.Repository.Path),
+			types.MRP("current_branch", repoStatus.CurrentBranch),
+			types.MRP("has_changes", repoStatus.HasChanges),
+			types.MRP("has_conflicts", repoStatus.HasConflicts),
+			types.MRP("ahead", repoStatus.Ahead),
+			types.MRP("behind", repoStatus.Behind),
+			types.MRP("is_merged", repoStatus.IsMerged),
+			types.MRP("needs_rebase", repoStatus.NeedsRebase),
+			types.MRP("staged_count", len(repoStatus.StagedFiles)),
+			types.MRP("modified_count", len(repoStatus.ModifiedFiles)),
+			types.MRP("untracked_count", len(repoStatus.UntrackedFiles)),
+			types.MRP("staged_files", repoStatus.StagedFiles),
+			types.MRP("modified_files", repoStatus.ModifiedFiles),
+			types.MRP("untracked_files", untrackedFiles),
+		))
 	}
-
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		rows := make([]types.Row, 0, len(status.Repositories))
-		for _, repoStatus := range status.Repositories {
-			untrackedFiles := []string{}
-			if settings_.Untracked {
-				untrackedFiles = repoStatus.UntrackedFiles
-			}
-
-			rows = append(rows, types.NewRow(
-				types.MRP("workspace", status.Workspace.Name),
-				types.MRP("workspace_path", status.Workspace.Path),
-				types.MRP("overall", status.Overall),
-				types.MRP("repository", repoStatus.Repository.Name),
-				types.MRP("repository_path", repoStatus.Repository.Path),
-				types.MRP("current_branch", repoStatus.CurrentBranch),
-				types.MRP("has_changes", repoStatus.HasChanges),
-				types.MRP("has_conflicts", repoStatus.HasConflicts),
-				types.MRP("ahead", repoStatus.Ahead),
-				types.MRP("behind", repoStatus.Behind),
-				types.MRP("is_merged", repoStatus.IsMerged),
-				types.MRP("needs_rebase", repoStatus.NeedsRebase),
-				types.MRP("staged_count", len(repoStatus.StagedFiles)),
-				types.MRP("modified_count", len(repoStatus.ModifiedFiles)),
-				types.MRP("untracked_count", len(repoStatus.UntrackedFiles)),
-				types.MRP("staged_files", repoStatus.StagedFiles),
-				types.MRP("modified_files", repoStatus.ModifiedFiles),
-				types.MRP("untracked_files", untrackedFiles),
-			))
-		}
-
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit status rows")
-		}
-	}
-
-	return nil
+	return rows
 }
 
 func printStatusShort(status *wsm.WorkspaceStatus, includeUntracked bool) error {
@@ -329,5 +359,5 @@ func NewStatusCobraCommand() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build status command: %w", err)
 	}
-	return wsmcmdcommon.BuildCobraCommand(command)
+	return wsmcmdcommon.BuildCobraCommandDualMode(command)
 }
