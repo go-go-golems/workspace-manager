@@ -11,7 +11,7 @@ func TestRebaseHappyPath(t *testing.T) {
 	s := h.NewSandbox(t)
 	defer s.Cleanup()
 	remote := s.InitBareRepo(t, "remote")
-	r1 := s.InitRepo(t, "repo1", remote)
+	_ = s.InitRepo(t, "repo1", remote)
 
 	_ = s.RunWSM(t, nil, s.ReposDir, "discover", s.ReposDir)
 	wsName := "ws-rebase"
@@ -25,8 +25,9 @@ func TestRebaseHappyPath(t *testing.T) {
 	other := s.InitRepo(t, "other-rb", remote)
 	h.RunForTest(t, s, other, nil, "bash", "-lc", "git checkout main && echo r >> z && git add z && git commit -m r && git push")
 
-	// Add local commits on feature branch in worktree
-	h.RunForTest(t, s, r1, nil, "bash", "-lc", "git fetch && git checkout -B feature/rb origin/main")
+	// Add local commit on feature branch in worktree.
+	// The branch is already checked out by the worktree created above; checking it out again
+	// in the source repository fails because Git allows one checked-out worktree per branch.
 	h.RunForTest(t, s, wsPath+"/repo1", nil, "bash", "-lc", "echo l >> l && git add l && git commit -m l1")
 
 	// Rebase workspace branch onto updated main
