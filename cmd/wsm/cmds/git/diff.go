@@ -8,6 +8,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
@@ -29,6 +30,16 @@ type DiffSettings struct {
 }
 
 var _ cmds.BareCommand = &DiffCommand{}
+var _ cmds.GlazeCommand = &DiffCommand{}
+
+type diffExecutionResult struct {
+	Workspace  *wsm.Workspace
+	Diff       string
+	Staged     bool
+	RepoFilter string
+	Jobs       int
+	HasChanges bool
+}
 
 func NewDiffCommand() (*DiffCommand, error) {
 	desc, err := wsmcmdcommon.BuildDescription(
@@ -63,62 +74,82 @@ This provides a consolidated view of all modifications in your multi-repository 
 }
 
 func (c *DiffCommand) Run(ctx context.Context, vals *values.Values) error {
-	settings_ := &DiffSettings{}
-	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrap(err, "failed to decode diff settings")
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
 	}
 
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
+	output.PrintHeader("Showing diff for workspace: %s", result.Workspace.Name)
+	if result.Staged {
+		output.PrintInfo("  (staged changes only)")
+	}
+	if result.RepoFilter != "" {
+		output.PrintInfo("  (repository: %s)", result.RepoFilter)
+	}
+	fmt.Println()
+
+	if !result.HasChanges {
+		output.PrintInfo("No changes found in workspace.")
+	} else {
+		fmt.Println(result.Diff)
+	}
+
+	return nil
+}
+
+func (c *DiffCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	row := diffResultToRow(result)
+	return gp.AddRow(ctx, row)
+}
+
+func (c *DiffCommand) execute(ctx context.Context, vals *values.Values) (*diffExecutionResult, error) {
+	settings_ := &DiffSettings{}
+	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
+		return nil, errors.Wrap(err, "failed to decode diff settings")
 	}
 
 	workspace, err := detectCurrentWorkspace()
 	if err != nil {
-		return errors.Wrap(err, "failed to detect current workspace")
+		return nil, errors.Wrap(err, "failed to detect current workspace")
 	}
 
 	gitOps := wsm.NewGitOperations(workspace)
 	diff, err := gitOps.GetDiffWithOptions(ctx, settings_.Staged, settings_.Repo, wsm.DiffOptions{MaxJobs: settings_.Jobs})
 	if err != nil {
-		return errors.Wrap(err, "failed to get diff")
+		return nil, errors.Wrap(err, "failed to get diff")
 	}
 
 	noChanges := diff == "" || diff == "No changes found in workspace."
 
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		output.PrintHeader("Showing diff for workspace: %s", workspace.Name)
-		if settings_.Staged {
-			output.PrintInfo("  (staged changes only)")
-		}
-		if settings_.Repo != "" {
-			output.PrintInfo("  (repository: %s)", settings_.Repo)
-		}
-		fmt.Println()
+	return &diffExecutionResult{
+		Workspace:  workspace,
+		Diff:       diff,
+		Staged:     settings_.Staged,
+		RepoFilter: settings_.Repo,
+		Jobs:       settings_.Jobs,
+		HasChanges: !noChanges,
+	}, nil
+}
 
-		if noChanges {
-			output.PrintInfo("No changes found in workspace.")
-		} else {
-			fmt.Println(diff)
-		}
-	}
-
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		rows := []types.Row{types.NewRow(
-			types.MRP("workspace", workspace.Name),
-			types.MRP("workspace_path", workspace.Path),
-			types.MRP("staged", settings_.Staged),
-			types.MRP("repo_filter", settings_.Repo),
-			types.MRP("jobs", settings_.Jobs),
-			types.MRP("has_changes", !noChanges),
-			types.MRP("diff", diff),
-		)}
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit diff rows")
-		}
-	}
-
-	return nil
+func diffResultToRow(result *diffExecutionResult) types.Row {
+	return types.NewRow(
+		types.MRP("workspace", result.Workspace.Name),
+		types.MRP("workspace_path", result.Workspace.Path),
+		types.MRP("staged", result.Staged),
+		types.MRP("repo_filter", result.RepoFilter),
+		types.MRP("jobs", result.Jobs),
+		types.MRP("has_changes", result.HasChanges),
+		types.MRP("diff", result.Diff),
+	)
 }
 
 func NewDiffCobraCommand() (*cobra.Command, error) {
@@ -126,5 +157,5 @@ func NewDiffCobraCommand() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build diff command: %w", err)
 	}
-	return wsmcmdcommon.BuildCobraCommand(command)
+	return wsmcmdcommon.BuildCobraCommandDualMode(command)
 }
