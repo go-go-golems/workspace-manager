@@ -1,7 +1,7 @@
 ---
 Title: Unify WSM Commands with Glazed Dual-Output Pattern
 Ticket: WSM-MO-008-GLAZED-UNIFY
-Status: active
+Status: complete
 Topics:
     - workspace-manager
     - glazed
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-03-01T05:46:21.300742254-05:00
+LastUpdated: 2026-03-01T09:39:46.680658405-05:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Unify WSM Commands with Glazed Dual-Output Pattern
 
