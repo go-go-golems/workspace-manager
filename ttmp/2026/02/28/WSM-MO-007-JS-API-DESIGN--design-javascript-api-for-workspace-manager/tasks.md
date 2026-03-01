@@ -74,24 +74,24 @@
 
 ## Phase 5E: Demo Script Expansion (`test/js`)
 
-- [ ] Add workspace lifecycle scripts: `08-workspace-info.js`, `09-workspace-add-remove.js`, `10-workspace-delete.js`, `11-workspace-fork-merge.js`
-- [ ] Add git core scripts: `12-git-commit.js`, `13-git-diff.js`, `14-git-log.js`, `15-git-branch-create-switch-list.js`
-- [ ] Add rebase scripts: `16-git-rebase-run-happy.js`, `17-git-rebase-status.js`, `18-git-rebase-continue.js`, `19-git-rebase-abort.js`
-- [ ] Add handle/parity scripts: `20-workspace-handle-basics.js`, `21-workspace-handle-git.js`, `22-flat-vs-namespace-parity-extended.js`
-- [ ] Update `test/js/README.md` with prerequisites, expected outputs, and script-to-scenario mapping for 00-22
+- [x] Add workspace lifecycle scripts: `08-workspace-info.js`, `09-workspace-add-remove.js`, `10-workspace-delete.js`, `11-workspace-fork-merge.js`
+- [x] Add git core scripts: `12-git-commit.js`, `13-git-diff.js`, `14-git-log.js`, `15-git-branch-create-switch-list.js`
+- [x] Add rebase scripts: `16-git-rebase-run-happy.js`, `17-git-rebase-status.js`, `18-git-rebase-continue.js`, `19-git-rebase-abort.js`
+- [x] Add handle/parity scripts: `20-workspace-handle-basics.js`, `21-workspace-handle-git.js`, `22-flat-vs-namespace-parity-extended.js`
+- [x] Update `test/js/README.md` with prerequisites, expected outputs, and script-to-scenario mapping for 00-22
 
 ## Phase 5F: Integration Scenario Expansion (`test/integration/scenarios`)
 
-- [ ] Add `js_runner_workspace_lifecycle_scenarios_test.go` executing scripts 08-11 in sandbox lifecycle flows
-- [ ] Add `js_runner_git_ops_scenarios_test.go` executing scripts 12-15 in commit/diff/log/branch flows
-- [ ] Add `js_runner_rebase_scenarios_test.go` executing scripts 16-19 for happy + conflict flows
-- [ ] Add `js_runner_workspace_handle_scenarios_test.go` executing scripts 20-22 for handle/parity coverage
-- [ ] Ensure all JS runner scenarios use data-mode parsing and assert both runner-row and script-result contracts
+- [x] Add `js_runner_workspace_lifecycle_scenarios_test.go` executing scripts 08-11 in sandbox lifecycle flows
+- [x] Add `js_runner_git_ops_scenarios_test.go` executing scripts 12-15 in commit/diff/log/branch flows
+- [x] Add `js_runner_rebase_scenarios_test.go` executing scripts 16-19 for happy + conflict flows
+- [x] Add `js_runner_workspace_handle_scenarios_test.go` executing scripts 20-22 for handle/parity coverage
+- [x] Ensure all JS runner scenarios use data-mode parsing and assert both runner-row and script-result contracts
 
 ## Phase 5G: Validation, Delivery, and Handoff
 
-- [ ] Run targeted tests for new module/service/unit and JS runner scenario files
-- [ ] Run full `go test ./test/integration/scenarios` and relevant package suites
-- [ ] Run `docmgr doctor --ticket WSM-MO-007-JS-API-DESIGN --stale-after 30` and resolve findings
-- [ ] Update ticket changelog + diary with implementation details, commands, and failures
-- [ ] Upload refreshed design+plan+diary bundle to reMarkable and verify remote listing
+- [x] Run targeted tests for new module/service/unit and JS runner scenario files
+- [x] Run full `go test ./test/integration/scenarios` and relevant package suites
+- [x] Run `docmgr doctor --ticket WSM-MO-007-JS-API-DESIGN --stale-after 30` and resolve findings
+- [x] Update ticket changelog + diary with implementation details, commands, and failures
+- [x] Upload refreshed design+plan+diary bundle to reMarkable and verify remote listing

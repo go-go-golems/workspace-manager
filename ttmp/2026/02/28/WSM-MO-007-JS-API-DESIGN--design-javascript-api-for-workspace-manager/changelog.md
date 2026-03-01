@@ -55,6 +55,23 @@
   - `go generate ./pkg/wsmjs/spec`
   - `go test ./pkg/wsmjs/spec ./pkg/docs`
   - `go test ./pkg/wsmjs/...`
+- Implemented Phase 5E/5F demo + scenario expansion in commit `f48b8b0`:
+  - added `test/js/08-22` scripts for workspace lifecycle, git core, rebase flows, workspace handles, and extended flat-vs-namespace parity,
+  - expanded integration coverage with:
+    - `test/integration/scenarios/js_runner_workspace_lifecycle_scenarios_test.go`,
+    - `test/integration/scenarios/js_runner_git_ops_scenarios_test.go`,
+    - `test/integration/scenarios/js_runner_rebase_scenarios_test.go`,
+    - `test/integration/scenarios/js_runner_workspace_handle_scenarios_test.go`,
+  - updated runner scenario invocation flags to current dual-mode contract (`--with-glaze-output --output json`) in existing scenario files.
+- Validated expanded JS coverage with:
+  - `go test ./test/integration/scenarios -run 'TestJSRunner(DemoScripts|WorkspaceLifecycleScripts|GitOpsScripts|RebaseScripts|WorkspaceHandleScripts)' -v`
+  - `go test ./test/integration/scenarios`
+  - `go test ./pkg/wsmjs/...`
+  - `go test ./pkg/docs ./pkg/wsmjs/spec`
+- Completed delivery checks:
+  - `docmgr doctor --ticket WSM-MO-007-JS-API-DESIGN --stale-after 30` (clean),
+  - uploaded `WSM-MO-007 JS API Completion v8` to `/ai/2026/03/01/WSM-MO-007-JS-API-DESIGN`,
+  - verified remote listing via `remarquee cloud ls`.
 
 ## 2026-02-28 (doc rewrite session)
 
