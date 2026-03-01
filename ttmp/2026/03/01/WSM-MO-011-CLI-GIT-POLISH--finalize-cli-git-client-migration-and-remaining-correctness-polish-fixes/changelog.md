@@ -26,3 +26,12 @@ Task 1 complete: added configurable base branch resolution (main default), remov
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/git_utils.go — Base-branch-aware merged/rebase checks
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/status.go — Pass workspace base branch into status semantics
 
+
+## 2026-03-01
+
+Task 2 complete: hardened git client parsing using machine formats (status --porcelain -z and worktree list --porcelain) to avoid brittle whitespace parsing.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/gitclient/cli_client.go — Status parser uses NUL-delimited porcelain
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/pkg/wsm/gitclient/worktree_cli.go — Worktree parser uses porcelain stanzas

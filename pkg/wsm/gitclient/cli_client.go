@@ -1,6 +1,7 @@
 package gitclient
 
 import (
+	"bytes"
 	"context"
 	"os/exec"
 	"path/filepath"
@@ -135,7 +136,7 @@ func (c *CliGitClient) LastCommit(ctx context.Context, repo RepositoryHandle) (s
 }
 
 func (c *CliGitClient) Status(ctx context.Context, repo RepositoryHandle) (Status, error) {
-	out, err := runGit(ctx, repo.Path(), "status", "--porcelain")
+	out, err := runGit(ctx, repo.Path(), "status", "--porcelain", "-z")
 	if err != nil {
 		return Status{}, err
 	}
@@ -144,14 +145,25 @@ func (c *CliGitClient) Status(ctx context.Context, repo RepositoryHandle) (Statu
 	if len(out) == 0 {
 		return st, nil
 	}
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	for _, l := range lines {
-		if l == "" || len(l) < 3 {
+
+	records := bytes.Split(out, []byte{0})
+	for i := 0; i < len(records); i++ {
+		rec := records[i]
+		if len(rec) == 0 || len(rec) < 3 {
 			continue
 		}
-		idx := l[0]
-		wt := l[1]
-		path := strings.TrimSpace(l[2:])
+
+		idx := rec[0]
+		wt := rec[1]
+		pathStart := 2
+		if len(rec) > 2 && rec[2] == ' ' {
+			pathStart = 3
+		}
+		if len(rec) <= pathStart {
+			continue
+		}
+		path := string(rec[pathStart:])
+
 		if idx != ' ' && idx != '?' {
 			st.StagedFiles = append(st.StagedFiles, path)
 		}
@@ -160,6 +172,14 @@ func (c *CliGitClient) Status(ctx context.Context, repo RepositoryHandle) (Statu
 		}
 		if idx == '?' && wt == '?' {
 			st.UntrackedFiles = append(st.UntrackedFiles, path)
+		}
+
+		// In porcelain -z format, rename/copy entries include an extra NUL-separated path record.
+		// We keep the first path as the working path and skip the paired record.
+		if idx == 'R' || idx == 'C' || wt == 'R' || wt == 'C' {
+			if i+1 < len(records) {
+				i++
+			}
 		}
 	}
 	return st, nil

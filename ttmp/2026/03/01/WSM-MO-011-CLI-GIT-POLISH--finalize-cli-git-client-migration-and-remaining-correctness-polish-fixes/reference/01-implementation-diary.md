@@ -75,6 +75,35 @@ Outcome:
 - All targeted tests passed.
 - No blockers encountered.
 
+### Phase 2 (Task 2): Harden Git CLI Parsing
+
+Date: 2026-03-01
+
+Changes made:
+
+- Switched status collection to machine format:
+  - `pkg/wsm/gitclient/cli_client.go`
+  - `git status --porcelain -z`
+  - parse NUL-delimited records instead of newline-oriented human text
+  - handle rename/copy paired records by skipping the extra path record
+- Switched worktree listing to machine format:
+  - `pkg/wsm/gitclient/worktree_cli.go`
+  - `git worktree list --porcelain`
+  - parse stanza records (`worktree ...`, `branch ...`) instead of `strings.Fields` output splitting
+  - preserves worktree paths with spaces
+
+Validation commands run:
+
+```bash
+gofmt -w pkg/wsm/gitclient/cli_client.go pkg/wsm/gitclient/worktree_cli.go
+go test ./pkg/wsm/gitclient ./pkg/wsm ./test/integration/scenarios -run TestSmokeStatusDiff -count=1
+```
+
+Outcome:
+
+- Parser changes compiled and passed targeted tests.
+- No regressions observed in smoke status scenario.
+
 ## Usage Examples
 
 Use `WSM_BASE_BRANCH` to override default base branch globally:

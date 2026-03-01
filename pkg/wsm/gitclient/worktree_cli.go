@@ -40,33 +40,51 @@ func (w *CliWorktrees) Remove(ctx context.Context, repoPath string, targetPath s
 }
 
 func (w *CliWorktrees) List(ctx context.Context, repoPath string) ([]WorktreeInfo, error) {
-	out, err := runGit(ctx, repoPath, "worktree", "list")
+	out, err := runGit(ctx, repoPath, "worktree", "list", "--porcelain")
 	if err != nil {
 		return nil, err
 	}
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	var infos []WorktreeInfo
-	for _, l := range lines {
-		if l == "" {
-			continue
+
+	lines := strings.Split(string(out), "\n")
+	infos := make([]WorktreeInfo, 0)
+	current := WorktreeInfo{}
+	inRecord := false
+
+	flush := func() {
+		if !inRecord {
+			return
 		}
-		// Formats vary; common: "/path/to/wt  <hash> [branch]"
-		// We'll parse path and try to derive branch from trailing
-		parts := strings.Fields(l)
-		if len(parts) == 0 {
-			continue
+		if current.Path != "" {
+			current.Path = filepath.Clean(current.Path)
+			infos = append(infos, current)
 		}
-		wtPath := parts[0]
-		var branch string
-		if strings.HasSuffix(l, "]") {
-			// find last '[' and ']'
-			lb := strings.LastIndex(l, "[")
-			rb := strings.LastIndex(l, "]")
-			if lb >= 0 && rb > lb {
-				branch = l[lb+1 : rb]
-			}
-		}
-		infos = append(infos, WorktreeInfo{Path: filepath.Clean(wtPath), Branch: branch})
+		current = WorktreeInfo{}
+		inRecord = false
 	}
+
+	for _, line := range lines {
+		line = strings.TrimSuffix(line, "\r")
+		if line == "" {
+			flush()
+			continue
+		}
+
+		if strings.HasPrefix(line, "worktree ") {
+			flush()
+			current.Path = strings.TrimPrefix(line, "worktree ")
+			inRecord = true
+			continue
+		}
+
+		if !inRecord {
+			continue
+		}
+		if strings.HasPrefix(line, "branch ") {
+			ref := strings.TrimPrefix(line, "branch ")
+			current.Branch = strings.TrimPrefix(ref, "refs/heads/")
+		}
+	}
+
+	flush()
 	return infos, nil
 }
