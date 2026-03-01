@@ -3,9 +3,7 @@ package registry
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
@@ -92,33 +90,36 @@ func printWorkspacesHuman(workspaces []wsm.Workspace) error {
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer func() {
-		if err := w.Flush(); err != nil {
-			output.PrintError("Failed to flush table writer: %v", err)
-		}
-	}()
-
-	fmt.Fprintln(w, "NAME\tPATH\tREPOS\tBRANCH\tCREATED")
-	fmt.Fprintln(w, "----\t----\t-----\t------\t-------")
+	output.PrintHeader("Workspaces (%d)", len(workspaces))
+	fmt.Println()
 
 	for _, workspace := range workspaces {
 		repoNames := make([]string, len(workspace.Repositories))
 		for i, repo := range workspace.Repositories {
 			repoNames[i] = repo.Name
 		}
-		repos := strings.Join(repoNames, ",")
-		if len(repos) > 30 {
-			repos = repos[:27] + "..."
+		repos := strings.Join(repoNames, ", ")
+		if repos == "" {
+			repos = "-"
+		} else if len(repos) > 80 {
+			repos = repos[:77] + "..."
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-			workspace.Name,
-			workspace.Path,
-			repos,
-			workspace.Branch,
-			workspace.Created.Format("2006-01-02 15:04"),
-		)
+		branch := workspace.Branch
+		if branch == "" {
+			branch = "-"
+		}
+
+		baseBranch := workspace.BaseBranch
+		if baseBranch == "" {
+			baseBranch = "-"
+		}
+
+		fmt.Printf("- %s [%s]\n", workspace.Name, branch)
+		fmt.Printf("  path: %s\n", workspace.Path)
+		fmt.Printf("  repos: %d (%s)\n", len(workspace.Repositories), repos)
+		fmt.Printf("  base: %s\n", baseBranch)
+		fmt.Printf("  created: %s\n", workspace.Created.Format("2006-01-02 15:04"))
 	}
 
 	return nil

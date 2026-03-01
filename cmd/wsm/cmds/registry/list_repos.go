@@ -3,9 +3,7 @@ package registry
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
@@ -107,34 +105,36 @@ func printReposHuman(repos []wsm.Repository, tags []string) error {
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer func() {
-		if err := w.Flush(); err != nil {
-			output.PrintError("Failed to flush table writer: %v", err)
-		}
-	}()
-
-	fmt.Fprintln(w, "NAME\tPATH\tBRANCH\tTAGS\tREMOTE")
-	fmt.Fprintln(w, "----\t----\t------\t----\t------")
+	output.PrintHeader("Repositories (%d)", len(repos))
+	if len(tags) > 0 {
+		output.PrintInfo("Filter tags: %s", strings.Join(tags, ", "))
+	}
+	fmt.Println()
 
 	for _, repo := range repos {
-		tagsJoined := strings.Join(repo.Categories, ",")
-		if len(tagsJoined) > 30 {
-			tagsJoined = tagsJoined[:27] + "..."
+		tagsJoined := strings.Join(repo.Categories, ", ")
+		if tagsJoined == "" {
+			tagsJoined = "-"
+		} else if len(tagsJoined) > 64 {
+			tagsJoined = tagsJoined[:61] + "..."
+		}
+
+		branch := repo.CurrentBranch
+		if branch == "" {
+			branch = "-"
 		}
 
 		remote := repo.RemoteURL
-		if len(remote) > 50 {
-			remote = "..." + remote[len(remote)-47:]
+		if remote == "" {
+			remote = "-"
+		} else if len(remote) > 96 {
+			remote = remote[:93] + "..."
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-			repo.Name,
-			repo.Path,
-			repo.CurrentBranch,
-			tagsJoined,
-			remote,
-		)
+		fmt.Printf("- %s [%s]\n", repo.Name, branch)
+		fmt.Printf("  path: %s\n", repo.Path)
+		fmt.Printf("  tags: %s\n", tagsJoined)
+		fmt.Printf("  remote: %s\n", remote)
 	}
 
 	return nil
