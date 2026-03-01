@@ -9,9 +9,11 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
+	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm/workflows"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -34,6 +36,16 @@ type ForkSettings struct {
 }
 
 var _ cmds.BareCommand = &ForkCommand{}
+var _ cmds.GlazeCommand = &ForkCommand{}
+
+type forkExecutionResult struct {
+	Workspace           *wsm.Workspace
+	Plan                *workflows.ForkPlan
+	BranchProvided      bool
+	AgentSourceProvided bool
+	DryRun              bool
+	Cancelled           bool
+}
 
 func NewForkCommand() (*ForkCommand, error) {
 	desc, err := wsmcmdcommon.BuildDescription(
@@ -58,18 +70,89 @@ If source workspace is not provided, detects from current workspace.`),
 }
 
 func (c *ForkCommand) Run(ctx context.Context, vals *values.Values) error {
-	settings_ := &ForkSettings{}
-	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrap(err, "failed to decode fork settings")
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
 	}
 
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
+	if result.Cancelled {
+		output.PrintInfo("Operation cancelled.")
+		return nil
+	}
+
+	plan := result.Plan
+	workspace := result.Workspace
+
+	output.PrintInfo("Forking workspace '%s' to create '%s'", plan.SourceWorkspace.Name, workspace.Name)
+	output.PrintInfo("Using base branch: %s", plan.BaseBranch)
+	if !result.BranchProvided {
+		output.PrintInfo("Using auto-generated branch: %s", plan.FinalBranch)
+	}
+	if !result.AgentSourceProvided && plan.FinalAgentSource != "" {
+		output.PrintInfo("Using AGENT.md from source workspace: %s", plan.FinalAgentSource)
+	}
+
+	if result.DryRun {
+		output.PrintHeader("Fork Preview: %s -> %s", plan.SourceWorkspace.Name, workspace.Name)
+		fmt.Println()
+		output.PrintInfo("Source workspace:")
+		fmt.Printf("  Name: %s\n", plan.SourceWorkspace.Name)
+		fmt.Printf("  Path: %s\n", plan.SourceWorkspace.Path)
+		fmt.Printf("  Current branch: %s\n", plan.BaseBranch)
+		fmt.Println()
+		if err := showWorkspacePreview(workspace); err != nil {
+			return err
+		}
+	} else {
+		output.PrintSuccess("Workspace '%s' forked successfully from '%s'!", workspace.Name, plan.SourceWorkspace.Name)
+		fmt.Println()
+		output.PrintHeader("Fork Details")
+		fmt.Printf("  Source: %s (branch: %s)\n", plan.SourceWorkspace.Name, plan.BaseBranch)
+		fmt.Printf("  New workspace: %s\n", workspace.Name)
+		fmt.Printf("  Path: %s\n", workspace.Path)
+		fmt.Printf("  Repositories: %s\n", strings.Join(getRepositoryNames(workspace.Repositories), ", "))
+		fmt.Printf("  New branch: %s\n", workspace.Branch)
+		fmt.Printf("  Base branch: %s\n", plan.BaseBranch)
+		if workspace.GoWorkspace {
+			fmt.Printf("  Go workspace: yes (go.work created)\n")
+		}
+		if workspace.AgentMD != "" {
+			fmt.Printf("  AGENT.md: copied from %s\n", workspace.AgentMD)
+		}
+		fmt.Println()
+		output.PrintInfo("To start working:")
+		fmt.Printf("  cd %s\n", workspace.Path)
+	}
+
+	return nil
+}
+
+func (c *ForkCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	if result.Cancelled {
+		return nil
+	}
+
+	row := forkResultToRow(result)
+	return gp.AddRow(ctx, row)
+}
+
+func (c *ForkCommand) execute(ctx context.Context, vals *values.Values) (*forkExecutionResult, error) {
+	settings_ := &ForkSettings{}
+	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
+		return nil, errors.Wrap(err, "failed to decode fork settings")
 	}
 
 	if settings_.NewWorkspaceNameArg == "" {
-		return errors.New("new workspace name is required")
+		return nil, errors.New("new workspace name is required")
 	}
 
 	sourceWorkspaceName := settings_.SourceWorkspaceName
@@ -79,7 +162,7 @@ func (c *ForkCommand) Run(ctx context.Context, vals *values.Values) error {
 
 	workflow, err := workflows.NewForkWorkflow()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	req := workflows.ForkRequest{
@@ -93,84 +176,39 @@ func (c *ForkCommand) Run(ctx context.Context, vals *values.Values) error {
 
 	plan, err := workflow.Plan(ctx, req)
 	if err != nil {
-		return err
-	}
-
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		output.PrintInfo("Forking workspace '%s' to create '%s'", plan.SourceWorkspace.Name, settings_.NewWorkspaceNameArg)
-		output.PrintInfo("Using base branch: %s", plan.BaseBranch)
-		if settings_.Branch == "" {
-			output.PrintInfo("Using auto-generated branch: %s", plan.FinalBranch)
-		}
-		if settings_.AgentSource == "" && plan.FinalAgentSource != "" {
-			output.PrintInfo("Using AGENT.md from source workspace: %s", plan.FinalAgentSource)
-		}
+		return nil, err
 	}
 
 	workspace, _, err := workflow.Fork(ctx, req)
 	if err != nil {
 		if isUserCancelledError(err) {
-			if wsmcmdcommon.ShouldOutputHuman(mode) {
-				output.PrintInfo("Operation cancelled.")
-			}
-			return nil
+			return &forkExecutionResult{Cancelled: true}, nil
 		}
-		return err
+		return nil, err
 	}
 
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		if settings_.DryRun {
-			output.PrintHeader("Fork Preview: %s -> %s", plan.SourceWorkspace.Name, workspace.Name)
-			fmt.Println()
-			output.PrintInfo("Source workspace:")
-			fmt.Printf("  Name: %s\n", plan.SourceWorkspace.Name)
-			fmt.Printf("  Path: %s\n", plan.SourceWorkspace.Path)
-			fmt.Printf("  Current branch: %s\n", plan.BaseBranch)
-			fmt.Println()
-			if err := showWorkspacePreview(workspace); err != nil {
-				return err
-			}
-		} else {
-			output.PrintSuccess("Workspace '%s' forked successfully from '%s'!", workspace.Name, plan.SourceWorkspace.Name)
-			fmt.Println()
-			output.PrintHeader("Fork Details")
-			fmt.Printf("  Source: %s (branch: %s)\n", plan.SourceWorkspace.Name, plan.BaseBranch)
-			fmt.Printf("  New workspace: %s\n", workspace.Name)
-			fmt.Printf("  Path: %s\n", workspace.Path)
-			fmt.Printf("  Repositories: %s\n", strings.Join(getRepositoryNames(workspace.Repositories), ", "))
-			fmt.Printf("  New branch: %s\n", workspace.Branch)
-			fmt.Printf("  Base branch: %s\n", plan.BaseBranch)
-			if workspace.GoWorkspace {
-				fmt.Printf("  Go workspace: yes (go.work created)\n")
-			}
-			if workspace.AgentMD != "" {
-				fmt.Printf("  AGENT.md: copied from %s\n", workspace.AgentMD)
-			}
-			fmt.Println()
-			output.PrintInfo("To start working:")
-			fmt.Printf("  cd %s\n", workspace.Path)
-		}
-	}
+	return &forkExecutionResult{
+		Workspace:           workspace,
+		Plan:                plan,
+		BranchProvided:      settings_.Branch != "",
+		AgentSourceProvided: settings_.AgentSource != "",
+		DryRun:              settings_.DryRun,
+	}, nil
+}
 
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		repoNames := getRepositoryNames(workspace.Repositories)
-		rows := []types.Row{types.NewRow(
-			types.MRP("source_workspace", plan.SourceWorkspace.Name),
-			types.MRP("new_workspace", workspace.Name),
-			types.MRP("workspace_path", workspace.Path),
-			types.MRP("base_branch", plan.BaseBranch),
-			types.MRP("final_branch", plan.FinalBranch),
-			types.MRP("repositories", repoNames),
-			types.MRP("repository_count", len(repoNames)),
-			types.MRP("agent_source", plan.FinalAgentSource),
-			types.MRP("dry_run", settings_.DryRun),
-		)}
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit fork rows")
-		}
-	}
-
-	return nil
+func forkResultToRow(result *forkExecutionResult) types.Row {
+	repoNames := getRepositoryNames(result.Workspace.Repositories)
+	return types.NewRow(
+		types.MRP("source_workspace", result.Plan.SourceWorkspace.Name),
+		types.MRP("new_workspace", result.Workspace.Name),
+		types.MRP("workspace_path", result.Workspace.Path),
+		types.MRP("base_branch", result.Plan.BaseBranch),
+		types.MRP("final_branch", result.Plan.FinalBranch),
+		types.MRP("repositories", repoNames),
+		types.MRP("repository_count", len(repoNames)),
+		types.MRP("agent_source", result.Plan.FinalAgentSource),
+		types.MRP("dry_run", result.DryRun),
+	)
 }
 
 func NewForkCobraCommand() (*cobra.Command, error) {
@@ -178,5 +216,5 @@ func NewForkCobraCommand() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build fork command: %w", err)
 	}
-	return wsmcmdcommon.BuildCobraCommand(command)
+	return wsmcmdcommon.BuildCobraCommandDualMode(command)
 }
