@@ -66,11 +66,11 @@
 
 ## Phase 5D: Type Contracts and Docs
 
-- [ ] Create `pkg/wsmjs/spec/wsm.d.ts.tmpl` with full completion-level API declarations
-- [ ] Add generation/validation step for `.d.ts` contract and include in test/lint workflow
-- [ ] Update `pkg/docs/03-js-api-and-runner.md` with full manager/namespaces/handle method matrix
-- [ ] Update command reference/troubleshooting docs where JS API examples need expanded coverage
-- [ ] Add/extend runner/module docs for error semantics and batch row contract behavior
+- [x] Create `pkg/wsmjs/spec/wsm.d.ts.tmpl` with full completion-level API declarations
+- [x] Add generation/validation step for `.d.ts` contract and include in test/lint workflow
+- [x] Update `pkg/docs/03-js-api-and-runner.md` with full manager/namespaces/handle method matrix
+- [x] Update command reference/troubleshooting docs where JS API examples need expanded coverage
+- [x] Add/extend runner/module docs for error semantics and batch row contract behavior
 
 ## Phase 5E: Demo Script Expansion (`test/js`)
 

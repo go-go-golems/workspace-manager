@@ -880,3 +880,102 @@ I kept this step scoped to `pkg/wsmjs/service` and `pkg/wsmjs/module` so later s
 - `decodeSelectedChanges(...)` now decodes into `map[string][]wsm.FileChange` to align JS commit payloads with `wsm.CommitOperation`.
 - `resolveWorkspace(...)` supports explicit workspace names and current-directory detection fallback.
 - `withWorkspaceName(...)` clones input maps and injects default workspace name only when absent, preserving explicit overrides.
+
+## Step 10: Implement Phase 5D Type Contract and Documentation Completion
+
+I implemented the Phase 5D contract/doc band by adding a formal TypeScript declaration source for the JS API, wiring generation and sync checks, and rewriting the JS help pages to match the expanded `0.2.0` module surface.
+
+This step reduces API drift risk for script authors and reviewers by making the expected method inventory and wrapper semantics explicit in both type artifacts and end-user docs.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 9)
+
+**Assistant interpretation:** Continue executing the next task band after service/module delivery, including commit checkpoints and diary traceability.
+
+**Inferred user intent:** Complete the completion backlog sequentially so each phase (code + docs + tests) is independently reviewable.
+
+**Commit (code):** 174a126 — "wsmjs: add typed JS contract spec and expand JS runner docs"
+
+### What I did
+
+- Added a completion-level type contract template:
+  - `pkg/wsmjs/spec/wsm.d.ts.tmpl`
+- Added generation wiring and generator:
+  - `pkg/wsmjs/spec/generate.go` (`go:generate` entrypoint)
+  - `pkg/wsmjs/spec/cmd/generate/main.go` (template-to-generated snapshot writer)
+- Generated and checked in declaration snapshot:
+  - `pkg/wsmjs/spec/wsm.d.ts`
+- Added declaration validation tests:
+  - `pkg/wsmjs/spec/spec_test.go`
+  - verifies generated file matches template
+  - verifies critical API fragments are present (manager, namespaces, handle, rebase continue, etc.)
+- Rewrote/expanded JS docs:
+  - `pkg/docs/03-js-api-and-runner.md` (full manager/namespaces/handle matrix, error semantics, batch row behavior, type-contract pointers)
+  - `pkg/docs/02-command-reference.md` (runner section now references expanded API group inventory)
+  - `pkg/docs/06-troubleshooting.md` (added TypeError and batch-row troubleshooting guidance)
+- Ran validation:
+  - `go generate ./pkg/wsmjs/spec`
+  - `go test ./pkg/wsmjs/spec ./pkg/docs`
+  - `go test ./pkg/wsmjs/...`
+  - `go test ./test/integration/scenarios -run 'TestJSRunnerDemoScripts' -v`
+
+### Why
+
+- A typed contract is required for reliable JS API discoverability and maintenance.
+- The previous JS docs reflected only the earlier baseline surface and were stale after Phase 5B/5C.
+- Validation tests ensure declaration sync is enforced through normal `go test` workflows.
+
+### What worked
+
+- Generation/sync workflow is deterministic and fast.
+- Docs tests and spec tests passed immediately after updates.
+- Existing JS integration scenarios still passed with the new documentation/type artifacts in place.
+
+### What didn't work
+
+- N/A in this phase; no failed commands after introducing the spec generator and tests.
+
+### What I learned
+
+- Keeping the generated `.d.ts` snapshot byte-identical to the template simplifies CI validation and avoids toolchain dependencies.
+- Documentation drift is easiest to avoid when help pages are updated in the same commit as API contract artifacts.
+
+### What was tricky to build
+
+- Tricky part: balancing contract completeness with runtime reality where some nested result shapes are still Go-struct-driven and not fully normalized to camelCase.
+- Symptom: over-specific DTO typing would create fragile declarations ahead of result-shape normalization work.
+- Approach: keep method/input contracts explicit while using permissive result typing (`any`) where result normalization is intentionally deferred.
+
+### What warrants a second pair of eyes
+
+- Whether we should tighten `any` result types in `wsm.d.ts.tmpl` now versus waiting for explicit DTO normalization in a follow-up.
+- Whether the docs should explicitly call out current mixed-case nested result fields until normalization is complete.
+
+### What should be done in the future
+
+- Proceed to Phase 5E/5F and use the new contract/doc baseline to author scripts 08-22 and scenario suites.
+- Revisit result-type precision in `.d.ts` after script/scenario expansion reveals stable field usage.
+
+### Code review instructions
+
+- Type-contract and generation path:
+  - `pkg/wsmjs/spec/wsm.d.ts.tmpl`
+  - `pkg/wsmjs/spec/wsm.d.ts`
+  - `pkg/wsmjs/spec/generate.go`
+  - `pkg/wsmjs/spec/cmd/generate/main.go`
+  - `pkg/wsmjs/spec/spec_test.go`
+- JS help documentation updates:
+  - `pkg/docs/03-js-api-and-runner.md`
+  - `pkg/docs/02-command-reference.md`
+  - `pkg/docs/06-troubleshooting.md`
+- Validation commands:
+  - `go generate ./pkg/wsmjs/spec`
+  - `go test ./pkg/wsmjs/spec ./pkg/docs`
+  - `go test ./pkg/wsmjs/...`
+
+### Technical details
+
+- Declaration includes manager flat methods, registry/workspaces/git namespaces, nested `branch`/`rebase` APIs, and workspace-handle scoped aliases.
+- Reserved JS keywords are declared with quoted names in TypeScript (`"delete"`, `"continue"`) to preserve compatibility.
+- Spec tests intentionally fail with a regeneration hint when snapshot/template drift occurs.

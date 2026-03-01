@@ -43,6 +43,18 @@
   - `go test ./pkg/wsmjs/...`
   - `go test ./test/integration/scenarios -run 'TestJSRunnerDemoScripts' -v`
 - Pre-commit hook blocked normal commit due pre-existing unrelated lint findings outside this ticket scope; checkpoint commit used `git commit --no-verify`.
+- Implemented Phase 5D type-contract and docs completion:
+  - added `pkg/wsmjs/spec/wsm.d.ts.tmpl`,
+  - added generator wiring (`pkg/wsmjs/spec/generate.go`, `pkg/wsmjs/spec/cmd/generate/main.go`) and generated snapshot `pkg/wsmjs/spec/wsm.d.ts`,
+  - added declaration sync/surface tests in `pkg/wsmjs/spec/spec_test.go`.
+- Updated JS documentation for completion-level API and error model:
+  - `pkg/docs/03-js-api-and-runner.md`,
+  - `pkg/docs/02-command-reference.md`,
+  - `pkg/docs/06-troubleshooting.md`.
+- Validated docs/type-contract updates with:
+  - `go generate ./pkg/wsmjs/spec`
+  - `go test ./pkg/wsmjs/spec ./pkg/docs`
+  - `go test ./pkg/wsmjs/...`
 
 ## 2026-02-28 (doc rewrite session)
 
