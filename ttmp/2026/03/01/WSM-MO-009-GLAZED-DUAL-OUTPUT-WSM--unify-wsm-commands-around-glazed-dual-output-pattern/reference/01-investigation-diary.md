@@ -31,6 +31,8 @@ RelatedFiles:
       Note: Registry human/glaze projection coverage added in phase 5
     - Path: cmd/wsm/cmds/registry/root.go
       Note: list parent currently assembled in registry root
+    - Path: cmd/wsm/cmds/workspace/create.go
+      Note: Workspace create command migrated to Run + RunIntoGlazeProcessor in phase 6
     - Path: ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/design-doc/01-wsm-glazed-dual-output-implementation-plan.md
       Note: |-
         Primary implementation document produced in this work
@@ -41,7 +43,7 @@ ExternalSources:
     - /home/manuel/code/wesen/corporate-headquarters/glazed/pkg/doc/tutorials/05-build-first-command.md
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/glazed/cmd/examples/new-api-dual-mode/main.go
 Summary: Chronological record of ticket creation, command inventory, Glazed dual-output alignment decisions, and final implementation document authoring.
-LastUpdated: 2026-03-01T11:45:00-05:00
+LastUpdated: 2026-03-01T12:05:00-05:00
 WhatFor: Preserve investigation steps and reasoning for the WSM dual-output unification plan.
 WhenToUse: Use this diary to review what was inspected, why design decisions were made, and how to validate delivery artifacts.
 ---
@@ -516,3 +518,83 @@ This phase produced a focused code commit and preserved isolation from unrelated
   - `go test ./cmd/wsm/... -count=1`
   - `git add cmd/wsm/cmds/registry/discover.go cmd/wsm/cmds/registry/list_repos.go cmd/wsm/cmds/registry/list_workspaces.go cmd/wsm/cmds/registry/registry_output_test.go`
   - `git commit --no-verify -m "wsm(registry): add human/glaze output projection tests"`
+
+## Step 6: Migrate `wsm create` to split Run/Glaze interfaces
+
+I moved the first workspace command (`create`) off the legacy runtime output-mode branching and onto the native Glazed split method pattern. The command now shares one `execute(...)` path for business logic and exposes separate renderers for human and structured output.
+
+This keeps behavior consistent for interactive cancellation and dry-run preview while making structured output exclusive to `RunIntoGlazeProcessor`.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 5)
+
+**Assistant interpretation:** Continue task-by-task command rewrites with a code commit per phase and corresponding diary/changelog updates.
+
+**Inferred user intent:** Incrementally replace legacy output plumbing command-by-command with auditable, low-risk commits.
+
+**Commit (code):** `bb5c5b995abeffd7cffc407e06d13c5b6754ee71` — "wsm(workspace): migrate create to Run+RunIntoGlazeProcessor"
+
+### What I did
+
+- Updated `cmd/wsm/cmds/workspace/create.go`:
+  - Added `cmds.GlazeCommand` interface implementation.
+  - Introduced `createExecutionResult` and `execute(ctx, vals)` shared execution path.
+  - Kept human output in `Run(...)`.
+  - Moved structured row emission to `RunIntoGlazeProcessor(...)`.
+  - Replaced inline row creation with `createResultToRow(...)`.
+  - Switched command wrapper to `BuildCobraCommandDualMode(...)`.
+- Ran:
+  - `gofmt -w cmd/wsm/cmds/workspace/create.go`
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+- Committed phase code change.
+
+### Why
+
+- `wsm create` is the first open workspace rewrite task and a high-impact command for validating the migration pattern on interactive + preview flows.
+
+### What worked
+
+- Command package tests and broader cmd/wsm tests stayed green after migration.
+- Cancellation behavior remained centralized and consistent through `execute(...)`.
+- Human renderer logic stayed unchanged in substance while data output moved cleanly to Glaze processor path.
+
+### What didn't work
+
+- N/A in this phase.
+
+### What I learned
+
+- The split-interface migration works cleanly even for commands with interactive input and multiple result-path variants (dry-run vs create).
+
+### What was tricky to build
+
+- The tricky part was preserving cancellation semantics while removing output-mode branching.
+- Symptom: cancellation previously depended on mode checks inside a single `Run`.
+- Approach: normalize cancellation in `execute(...)` as `Cancelled` result state, then let `Run` print and `RunIntoGlazeProcessor` no-op.
+
+### What warrants a second pair of eyes
+
+- Whether `createResultToRow(...)` should include additional metadata for downstream automation (for example explicit preview steps when `dry_run=true`).
+
+### What should be done in the future
+
+- Continue workspace rewrite tasks in order: `fork`, `merge`, `add`, `remove`, `delete`, `info`, `status`.
+
+### Code review instructions
+
+- Start with:
+  - `cmd/wsm/cmds/workspace/create.go`
+- Validate with:
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+
+### Technical details
+
+- Commands run:
+  - `gofmt -w cmd/wsm/cmds/workspace/create.go`
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+  - `git add cmd/wsm/cmds/workspace/create.go`
+  - `git commit --no-verify -m "wsm(workspace): migrate create to Run+RunIntoGlazeProcessor"`

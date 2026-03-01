@@ -20,7 +20,7 @@
 - [x] Add/adjust registry command tests for human mode and glaze mode
 
 ### Workspace Command Rewrites
-- [ ] Rewrite `wsm create` to `Run` + `RunIntoGlazeProcessor`
+- [x] Rewrite `wsm create` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm fork` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm merge` to `Run` + `RunIntoGlazeProcessor`
 - [ ] Rewrite `wsm add` to `Run` + `RunIntoGlazeProcessor`
