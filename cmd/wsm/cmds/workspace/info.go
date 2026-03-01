@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
@@ -31,6 +32,14 @@ type InfoSettings struct {
 }
 
 var _ cmds.BareCommand = &InfoCommand{}
+var _ cmds.GlazeCommand = &InfoCommand{}
+
+type infoExecutionResult struct {
+	Workspace *wsm.Workspace
+	Field     string
+	Value     string
+	HasField  bool
+}
 
 func NewInfoCommand() (*InfoCommand, error) {
 	desc, err := wsmcmdcommon.BuildDescription(
@@ -68,9 +77,41 @@ Available fields:
 }
 
 func (c *InfoCommand) Run(ctx context.Context, vals *values.Values) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	if result.HasField {
+		fmt.Println(result.Value)
+		return nil
+	}
+
+	if err := printInfoHuman(result.Workspace); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *InfoCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	row := infoResultToRow(result)
+	return gp.AddRow(ctx, row)
+}
+
+func (c *InfoCommand) execute(_ context.Context, vals *values.Values) (*infoExecutionResult, error) {
 	settings_ := &InfoSettings{}
 	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrap(err, "failed to decode info settings")
+		return nil, errors.Wrap(err, "failed to decode info settings")
 	}
 
 	workflow := workflows.NewInfoWorkflow()
@@ -81,67 +122,51 @@ func (c *InfoCommand) Run(ctx context.Context, vals *values.Values) error {
 
 	workspace, err := workflow.ResolveWorkspace(workspaceName)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
 
 	if settings_.Field != "" {
 		value, err := workflow.FieldValue(workspace, settings_.Field)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		if wsmcmdcommon.ShouldOutputHuman(mode) {
-			fmt.Println(value)
-		}
-		if wsmcmdcommon.ShouldOutputData(mode) {
-			rows := []types.Row{types.NewRow(
-				types.MRP("workspace", workspace.Name),
-				types.MRP("field", strings.ToLower(settings_.Field)),
-				types.MRP("value", value),
-			)}
-			if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-				return errors.Wrap(err, "failed to emit info field row")
-			}
-		}
-		if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-			return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
-		}
-		return nil
+		return &infoExecutionResult{
+			Workspace: workspace,
+			Field:     strings.ToLower(settings_.Field),
+			Value:     value,
+			HasField:  true,
+		}, nil
 	}
 
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		if err := printInfoHuman(workspace); err != nil {
-			return err
-		}
+	return &infoExecutionResult{
+		Workspace: workspace,
+	}, nil
+}
+
+func infoResultToRow(result *infoExecutionResult) types.Row {
+	if result.HasField {
+		return types.NewRow(
+			types.MRP("workspace", result.Workspace.Name),
+			types.MRP("field", result.Field),
+			types.MRP("value", result.Value),
+		)
 	}
 
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		repositories := make([]string, 0, len(workspace.Repositories))
-		for _, repo := range workspace.Repositories {
-			repositories = append(repositories, repo.Name)
-		}
-
-		rows := []types.Row{types.NewRow(
-			types.MRP("name", workspace.Name),
-			types.MRP("path", workspace.Path),
-			types.MRP("branch", workspace.Branch),
-			types.MRP("repository_count", len(workspace.Repositories)),
-			types.MRP("repositories", repositories),
-			types.MRP("created", workspace.Created),
-			types.MRP("go_workspace", workspace.GoWorkspace),
-		)}
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit info rows")
-		}
+	repositories := make([]string, 0, len(result.Workspace.Repositories))
+	for _, repo := range result.Workspace.Repositories {
+		repositories = append(repositories, repo.Name)
 	}
 
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
-	}
-
-	return nil
+	return types.NewRow(
+		types.MRP("name", result.Workspace.Name),
+		types.MRP("path", result.Workspace.Path),
+		types.MRP("branch", result.Workspace.Branch),
+		types.MRP("repository_count", len(result.Workspace.Repositories)),
+		types.MRP("repositories", repositories),
+		types.MRP("created", result.Workspace.Created),
+		types.MRP("go_workspace", result.Workspace.GoWorkspace),
+	)
 }
 
 func printInfoHuman(workspace *wsm.Workspace) error {
@@ -168,5 +193,5 @@ func NewInfoCobraCommand() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build info command: %w", err)
 	}
-	return wsmcmdcommon.BuildCobraCommand(command)
+	return wsmcmdcommon.BuildCobraCommandDualMode(command)
 }
