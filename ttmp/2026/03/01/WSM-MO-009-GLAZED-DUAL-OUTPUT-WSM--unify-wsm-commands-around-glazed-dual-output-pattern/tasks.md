@@ -50,13 +50,13 @@
 - [x] Move `registry list` commands into `cmd/wsm/cmds/registry/list/*` with local `root.go`
 
 ### Remove Legacy Output Plumbing
-- [ ] Remove `EmitRows` from `cmd/wsm/cmds/common/runtime.go`
-- [ ] Remove runtime `output-mode` field/resolver helpers from migrated commands and common runtime
-- [ ] Ensure command help and docs describe human default + `--with-glaze-output` usage
+- [x] Remove `EmitRows` from `cmd/wsm/cmds/common/runtime.go`
+- [x] Remove runtime `output-mode` field/resolver helpers from migrated commands and common runtime
+- [x] Ensure command help and docs describe human default + `--with-glaze-output` usage
 
 ### Validation And Delivery
 - [x] Run focused tests for rewritten command groups
 - [x] Run broader command package checks (`go test ./cmd/wsm/...`)
 - [x] Update diary with each migration phase (including exact failures)
 - [x] Update changelog and doc relations for each phase
-- [ ] Commit each migration phase with focused commits
+- [x] Commit each migration phase with focused commits

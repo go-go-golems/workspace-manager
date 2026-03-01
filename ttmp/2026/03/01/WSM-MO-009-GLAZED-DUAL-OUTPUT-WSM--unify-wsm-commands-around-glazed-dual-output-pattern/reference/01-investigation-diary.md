@@ -17,17 +17,17 @@ RelatedFiles:
       Note: |-
         Current runtime output-mode and EmitRows helper inspected for removal
         Diary evidence for current helper-based data output
-    - Path: cmd/wsm/cmds/git/branch.go
+    - Path: cmd/wsm/cmds/git/branch/commands.go
       Note: |-
         Branch create/switch/list migrated to Run + RunIntoGlazeProcessor
         Moved to git/branch/* with local root registrar in phase 20
-    - Path: cmd/wsm/cmds/git/rebase.go
+    - Path: cmd/wsm/cmds/git/rebase/commands.go
       Note: |-
         Rebase root/status/continue/abort migrated to Run + RunIntoGlazeProcessor
         Moved to git/rebase/* with local root registrar in phase 20
-    - Path: cmd/wsm/cmds/registry/list_repos.go
+    - Path: cmd/wsm/cmds/registry/list/repos.go
       Note: Detailed diary step documents template-style human output change
-    - Path: cmd/wsm/cmds/registry/list_workspaces.go
+    - Path: cmd/wsm/cmds/registry/list/workspaces.go
       Note: Detailed diary step documents template-style human output change
     - Path: cmd/wsm/cmds/registry/registry_output_test.go
       Note: Registry human/glaze projection coverage added in phase 5
@@ -69,7 +69,7 @@ ExternalSources:
     - /home/manuel/code/wesen/corporate-headquarters/glazed/pkg/doc/tutorials/05-build-first-command.md
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/glazed/cmd/examples/new-api-dual-mode/main.go
 Summary: Chronological record of ticket creation, command inventory, Glazed dual-output alignment decisions, and final implementation document authoring.
-LastUpdated: 2026-03-01T15:08:00-05:00
+LastUpdated: 2026-03-01T15:20:00-05:00
 WhatFor: Preserve investigation steps and reasoning for the WSM dual-output unification plan.
 WhenToUse: Use this diary to review what was inspected, why design decisions were made, and how to validate delivery artifacts.
 ---
@@ -1796,3 +1796,91 @@ The move was done after behavior migrations, so it is primarily structural and w
   - `go test ./cmd/wsm/... -count=1`
   - `git add ...` (moved/new/rewired files)
   - `git commit --no-verify -m "wsm(cmds): normalize grouped git and registry command layout"`
+
+## Step 21: Remove legacy runtime output-mode plumbing and finalize output docs
+
+I completed the final cleanup by removing the old shared runtime output-mode helpers from `cmds/common`, leaving only standard glazed section composition and dual-mode command wiring. This makes `RunIntoGlazeProcessor` the only structured-output path for migrated commands.
+
+I also updated root command help text to explicitly state that human output is default and structured output is enabled with `--with-glaze-output`.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 18)
+
+**Assistant interpretation:** Finish all remaining tasks, including cleanup of legacy plumbing and user-facing output guidance.
+
+**Inferred user intent:** End with a clean, coherent command architecture and no obsolete output-mode mechanisms.
+
+**Commit (code):** `aae1a76d26e9b254b62280c169ef8dd8463d83bb` — "wsm(common): remove legacy output-mode runtime plumbing"
+
+### What I did
+
+- Updated `cmd/wsm/cmds/common/runtime.go`:
+  - Removed legacy output-mode section, settings, decoder, and row-emission helpers:
+    - `EmitRows`
+    - `ResolveOutputMode`
+    - `ShouldOutputHuman`
+    - `ShouldOutputData`
+    - `ErrUnsupportedOutputMode`
+    - runtime output-mode constants/field definitions
+  - Kept only standard section composition around `settings.NewGlazedSchema()`.
+- Updated `cmd/wsm/cmds/common/build.go`:
+  - Removed runtime section from short-help parser sections.
+- Updated `cmd/wsm/root.go`:
+  - Added explicit output guidance:
+    - human-readable output is default
+    - `--with-glaze-output` enables structured rows
+- Ran:
+  - `gofmt -w cmd/wsm/root.go cmd/wsm/cmds/common/runtime.go cmd/wsm/cmds/common/build.go`
+  - `go test ./cmd/wsm/... -count=1`
+- Committed cleanup phase.
+
+### Why
+
+- The migration is only complete when the legacy shared plumbing is removed; otherwise obsolete APIs remain available and can regress future command implementations.
+
+### What worked
+
+- Cleanup compiled and passed command package tests.
+- No remaining command references to removed legacy output-mode helpers.
+
+### What didn't work
+
+- N/A in this phase.
+
+### What I learned
+
+- Removing obsolete helpers after full migration significantly simplifies future command authoring by eliminating competing output patterns.
+
+### What was tricky to build
+
+- The tricky part was verifying that no commands still depended on runtime helpers before deletion.
+- Symptom: stale references would only surface at compile time across many packages.
+- Approach: explicit repo-wide symbol search (`rg`) before and after cleanup, then full `go test` over `cmd/wsm/...`.
+
+### What warrants a second pair of eyes
+
+- Whether `BuildCobraCommand` (non-dual helper) should be kept or removed if the team wants to enforce dual-mode everywhere by default.
+
+### What should be done in the future
+
+- Optional: simplify common package further by removing unused compatibility helpers after one or two release cycles.
+
+### Code review instructions
+
+- Start with:
+  - `cmd/wsm/cmds/common/runtime.go`
+  - `cmd/wsm/cmds/common/build.go`
+  - `cmd/wsm/root.go`
+- Validate with:
+  - `go test ./cmd/wsm/... -count=1`
+  - `rg -n "ResolveOutputMode|EmitRows|output-mode" cmd/wsm -S`
+
+### Technical details
+
+- Commands run:
+  - `rg -n "ResolveOutputMode|EmitRows|output-mode|..." cmd/wsm -S`
+  - `gofmt -w cmd/wsm/root.go cmd/wsm/cmds/common/runtime.go cmd/wsm/cmds/common/build.go`
+  - `go test ./cmd/wsm/... -count=1`
+  - `git add cmd/wsm/cmds/common/build.go cmd/wsm/cmds/common/runtime.go cmd/wsm/root.go`
+  - `git commit --no-verify -m "wsm(common): remove legacy output-mode runtime plumbing"`

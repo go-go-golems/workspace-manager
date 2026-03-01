@@ -272,3 +272,15 @@ Phase 20: normalized grouped command directory layout by moving branch/rebase/li
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/root.go — Updated to register grouped subdirectory commands
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/registry/root.go — Updated to register grouped list subdirectory commands
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/tasks.md — Grouped directory normalization tasks marked complete
+
+
+## 2026-03-01
+
+Phase 21: removed legacy runtime output-mode plumbing and finalized root help text to document human default + `--with-glaze-output`; committed as aae1a76.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/common/runtime.go — Removed `EmitRows` and runtime output-mode resolver/choice helpers; retained only standard glazed section composition
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/common/build.go — Removed runtime section from short help parser sections
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/root.go — Added explicit output guidance for human default and `--with-glaze-output`
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/tasks.md — Legacy output plumbing tasks and final commit-phase task marked complete
