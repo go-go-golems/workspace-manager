@@ -45,9 +45,9 @@
 - [x] Rewrite `wsm runner` to `Run` + `RunIntoGlazeProcessor`
 
 ### Grouped Command Directory Normalization
-- [ ] Move `git branch` commands into `cmd/wsm/cmds/git/branch/*` with local `root.go`
-- [ ] Move `git rebase` commands into `cmd/wsm/cmds/git/rebase/*` with local `root.go`
-- [ ] Move `registry list` commands into `cmd/wsm/cmds/registry/list/*` with local `root.go`
+- [x] Move `git branch` commands into `cmd/wsm/cmds/git/branch/*` with local `root.go`
+- [x] Move `git rebase` commands into `cmd/wsm/cmds/git/rebase/*` with local `root.go`
+- [x] Move `registry list` commands into `cmd/wsm/cmds/registry/list/*` with local `root.go`
 
 ### Remove Legacy Output Plumbing
 - [ ] Remove `EmitRows` from `cmd/wsm/cmds/common/runtime.go`

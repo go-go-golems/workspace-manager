@@ -20,11 +20,11 @@ RelatedFiles:
     - Path: cmd/wsm/cmds/git/branch.go
       Note: |-
         Branch create/switch/list migrated to Run + RunIntoGlazeProcessor
-        Directory split to git/branch/* still pending
+        Moved to git/branch/* with local root registrar in phase 20
     - Path: cmd/wsm/cmds/git/rebase.go
       Note: |-
         Rebase root/status/continue/abort migrated to Run + RunIntoGlazeProcessor
-        Directory split to git/rebase/* still pending
+        Moved to git/rebase/* with local root registrar in phase 20
     - Path: cmd/wsm/cmds/registry/list_repos.go
       Note: Detailed diary step documents template-style human output change
     - Path: cmd/wsm/cmds/registry/list_workspaces.go
@@ -32,7 +32,9 @@ RelatedFiles:
     - Path: cmd/wsm/cmds/registry/registry_output_test.go
       Note: Registry human/glaze projection coverage added in phase 5
     - Path: cmd/wsm/cmds/registry/root.go
-      Note: list parent currently assembled in registry root
+      Note: Registry list group now delegated to registry/list root registrar
+    - Path: cmd/wsm/cmds/registry/list/root.go
+      Note: Registry list group registrar added in phase 20
     - Path: cmd/wsm/cmds/workspace/create.go
       Note: Workspace create command migrated to Run + RunIntoGlazeProcessor in phase 6
     - Path: cmd/wsm/cmds/workspace/fork.go
@@ -67,7 +69,7 @@ ExternalSources:
     - /home/manuel/code/wesen/corporate-headquarters/glazed/pkg/doc/tutorials/05-build-first-command.md
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/glazed/cmd/examples/new-api-dual-mode/main.go
 Summary: Chronological record of ticket creation, command inventory, Glazed dual-output alignment decisions, and final implementation document authoring.
-LastUpdated: 2026-03-01T14:57:00-05:00
+LastUpdated: 2026-03-01T15:08:00-05:00
 WhatFor: Preserve investigation steps and reasoning for the WSM dual-output unification plan.
 WhenToUse: Use this diary to review what was inspected, why design decisions were made, and how to validate delivery artifacts.
 ---
@@ -1701,3 +1703,96 @@ This removed `ResolveOutputMode`/`EmitRows` branching from the runner command an
   - `go test ./cmd/wsm/... -count=1`
   - `git add cmd/wsm/cmds/js/runner.go`
   - `git commit --no-verify -m "wsm(js): migrate runner to Run+RunIntoGlazeProcessor"`
+
+## Step 20: Normalize grouped command directories (`git/branch`, `git/rebase`, `registry/list`)
+
+I completed the grouped-command filesystem normalization by moving branch/rebase/list verbs into dedicated subdirectories, each with its own local `root.go` registrar. This aligns repository structure with CLI verb grouping.
+
+The move was done after behavior migrations, so it is primarily structural and wiring-focused.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 18)
+
+**Assistant interpretation:** Continue remaining tasks and finish the full migration backlog, including directory layout normalization tasks.
+
+**Inferred user intent:** Ensure code organization mirrors CLI verbs and improves maintainability across grouped command sets.
+
+**Commit (code):** `10699843818e6aaf91ef65df8fbd12e4899666a9` — "wsm(cmds): normalize grouped git and registry command layout"
+
+### What I did
+
+- Moved grouped command implementations:
+  - `cmd/wsm/cmds/git/branch.go` -> `cmd/wsm/cmds/git/branch/commands.go`
+  - `cmd/wsm/cmds/git/rebase.go` -> `cmd/wsm/cmds/git/rebase/commands.go`
+  - `cmd/wsm/cmds/registry/list_repos.go` -> `cmd/wsm/cmds/registry/list/repos.go`
+  - `cmd/wsm/cmds/registry/list_workspaces.go` -> `cmd/wsm/cmds/registry/list/workspaces.go`
+- Added local registrars:
+  - `cmd/wsm/cmds/git/branch/root.go`
+  - `cmd/wsm/cmds/git/rebase/root.go`
+  - `cmd/wsm/cmds/registry/list/root.go`
+- Added subpackage workspace detection helpers for git grouped packages:
+  - `cmd/wsm/cmds/git/branch/workspace_context.go`
+  - `cmd/wsm/cmds/git/rebase/workspace_context.go`
+- Updated top-level registrars:
+  - `cmd/wsm/cmds/git/root.go` now delegates to branch/rebase subpackage registers.
+  - `cmd/wsm/cmds/registry/root.go` now delegates list group to `registry/list` register.
+- Moved/adjusted tests for registry list package:
+  - `cmd/wsm/cmds/registry/registry_output_test.go` retains discover projection test.
+  - `cmd/wsm/cmds/registry/list/output_test.go` now owns repos/workspaces projection and human output tests.
+- Ran:
+  - `gofmt -w ...` across moved/new files
+  - `go test ./cmd/wsm/... -count=1`
+- Committed structure phase.
+
+### Why
+
+- The user requirement explicitly asked for grouped verbs to live in subdirectories with local roots matching command structure.
+
+### What worked
+
+- Moves compiled cleanly.
+- Command registration remained functional after root rewiring.
+- Test coverage for registry list behavior was preserved under the new package path.
+
+### What didn't work
+
+- N/A in this phase.
+
+### What I learned
+
+- Completing behavior migration first and directory normalization second keeps structural diffs cleaner and easier to review.
+
+### What was tricky to build
+
+- The tricky part was maintaining package-private test coverage when moving registry list helpers to a new subpackage.
+- Symptom: old tests in `registry` no longer had access to moved unexported helpers.
+- Approach: split tests by ownership (`discover` stays in `registry`, list tests move to `registry/list`).
+
+### What warrants a second pair of eyes
+
+- Whether additional grouped areas should follow the same registrar convention for long-term consistency (for example future `workspace/*` groupings).
+
+### What should be done in the future
+
+- Finish final backlog section: remove legacy runtime output plumbing and align help/docs with human default + `--with-glaze-output`.
+
+### Code review instructions
+
+- Start with:
+  - `cmd/wsm/cmds/git/root.go`
+  - `cmd/wsm/cmds/git/branch/root.go`
+  - `cmd/wsm/cmds/git/rebase/root.go`
+  - `cmd/wsm/cmds/registry/root.go`
+  - `cmd/wsm/cmds/registry/list/root.go`
+- Validate with:
+  - `go test ./cmd/wsm/... -count=1`
+
+### Technical details
+
+- Commands run:
+  - `mkdir -p ...` and file moves from old grouped files to subdirectories
+  - `gofmt -w ...` across moved/new files
+  - `go test ./cmd/wsm/... -count=1`
+  - `git add ...` (moved/new/rewired files)
+  - `git commit --no-verify -m "wsm(cmds): normalize grouped git and registry command layout"`

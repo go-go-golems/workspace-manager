@@ -254,3 +254,21 @@ Phase 19: migrated `wsm runner` to the Glazed split interface (`Run` + `RunIntoG
 
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/js/runner.go — Replaced runtime output-mode branching and EmitRows usage with split interface methods
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/tasks.md — JS runner rewrite task marked complete
+
+
+## 2026-03-01
+
+Phase 20: normalized grouped command directory layout by moving branch/rebase/list verbs into dedicated subdirectories with local `root.go` registrars; committed as 1069984.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/branch/commands.go — Branch command group moved under `git/branch/*`
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/branch/root.go — Local branch registrar added
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/rebase/commands.go — Rebase command group moved under `git/rebase/*`
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/rebase/root.go — Local rebase registrar added
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/registry/list/repos.go — Registry list repos command moved under `registry/list/*`
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/registry/list/workspaces.go — Registry list workspaces command moved under `registry/list/*`
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/registry/list/root.go — Local registry list registrar added
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/root.go — Updated to register grouped subdirectory commands
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/registry/root.go — Updated to register grouped list subdirectory commands
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/tasks.md — Grouped directory normalization tasks marked complete
