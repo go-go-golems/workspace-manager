@@ -39,6 +39,8 @@ RelatedFiles:
       Note: Workspace merge command migrated to Run + RunIntoGlazeProcessor in phase 8
     - Path: cmd/wsm/cmds/workspace/add.go
       Note: Workspace add command migrated to Run + RunIntoGlazeProcessor in phase 9
+    - Path: cmd/wsm/cmds/workspace/remove.go
+      Note: Workspace remove command migrated to Run + RunIntoGlazeProcessor in phase 10
     - Path: ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/design-doc/01-wsm-glazed-dual-output-implementation-plan.md
       Note: |-
         Primary implementation document produced in this work
@@ -49,7 +51,7 @@ ExternalSources:
     - /home/manuel/code/wesen/corporate-headquarters/glazed/pkg/doc/tutorials/05-build-first-command.md
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/glazed/cmd/examples/new-api-dual-mode/main.go
 Summary: Chronological record of ticket creation, command inventory, Glazed dual-output alignment decisions, and final implementation document authoring.
-LastUpdated: 2026-03-01T12:49:00-05:00
+LastUpdated: 2026-03-01T13:02:00-05:00
 WhatFor: Preserve investigation steps and reasoning for the WSM dual-output unification plan.
 WhenToUse: Use this diary to review what was inspected, why design decisions were made, and how to validate delivery artifacts.
 ---
@@ -845,3 +847,81 @@ The command remains concise, and row generation now lives in a dedicated helper 
   - `go test ./cmd/wsm/... -count=1`
   - `git add cmd/wsm/cmds/workspace/add.go`
   - `git commit --no-verify -m "wsm(workspace): migrate add to Run+RunIntoGlazeProcessor"`
+
+## Step 10: Migrate `wsm remove` to split Run/Glaze interfaces
+
+I completed the next command rewrite by migrating `wsm remove` to split methods with a shared execution path. As with `add`, this keeps argument precedence and manager calls unchanged while removing command-local output-mode branching.
+
+Structured output now goes through `RunIntoGlazeProcessor` via a dedicated row helper.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 5)
+
+**Assistant interpretation:** Continue the queued workspace command rewrites with focused commits and diary updates.
+
+**Inferred user intent:** Finish the workspace migration backlog in a predictable, auditable sequence.
+
+**Commit (code):** `f74893e71962a4b79b591cb6d72ec0c734d0bc2f` — "wsm(workspace): migrate remove to Run+RunIntoGlazeProcessor"
+
+### What I did
+
+- Updated `cmd/wsm/cmds/workspace/remove.go`:
+  - Added `cmds.GlazeCommand` assertion.
+  - Added `removeExecutionResult`, `execute(...)`, and `removeResultToRow(...)`.
+  - Added `RunIntoGlazeProcessor(...)`.
+  - Switched wrapper to `BuildCobraCommandDualMode(...)`.
+  - Removed runtime output-mode checks and `EmitRows`.
+- Ran:
+  - `gofmt -w cmd/wsm/cmds/workspace/remove.go`
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+- Committed the phase code change.
+
+### Why
+
+- `remove` follows the same CRUD pattern as `add`, making it a straightforward next task for consistent migration.
+
+### What worked
+
+- Build/tests passed on first pass.
+- Existing behavior and validation messages remained unchanged.
+
+### What didn't work
+
+- N/A in this phase.
+
+### What I learned
+
+- The reusable command template for CRUD verbs is now stable and can be applied quickly across remaining similar commands.
+
+### What was tricky to build
+
+- The tricky part was preserving positional/flag compatibility exactly while restructuring method boundaries.
+- Symptom: subtle precedence changes can break scripts.
+- Approach: keep original resolution order and error text verbatim, only moving logic into `execute(...)`.
+
+### What warrants a second pair of eyes
+
+- Whether `removeResultToRow(...)` should expose additional runtime context (for example whether files were physically removed vs only workspace metadata updated).
+
+### What should be done in the future
+
+- Continue with `wsm delete`, then `info` and `status`.
+
+### Code review instructions
+
+- Start with:
+  - `cmd/wsm/cmds/workspace/remove.go`
+- Validate with:
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+
+### Technical details
+
+- Commands run:
+  - `gofmt -w cmd/wsm/cmds/workspace/remove.go`
+  - `go test ./cmd/wsm/cmds/workspace -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+  - `git add cmd/wsm/cmds/workspace/remove.go`
+  - `git commit --no-verify -m "wsm(workspace): migrate remove to Run+RunIntoGlazeProcessor"`

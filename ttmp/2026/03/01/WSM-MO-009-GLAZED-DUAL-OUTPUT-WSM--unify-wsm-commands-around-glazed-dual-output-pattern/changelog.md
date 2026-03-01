@@ -154,3 +154,13 @@ Phase 9: migrated `wsm add` to the Glazed split interface (`Run` + `RunIntoGlaze
 
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/workspace/add.go — Replaced runtime output-mode branching and EmitRows usage with split interface methods
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/tasks.md — Workspace add rewrite task marked complete
+
+
+## 2026-03-01
+
+Phase 10: migrated `wsm remove` to the Glazed split interface (`Run` + `RunIntoGlazeProcessor`) with shared execution and dual-mode cobra wrapper; committed as f74893e.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/workspace/remove.go — Replaced runtime output-mode branching and EmitRows usage with split interface methods
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/tasks.md — Workspace remove rewrite task marked complete
