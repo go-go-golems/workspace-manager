@@ -2,12 +2,12 @@ package wsm
 
 import (
 	"context"
-	"os/exec"
 	"path/filepath"
-	"strconv"
-	"strings"
 
+	"github.com/go-go-golems/workspace-manager/pkg/wsm/gitclient"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 // StatusChecker handles workspace status operations
@@ -18,17 +18,62 @@ func NewStatusChecker() *StatusChecker {
 	return &StatusChecker{}
 }
 
+// StatusOptions configures workspace status collection.
+type StatusOptions struct {
+	MaxJobs int
+	Fetch   bool
+}
+
 // GetWorkspaceStatus gets the status of a workspace
 func (sc *StatusChecker) GetWorkspaceStatus(ctx context.Context, workspace *Workspace) (*WorkspaceStatus, error) {
-	var repoStatuses []RepositoryStatus
+	return sc.GetWorkspaceStatusWithOptions(ctx, workspace, StatusOptions{MaxJobs: 1})
+}
 
-	for _, repo := range workspace.Repositories {
-		repoPath := filepath.Join(workspace.Path, repo.Name)
-		status, err := sc.getRepositoryStatus(ctx, repo, repoPath)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get status for repository %s", repo.Name)
+// GetWorkspaceStatusWithOptions gets the status of a workspace with options (e.g., concurrency)
+func (sc *StatusChecker) GetWorkspaceStatusWithOptions(ctx context.Context, workspace *Workspace, opts StatusOptions) (*WorkspaceStatus, error) {
+	maxJobs := opts.MaxJobs
+	if maxJobs < 1 {
+		maxJobs = 1
+	}
+
+	repoCount := len(workspace.Repositories)
+	repoStatuses := make([]RepositoryStatus, repoCount)
+
+	gc, _ := BuildGitBackends(ctx)
+
+	if maxJobs == 1 || repoCount <= 1 {
+		for i, repo := range workspace.Repositories {
+			repoPath := filepath.Join(workspace.Path, repo.Name)
+			status, err := sc.getRepositoryStatusWithClient(ctx, repo, repoPath, workspace.BaseBranch, opts.Fetch, gc)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get status for repository %s", repo.Name)
+			}
+			repoStatuses[i] = *status
 		}
-		repoStatuses = append(repoStatuses, *status)
+	} else {
+		sem := semaphore.NewWeighted(int64(maxJobs))
+		g, gctx := errgroup.WithContext(ctx)
+
+		for i := range workspace.Repositories {
+			i := i
+			if err := sem.Acquire(gctx, 1); err != nil {
+				return nil, err
+			}
+			g.Go(func() error {
+				defer sem.Release(1)
+				repo := workspace.Repositories[i]
+				repoPath := filepath.Join(workspace.Path, repo.Name)
+				status, err := sc.getRepositoryStatusWithClient(gctx, repo, repoPath, workspace.BaseBranch, opts.Fetch, gc)
+				if err != nil {
+					return errors.Wrapf(err, "failed to get status for repository %s", repo.Name)
+				}
+				repoStatuses[i] = *status
+				return nil
+			})
+		}
+		if err := g.Wait(); err != nil {
+			return nil, err
+		}
 	}
 
 	overall := sc.calculateOverallStatus(repoStatuses)
@@ -38,179 +83,6 @@ func (sc *StatusChecker) GetWorkspaceStatus(ctx context.Context, workspace *Work
 		Repositories: repoStatuses,
 		Overall:      overall,
 	}, nil
-}
-
-// getRepositoryStatus gets the git status of a single repository
-func (sc *StatusChecker) getRepositoryStatus(ctx context.Context, repo Repository, repoPath string) (*RepositoryStatus, error) {
-	status := &RepositoryStatus{
-		Repository: repo,
-	}
-
-	// Get current branch
-	if branch, err := sc.getCurrentBranch(ctx, repoPath); err == nil {
-		status.CurrentBranch = branch
-	}
-
-	// Get modified files
-	if modifiedFiles, err := sc.getModifiedFiles(ctx, repoPath); err == nil {
-		status.ModifiedFiles = modifiedFiles
-		status.HasChanges = len(modifiedFiles) > 0
-	}
-
-	// Get staged files
-	if stagedFiles, err := sc.getStagedFiles(ctx, repoPath); err == nil {
-		status.StagedFiles = stagedFiles
-		if !status.HasChanges {
-			status.HasChanges = len(stagedFiles) > 0
-		}
-	}
-
-	// Get untracked files
-	if untrackedFiles, err := sc.getUntrackedFiles(ctx, repoPath); err == nil {
-		status.UntrackedFiles = untrackedFiles
-	}
-
-	// Get ahead/behind status
-	if ahead, behind, err := sc.getAheadBehind(ctx, repoPath); err == nil {
-		status.Ahead = ahead
-		status.Behind = behind
-	}
-
-	// Check for conflicts
-	if hasConflicts, err := sc.hasConflicts(ctx, repoPath); err == nil {
-		status.HasConflicts = hasConflicts
-	}
-
-	// Check if branch is merged to origin/main
-	if isMerged, err := CheckBranchMerged(ctx, repoPath); err == nil {
-		status.IsMerged = isMerged
-	}
-
-	// Check if branch needs to be rebased on origin/main
-	if needsRebase, err := CheckBranchNeedsRebase(ctx, repoPath); err == nil {
-		status.NeedsRebase = needsRebase
-	}
-
-	return status, nil
-}
-
-// getCurrentBranch gets the current branch name
-func (sc *StatusChecker) getCurrentBranch(ctx context.Context, repoPath string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", "branch", "--show-current")
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(output)), nil
-}
-
-// getModifiedFiles gets modified files
-func (sc *StatusChecker) getModifiedFiles(ctx context.Context, repoPath string) ([]string, error) {
-	cmd := exec.CommandContext(ctx, "git", "diff", "--name-only")
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, err
-	}
-
-	if len(output) == 0 {
-		return []string{}, nil
-	}
-
-	files := strings.Split(strings.TrimSpace(string(output)), "\n")
-	return files, nil
-}
-
-// getStagedFiles gets staged files
-func (sc *StatusChecker) getStagedFiles(ctx context.Context, repoPath string) ([]string, error) {
-	cmd := exec.CommandContext(ctx, "git", "diff", "--cached", "--name-only")
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, err
-	}
-
-	if len(output) == 0 {
-		return []string{}, nil
-	}
-
-	files := strings.Split(strings.TrimSpace(string(output)), "\n")
-	return files, nil
-}
-
-// getUntrackedFiles gets untracked files
-func (sc *StatusChecker) getUntrackedFiles(ctx context.Context, repoPath string) ([]string, error) {
-	cmd := exec.CommandContext(ctx, "git", "ls-files", "--others", "--exclude-standard")
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, err
-	}
-
-	if len(output) == 0 {
-		return []string{}, nil
-	}
-
-	files := strings.Split(strings.TrimSpace(string(output)), "\n")
-	return files, nil
-}
-
-// getAheadBehind gets ahead/behind commit counts
-func (sc *StatusChecker) getAheadBehind(ctx context.Context, repoPath string) (int, int, error) {
-	// First check if we have a remote tracking branch
-	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "@{upstream}")
-	cmd.Dir = repoPath
-	if _, err := cmd.Output(); err != nil {
-		// No upstream configured
-		return 0, 0, nil
-	}
-
-	// Get ahead/behind counts
-	cmd = exec.CommandContext(ctx, "git", "rev-list", "--left-right", "--count", "HEAD...@{upstream}")
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
-	if err != nil {
-		return 0, 0, err
-	}
-
-	parts := strings.Fields(strings.TrimSpace(string(output)))
-	if len(parts) != 2 {
-		return 0, 0, errors.New("unexpected git rev-list output")
-	}
-
-	ahead, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return 0, 0, err
-	}
-
-	behind, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return 0, 0, err
-	}
-
-	return ahead, behind, nil
-}
-
-// hasConflicts checks if there are merge conflicts
-func (sc *StatusChecker) hasConflicts(ctx context.Context, repoPath string) (bool, error) {
-	cmd := exec.CommandContext(ctx, "git", "status", "--porcelain")
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
-	if err != nil {
-		return false, err
-	}
-
-	lines := strings.Split(string(output), "\n")
-	for _, line := range lines {
-		if len(line) >= 2 && (line[0] == 'U' || line[1] == 'U' ||
-			(line[0] == 'A' && line[1] == 'A') ||
-			(line[0] == 'D' && line[1] == 'D')) {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }
 
 // calculateOverallStatus determines the overall workspace status
@@ -242,4 +114,47 @@ func (sc *StatusChecker) calculateOverallStatus(repoStatuses []RepositoryStatus)
 	}
 
 	return "clean"
+}
+
+// getRepositoryStatusWithClient uses the GitClient to compute repository status
+func (sc *StatusChecker) getRepositoryStatusWithClient(ctx context.Context, repo Repository, repoPath string, baseBranch string, fetch bool, gc gitclient.GitClient) (*RepositoryStatus, error) {
+	status := &RepositoryStatus{Repository: repo}
+
+	handle, err := gc.Open(ctx, repoPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "open repository")
+	}
+	if fetch {
+		if err := gc.Fetch(ctx, handle, ""); err != nil {
+			return nil, errors.Wrap(err, "git fetch origin")
+		}
+	}
+
+	st, err := gc.Status(ctx, handle)
+	if err != nil {
+		return nil, errors.Wrap(err, "git status")
+	}
+
+	status.CurrentBranch = st.CurrentBranch
+	status.ModifiedFiles = st.ModifiedFiles
+	status.StagedFiles = st.StagedFiles
+	status.UntrackedFiles = st.UntrackedFiles
+	status.HasChanges = len(st.ModifiedFiles) > 0 || len(st.StagedFiles) > 0
+
+	if ahead, behind, err := gc.AheadBehind(ctx, handle, ""); err == nil {
+		status.Ahead = ahead
+		status.Behind = behind
+	}
+
+	status.HasConflicts = false
+
+	// Preserve legacy semantics used by status table columns.
+	if isMerged, err := CheckBranchMerged(ctx, repoPath, baseBranch); err == nil {
+		status.IsMerged = isMerged
+	}
+	if needsRebase, err := CheckBranchNeedsRebase(ctx, repoPath, baseBranch); err == nil {
+		status.NeedsRebase = needsRebase
+	}
+
+	return status, nil
 }

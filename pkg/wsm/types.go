@@ -53,8 +53,8 @@ type RepositoryStatus struct {
 	Behind         int        `json:"behind"`
 	CurrentBranch  string     `json:"current_branch"`
 	HasConflicts   bool       `json:"has_conflicts"`
-	IsMerged       bool       `json:"is_merged"`    // True if branch is merged to origin/main
-	NeedsRebase    bool       `json:"needs_rebase"` // True if branch needs to be rebased on origin/main
+	IsMerged       bool       `json:"is_merged"`    // True if branch is merged to the default remote main branch
+	NeedsRebase    bool       `json:"needs_rebase"` // True if branch needs to be rebased on the default remote main branch
 }
 
 // WorkspaceStatus represents the overall status of a workspace

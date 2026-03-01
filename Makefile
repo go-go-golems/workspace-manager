@@ -34,6 +34,16 @@ build:
 	go generate ./...
 	go build ./...
 
+.PHONY: dagger dagger-test dagger-test-backends
+dagger:
+	go run ./ci/dagger
+
+dagger-test:
+	go run ./ci/dagger --race
+
+dagger-test-smoke:
+	go run ./ci/dagger --smoke
+
 goreleaser:
 	goreleaser release $(GORELEASER_ARGS) $(GORELEASER_TARGET)
 

@@ -2,7 +2,13 @@ package main
 
 import (
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
-	"github.com/go-go-golems/workspace-manager/cmd/cmds"
+	"github.com/go-go-golems/glazed/pkg/help"
+	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
+	gitcmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/git"
+	jscmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/js"
+	registrycmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/registry"
+	workspacecmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/workspace"
+	wsmdocs "github.com/go-go-golems/workspace-manager/pkg/docs"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -22,9 +28,13 @@ Features:
 - Create workspaces with git worktrees for coordinated multi-repo development
 - Track status across all repositories in a workspace
 - Commit changes across multiple repositories with consistent messaging
-- Synchronize repositories (pull, push, branch operations)
+- Coordinate repository branches and rebases across a workspace
 
 - Safe workspace cleanup with proper worktree removal
+
+Output:
+- Human-readable output is the default
+- Use --with-glaze-output to emit structured rows (JSON/YAML/CSV via Glazed flags)
 
 Examples:
   # Discover repositories in your code directories
@@ -39,7 +49,7 @@ Examples:
   # Interactive mode
   `,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return logging.InitLoggerFromViper()
+		return logging.InitLoggerFromCobra(cmd)
 	},
 }
 
@@ -48,36 +58,38 @@ func Execute() error {
 }
 
 func init() {
-	err := clay.InitViper("workspace-manager", rootCmd)
+	err := clay.InitGlazed("workspace-manager", rootCmd)
 	if err != nil {
 		output.PrintError("Failed to initialize configuration: %v", err)
-		log.Fatal().Err(err).Msg("Failed to initialize Viper")
+		log.Fatal().Err(err).Msg("Failed to initialize Glazed")
 	}
 
-	// Add all subcommands
-	rootCmd.AddCommand(
-		cmds.NewDiscoverCommand(),
-		cmds.NewListCommand(),
-		cmds.NewCreateCommand(),
-		cmds.NewForkCommand(),
-		cmds.NewMergeCommand(),
-		cmds.NewAddCommand(),
-		cmds.NewRemoveCommand(),
-		cmds.NewDeleteCommand(),
-		cmds.NewInfoCommand(),
-		cmds.NewStatusCommand(),
-		cmds.NewPRCommand(),
-		cmds.NewPushCommand(),
+	if err := registrycmds.Register(rootCmd); err != nil {
+		output.PrintError("Failed to register registry commands: %v", err)
+		log.Fatal().Err(err).Msg("Failed to register registry commands")
+	}
 
-		cmds.NewCommitCommand(),
-		cmds.NewSyncCommand(),
-		cmds.NewBranchCommand(),
-		cmds.NewRebaseCommand(),
-		cmds.NewDiffCommand(),
-		cmds.NewLogCommand(),
-		cmds.NewTmuxCommand(),
-		cmds.NewStarshipCommand(),
-	)
+	if err := workspacecmds.Register(rootCmd); err != nil {
+		output.PrintError("Failed to register workspace commands: %v", err)
+		log.Fatal().Err(err).Msg("Failed to register workspace commands")
+	}
+
+	if err := gitcmds.Register(rootCmd); err != nil {
+		output.PrintError("Failed to register git commands: %v", err)
+		log.Fatal().Err(err).Msg("Failed to register git commands")
+	}
+
+	if err := jscmds.Register(rootCmd); err != nil {
+		output.PrintError("Failed to register js commands: %v", err)
+		log.Fatal().Err(err).Msg("Failed to register js commands")
+	}
+
+	helpSystem := help.NewHelpSystem()
+	if err := wsmdocs.AddDocToHelpSystem(helpSystem); err != nil {
+		output.PrintError("Failed to load help docs: %v", err)
+		log.Fatal().Err(err).Msg("Failed to load help docs")
+	}
+	help_cmd.SetupCobraRootCommand(helpSystem, rootCmd)
 
 	carapace.Gen(rootCmd)
 }

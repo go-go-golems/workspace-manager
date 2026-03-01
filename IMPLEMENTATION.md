@@ -28,6 +28,23 @@ The Workspace Manager is a command-line tool designed to manage multi-repository
 - **Go Workspace Integration**: Automatically creates `go.work` files for Go projects
 - **Status Tracking**: Monitors git status across all repositories in a workspace (logic in `pkg/wsm/status.go`)
 
+### Removed Command Surface (No Backward Compatibility)
+
+The following commands were intentionally removed from the CLI surface:
+
+- `sync`
+- `conflicts`
+- `pr`
+- `push`
+- `tmux`
+- `starship`
+
+Migration guidance:
+
+- Use `status`, `branch`, `rebase`, `commit --push`, `diff`, and `log` for retained workspace workflows.
+- Use direct `git`/`gh` commands for repository hosting and pull request operations.
+- Use external environment tooling for tmux and shell prompt configuration.
+
 
 ## Architecture
 
@@ -50,7 +67,12 @@ workspace-manager/
 │       ├── status.go        # Status checking operations
 │       ├── git_operations.go # Git operation utilities
 │       ├── git_utils.go     # Additional git utilities
-│       ├── sync_operations.go # Synchronization operations
+│       ├── sync_operations.go # Internal operations currently used by branch/log paths (subject to further split)
+│       ├── branch/          # Branch domain model + policy service
+│       │   ├── types.go
+│       │   ├── resolver.go
+│       │   └── service_impl.go
+│       ├── gitclient/       # Backend-agnostic git primitives
 │       └── utils.go         # General utilities
 ```
 
@@ -88,6 +110,7 @@ type WorkspaceManager struct {
     config       *WorkspaceConfig
     discoverer   *RepositoryDiscoverer
     workspaceDir string
+    branches     branchsvc.Service
 }
 ```
 
@@ -117,13 +140,13 @@ type RepositoryDiscoverer struct {
 
 ### Git Operations Layer
 
-Provides abstraction over git commands with proper error handling and logging:
+Provides abstraction over git commands with proper error handling and logging.
 
 **Key Functions:**
 - `executeWorktreeCommand()`: Executes git worktree operations
-- `checkBranchExists()`: Verifies local branch existence
-- `checkRemoteBranchExists()`: Verifies remote branch existence
-- `createWorktree()`: Creates git worktrees with branch management
+- `createWorktree()`: Creates git worktrees with branch strategy planning
+- `BranchService.Resolve()`: Centralized branch policy resolution
+- `GitClient` primitives: explicit local vs remote-tracking branch queries
 
 ## Data Models
 
@@ -192,7 +215,7 @@ The newly implemented fork and merge commands provide a complete workflow for fe
 
 #### Fork Command Implementation
 
-The `fork` command in [`cmd_fork.go`](file:///home/manuel/code/wesen/corporate-headquarters/workspace-manager/cmd/cmds/cmd_fork.go) creates a new workspace by forking an existing one:
+The `fork` command in `cmd/wsm/cmds/workspace/fork.go` creates a new workspace by forking an existing one:
 
 ```go
 func runFork(ctx context.Context, newWorkspaceName, sourceWorkspaceName, branch, branchPrefix, agentSource string, dryRun bool) error {
@@ -219,7 +242,7 @@ func runFork(ctx context.Context, newWorkspaceName, sourceWorkspaceName, branch,
 
 #### Merge Command Implementation
 
-The `merge` command in [`cmd_merge.go`](file:///home/manuel/code/wesen/corporate-headquarters/workspace-manager/cmd/cmds/cmd_merge.go) merges a forked workspace back to its parent:
+The `merge` command in `cmd/wsm/cmds/workspace/merge.go` merges a forked workspace back to its parent:
 
 ```go
 func runMerge(ctx context.Context, workspaceName string, dryRun, force, keepWorkspace bool) error {
@@ -249,7 +272,7 @@ func runMerge(ctx context.Context, workspaceName string, dryRun, force, keepWork
 
 ### Example Command Implementation
 
-Here's the structure of the `add` command in [`cmd_add.go`](file:///home/manuel/code/wesen/corporate-headquarters/workspace-manager/cmd/cmds/cmd_add.go):
+Here's the structure of the `add` command in `cmd/wsm/cmds/workspace/add.go`:
 
 ```go
 func NewAddCommand() *cobra.Command {
@@ -283,7 +306,7 @@ func NewAddCommand() *cobra.Command {
 
 ### Remove Command Implementation
 
-The newly implemented `remove` command in [`cmd_remove.go`](file:///home/manuel/code/wesen/corporate-headquarters/workspace-manager/cmd/cmds/cmd_remove.go) follows the same pattern:
+The `remove` command in `cmd/wsm/cmds/workspace/remove.go` follows the same pattern:
 
 ```go
 func (wm *WorkspaceManager) RemoveRepositoryFromWorkspace(ctx context.Context, workspaceName, repoName string, force, removeFiles bool) error {
@@ -377,24 +400,29 @@ func (wm *WorkspaceManager) removeWorktreeForRepo(ctx context.Context, repo Repo
 
 ### Branch Operations
 
-Branch management includes checking existence and creating tracking branches:
+Branch management is centralized in `pkg/wsm/branch` and based on typed enums:
 
 ```go
-// Check local branch existence
-func (wm *WorkspaceManager) checkBranchExists(ctx context.Context, repoPath, branch string) (bool, error) {
-    cmd := exec.CommandContext(ctx, "git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
-    cmd.Dir = repoPath
-    err := cmd.Run()
-    return err == nil, nil
-}
+type ResolutionMode int
+const (
+    ResolutionModeUnspecified ResolutionMode = iota
+    ResolutionModeCreateWorktree
+    ResolutionModeAddRepository
+    ResolutionModeSync
+)
 
-// Check remote branch existence
-func (wm *WorkspaceManager) checkRemoteBranchExists(ctx context.Context, repoPath, branch string) (bool, error) {
-    cmd := exec.CommandContext(ctx, "git", "show-ref", "--verify", "--quiet", "refs/remotes/origin/"+branch)
-    cmd.Dir = repoPath
-    err := cmd.Run()
-    return err == nil, nil
-}
+type RemoteRefKind int
+const (
+    RemoteRefKindNone RemoteRefKind = iota
+    RemoteRefKindRemoteTrackingBranch
+)
+
+plan, err := branchService.Resolve(ctx, repoPath, BranchResolutionRequest{
+    TargetBranch: "feature/foo",
+    BaseBranch:   "main",
+    Remote:       "origin",
+    Mode:         ResolutionModeCreateWorktree,
+})
 ```
 
 ## Workspace Lifecycle
@@ -576,10 +604,10 @@ log.Info().
 
 To add a new command:
 
-1. **Create Command File**: `cmd/cmds/cmd_<name>.go`
-2. **Implement Command Function**: `func New<Name>Command() *cobra.Command`
-3. **Add to Root Command**: Add to `rootCmd.AddCommand()` in `cmd/wsm/root.go`
-4. **Implement Business Logic**: Add methods to `WorkspaceManager` in `pkg/wsm/` if needed
+1. **Create Command File**: `cmd/wsm/cmds/<group>/<verb>.go`
+2. **Implement Glazed Command**: add command description + `Run(ctx, vals)`
+3. **Register in Group Root**: wire in `cmd/wsm/cmds/<group>/root.go`
+4. **Keep Business Logic in pkg**: add/update methods in `pkg/wsm/` or `pkg/wsm/workflows/`
 
 **Example: Fork and Merge Commands**
 
