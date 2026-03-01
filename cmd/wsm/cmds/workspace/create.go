@@ -9,6 +9,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
@@ -36,6 +37,16 @@ type CreateSettings struct {
 }
 
 var _ cmds.BareCommand = &CreateCommand{}
+var _ cmds.GlazeCommand = &CreateCommand{}
+
+type createExecutionResult struct {
+	Workspace           *wsm.Workspace
+	FinalBranch         string
+	AutoBranchGenerated bool
+	DryRun              bool
+	Interactive         bool
+	Cancelled           bool
+}
 
 func NewCreateCommand() (*CreateCommand, error) {
 	desc, err := wsmcmdcommon.BuildDescription(
@@ -63,45 +74,98 @@ If no branch is specified, a branch is auto-generated as:
 }
 
 func (c *CreateCommand) Run(ctx context.Context, vals *values.Values) error {
-	settings_ := &CreateSettings{}
-	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
-		return errors.Wrap(err, "failed to decode create settings")
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
 	}
 
-	mode := wsmcmdcommon.ResolveOutputMode(vals)
-	if !wsmcmdcommon.ShouldOutputHuman(mode) && !wsmcmdcommon.ShouldOutputData(mode) {
-		return wsmcmdcommon.ErrUnsupportedOutputMode(mode)
+	if result.Cancelled {
+		output.PrintInfo("Operation cancelled.")
+		return nil
+	}
+
+	workspace := result.Workspace
+
+	if result.AutoBranchGenerated {
+		output.PrintInfo("Using auto-generated branch: %s", result.FinalBranch)
+	}
+	if result.DryRun {
+		if err := showWorkspacePreview(workspace); err != nil {
+			return err
+		}
+	} else {
+		output.PrintSuccess("Workspace '%s' created successfully!", workspace.Name)
+		fmt.Println()
+		output.PrintHeader("Workspace Details")
+		fmt.Printf("  Path: %s\n", workspace.Path)
+		fmt.Printf("  Repositories: %s\n", strings.Join(getRepositoryNames(workspace.Repositories), ", "))
+		if workspace.Branch != "" {
+			fmt.Printf("  Branch: %s\n", workspace.Branch)
+		}
+		if workspace.GoWorkspace {
+			fmt.Printf("  Go workspace: yes (go.work created)\n")
+		}
+		if workspace.AgentMD != "" {
+			fmt.Printf("  AGENT.md: copied from %s\n", workspace.AgentMD)
+		}
+		fmt.Println()
+		output.PrintInfo("To start working:")
+		fmt.Printf("  cd %s\n", workspace.Path)
+	}
+
+	return nil
+}
+
+func (c *CreateCommand) RunIntoGlazeProcessor(
+	ctx context.Context,
+	vals *values.Values,
+	gp middlewares.Processor,
+) error {
+	result, err := c.execute(ctx, vals)
+	if err != nil {
+		return err
+	}
+
+	if result.Cancelled {
+		return nil
+	}
+
+	row := createResultToRow(result)
+	return gp.AddRow(ctx, row)
+}
+
+func (c *CreateCommand) execute(ctx context.Context, vals *values.Values) (*createExecutionResult, error) {
+	settings_ := &CreateSettings{}
+	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
+		return nil, errors.Wrap(err, "failed to decode create settings")
 	}
 
 	if settings_.WorkspaceNameArg == "" {
-		return errors.New("workspace name is required")
+		return nil, errors.New("workspace name is required")
 	}
 
 	repos := settings_.Repos
 	if settings_.Interactive {
 		wm, err := wsm.NewWorkspaceManager()
 		if err != nil {
-			return errors.Wrap(err, "failed to create workspace manager")
+			return nil, errors.Wrap(err, "failed to create workspace manager")
 		}
 		selectedRepos, err := selectRepositoriesInteractively(wm)
 		if err != nil {
 			if isUserCancelledError(err) {
-				if wsmcmdcommon.ShouldOutputHuman(mode) {
-					output.PrintInfo("Operation cancelled.")
-				}
-				return nil
+				return &createExecutionResult{Cancelled: true}, nil
 			}
-			return errors.Wrap(err, "interactive selection failed")
+			return nil, errors.Wrap(err, "interactive selection failed")
 		}
 		repos = selectedRepos
 	}
 
 	workflow, err := workflows.NewCreateWorkflow()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	result, err := workflow.Create(ctx, workflows.CreateRequest{
+	workflowResult, err := workflow.Create(ctx, workflows.CreateRequest{
 		Name:         settings_.WorkspaceNameArg,
 		Repos:        repos,
 		Branch:       settings_.Branch,
@@ -112,67 +176,36 @@ func (c *CreateCommand) Run(ctx context.Context, vals *values.Values) error {
 	})
 	if err != nil {
 		if isUserCancelledError(err) {
-			if wsmcmdcommon.ShouldOutputHuman(mode) {
-				output.PrintInfo("Operation cancelled.")
-			}
-			return nil
+			return &createExecutionResult{Cancelled: true}, nil
 		}
-		return err
+		return nil, err
 	}
 
-	workspace := result.Workspace
+	return &createExecutionResult{
+		Workspace:           workflowResult.Workspace,
+		FinalBranch:         workflowResult.FinalBranch,
+		AutoBranchGenerated: workflowResult.AutoBranchGenerated,
+		DryRun:              settings_.DryRun,
+		Interactive:         settings_.Interactive,
+	}, nil
+}
 
-	if wsmcmdcommon.ShouldOutputHuman(mode) {
-		if result.AutoBranchGenerated {
-			output.PrintInfo("Using auto-generated branch: %s", result.FinalBranch)
-		}
-		if settings_.DryRun {
-			if err := showWorkspacePreview(workspace); err != nil {
-				return err
-			}
-		} else {
-			output.PrintSuccess("Workspace '%s' created successfully!", workspace.Name)
-			fmt.Println()
-			output.PrintHeader("Workspace Details")
-			fmt.Printf("  Path: %s\n", workspace.Path)
-			fmt.Printf("  Repositories: %s\n", strings.Join(getRepositoryNames(workspace.Repositories), ", "))
-			if workspace.Branch != "" {
-				fmt.Printf("  Branch: %s\n", workspace.Branch)
-			}
-			if workspace.GoWorkspace {
-				fmt.Printf("  Go workspace: yes (go.work created)\n")
-			}
-			if workspace.AgentMD != "" {
-				fmt.Printf("  AGENT.md: copied from %s\n", workspace.AgentMD)
-			}
-			fmt.Println()
-			output.PrintInfo("To start working:")
-			fmt.Printf("  cd %s\n", workspace.Path)
-		}
-	}
-
-	if wsmcmdcommon.ShouldOutputData(mode) {
-		repoNames := getRepositoryNames(workspace.Repositories)
-		rows := []types.Row{types.NewRow(
-			types.MRP("workspace", workspace.Name),
-			types.MRP("workspace_path", workspace.Path),
-			types.MRP("repositories", repoNames),
-			types.MRP("repository_count", len(repoNames)),
-			types.MRP("branch", workspace.Branch),
-			types.MRP("base_branch", workspace.BaseBranch),
-			types.MRP("go_workspace", workspace.GoWorkspace),
-			types.MRP("agent_md", workspace.AgentMD),
-			types.MRP("dry_run", settings_.DryRun),
-			types.MRP("auto_branch_generated", result.AutoBranchGenerated),
-			types.MRP("final_branch", result.FinalBranch),
-			types.MRP("interactive", settings_.Interactive),
-		)}
-		if err := wsmcmdcommon.EmitRows(ctx, vals, rows); err != nil {
-			return errors.Wrap(err, "failed to emit create rows")
-		}
-	}
-
-	return nil
+func createResultToRow(result *createExecutionResult) types.Row {
+	repoNames := getRepositoryNames(result.Workspace.Repositories)
+	return types.NewRow(
+		types.MRP("workspace", result.Workspace.Name),
+		types.MRP("workspace_path", result.Workspace.Path),
+		types.MRP("repositories", repoNames),
+		types.MRP("repository_count", len(repoNames)),
+		types.MRP("branch", result.Workspace.Branch),
+		types.MRP("base_branch", result.Workspace.BaseBranch),
+		types.MRP("go_workspace", result.Workspace.GoWorkspace),
+		types.MRP("agent_md", result.Workspace.AgentMD),
+		types.MRP("dry_run", result.DryRun),
+		types.MRP("auto_branch_generated", result.AutoBranchGenerated),
+		types.MRP("final_branch", result.FinalBranch),
+		types.MRP("interactive", result.Interactive),
+	)
 }
 
 func NewCreateCobraCommand() (*cobra.Command, error) {
@@ -180,5 +213,5 @@ func NewCreateCobraCommand() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build create command: %w", err)
 	}
-	return wsmcmdcommon.BuildCobraCommand(command)
+	return wsmcmdcommon.BuildCobraCommandDualMode(command)
 }
