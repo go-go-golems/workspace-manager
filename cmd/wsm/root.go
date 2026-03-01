@@ -2,10 +2,13 @@ package main
 
 import (
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
+	"github.com/go-go-golems/glazed/pkg/help"
+	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	gitcmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/git"
 	jscmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/js"
 	registrycmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/registry"
 	workspacecmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/workspace"
+	wsmdocs "github.com/go-go-golems/workspace-manager/pkg/docs"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -76,6 +79,13 @@ func init() {
 		output.PrintError("Failed to register js commands: %v", err)
 		log.Fatal().Err(err).Msg("Failed to register js commands")
 	}
+
+	helpSystem := help.NewHelpSystem()
+	if err := wsmdocs.AddDocToHelpSystem(helpSystem); err != nil {
+		output.PrintError("Failed to load help docs: %v", err)
+		log.Fatal().Err(err).Msg("Failed to load help docs")
+	}
+	help_cmd.SetupCobraRootCommand(helpSystem, rootCmd)
 
 	carapace.Gen(rootCmd)
 }
