@@ -393,7 +393,14 @@ The script's final expression is its return value. When `--print-result` is
 true (the default), this value is printed as formatted output. Use
 `--output-mode data` for machine-readable output.
 
-See `wsm help wsm-js-api-and-runner` for the full API surface.
+High-level API groups available from `require("wsm")`:
+
+- `manager.registry` (`listRepositories`, `listWorkspaces`)
+- `manager.workspaces` (`create`, `list`, `status`, `info`, `add`, `remove`, `delete`, `fork`, `merge`)
+- `manager.git` (`status`, `commit`, `diff`, `log`, `branch.*`, `rebase.*`)
+- `manager.loadWorkspace(name)` for workspace-handle scoped methods
+
+See `wsm help wsm-js-api-and-runner` for full method contracts and input shapes.
 
 ---
 

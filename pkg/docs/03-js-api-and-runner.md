@@ -17,219 +17,200 @@ ShowPerDefault: true
 SectionType: Application
 ---
 
-WSM includes an embedded JavaScript runtime (powered by goja, a pure-Go
-ECMAScript 5.1 engine). This lets you write automation scripts that call WSM
-operations directly, without shelling out to the CLI.
+WSM includes an embedded JavaScript runtime (goja). Scripts can call workspace
+operations through `require("wsm")` without shelling out to CLI subcommands.
 
-This is useful when you need to chain multiple workspace operations together,
-query repository state programmatically, or build custom tooling on top of WSM.
-
-## Running a script
-
-Use `wsm runner` to execute a JavaScript file:
+## Running Scripts
 
 ```bash
 wsm runner my-script.js
 ```
 
-The script's final expression becomes its return value. By default, WSM prints
-this value as formatted output. To suppress it:
+Control result printing:
 
 ```bash
 wsm runner my-script.js --print-result=false
 ```
 
-For machine-readable output:
+Use machine-oriented rows:
 
 ```bash
-wsm runner my-script.js --output-mode data
+wsm runner my-script.js --output-mode data --output json --print-result=false
 ```
 
-## The `require("wsm")` module
+## Module Overview
 
-Inside `wsm runner`, the `wsm` module is pre-registered and available via
-`require("wsm")`. You do not need to install anything -- the module is built
-into the runner.
+Inside runner scripts:
 
 ```javascript
 const wsm = require("wsm");
-```
-
-### Top-level exports
-
-| Export | Type | Description |
-|--------|------|-------------|
-| `wsm.version` | string | Module version (currently `"0.1.0"`) |
-| `wsm.consts` | object | Branch resolution and remote constants |
-| `wsm.createManager(options)` | function | Create a Manager handle |
-| `wsm.discover(input)` | function | Discover repositories (convenience) |
-| `wsm.createWorkspace(input)` | function | Create a workspace (convenience) |
-| `wsm.status(input)` | function | Get workspace status (convenience) |
-
-The convenience functions (`discover`, `createWorkspace`, `status`) create a
-temporary manager under the hood. For scripts that make multiple calls, create a
-manager once and reuse it.
-
-### Creating a Manager
-
-```javascript
 const manager = wsm.createManager({ defaultJobs: 8 });
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `defaultJobs` | number | `8` | Default parallelism for operations |
+Top-level exports:
 
-### Manager methods
+| Export | Type | Notes |
+|---|---|---|
+| `wsm.version` | string | Current module version (`"0.2.0"`) |
+| `wsm.consts` | object | Branch/resolution constants |
+| `wsm.createManager(options)` | function | Returns a manager object |
+| `wsm.discover(input)` | function | Convenience alias |
+| `wsm.createWorkspace(input)` | function | Convenience alias |
+| `wsm.status(input)` | function | Convenience alias |
 
-The manager object exposes operations both as flat methods and as grouped
-namespaces:
+Manager options:
 
-**Flat methods** (direct on the manager):
+| Option | Type | Default | Notes |
+|---|---|---|---|
+| `defaultJobs` | number | `8` | Used when per-call `jobs` is omitted |
 
-| Method | Description |
-|--------|-------------|
-| `manager.discover(input)` | Discover repositories |
-| `manager.createWorkspace(input)` | Create a new workspace |
-| `manager.status(input)` | Get workspace status |
-| `manager.listWorkspaces()` | List all workspaces |
-| `manager.listRepositories(input)` | List discovered repositories |
+## Manager API Surface
 
-**Grouped namespaces** (alternative access pattern):
+Flat manager methods:
 
-| Namespace | Method | Same as |
-|-----------|--------|---------|
-| `manager.registry` | `.listRepositories(input)` | `manager.listRepositories` |
-| `manager.workspaces` | `.create(input)` | `manager.createWorkspace` |
-| `manager.workspaces` | `.list()` | `manager.listWorkspaces` |
-| `manager.workspaces` | `.status(input)` | `manager.status` |
-| `manager.git` | `.status(input)` | `manager.status` |
+| Method | Purpose |
+|---|---|
+| `manager.discover(input)` | Repository discovery |
+| `manager.createWorkspace(input)` | Workspace creation |
+| `manager.status(input)` | Workspace status |
+| `manager.listWorkspaces()` | Workspace registry listing |
+| `manager.listRepositories(input)` | Repository registry listing |
+| `manager.loadWorkspace(name)` | Returns workspace handle |
+| `manager.info(input)` | Workspace metadata |
+| `manager.addRepository(input)` | Add repo to workspace |
+| `manager.removeRepository(input)` | Remove repo from workspace |
+| `manager.deleteWorkspace(input)` | Delete workspace |
+| `manager.forkWorkspace(input)` | Fork workspace |
+| `manager.mergeWorkspace(input)` | Merge workspace |
+| `manager.commit(input)` | Commit operation |
+| `manager.diff(input)` | Diff operation |
+| `manager.log(input)` | Log operation |
 
-Both access patterns call the same underlying implementation. Use whichever
-reads better in your script.
+Namespaced aliases:
 
-### Input types
+| Namespace | Method |
+|---|---|
+| `manager.registry` | `listRepositories`, `listWorkspaces` |
+| `manager.workspaces` | `create`, `list`, `status`, `info`, `add`, `remove`, `delete`, `fork`, `merge` |
+| `manager.git` | `status`, `commit`, `diff`, `log` |
+| `manager.git.branch` | `create`, `switch`, `list` |
+| `manager.git.rebase` | `run`, `status`, `continue`, `abort` |
 
-**DiscoverInput**:
+Flat and namespaced methods route to shared closures in module code, so behavior
+stays aligned.
+
+## Workspace Handle API
+
+Load and operate in a workspace-scoped context:
 
 ```javascript
-manager.discover({
-  paths: ["/home/user/code"],
-  recursive: true,    // default: true
-  maxDepth: 3,        // default: 3
-});
+const ws = manager.loadWorkspace("my-workspace");
+const info = ws.info();
+const log = ws.git.log({ limit: 20, oneline: true });
 ```
 
-**CreateWorkspaceInput**:
+Handle methods:
+
+| Method | Purpose |
+|---|---|
+| `ws.name()` | Workspace name |
+| `ws.path()` | Workspace path |
+| `ws.info(input?)` | Workspace info |
+| `ws.status(input?)` | Workspace status |
+| `ws.addRepository(input)` | Add repo |
+| `ws.removeRepository(input)` | Remove repo |
+| `ws.delete(input?)` | Delete this workspace |
+| `ws.merge(input?)` | Merge this workspace |
+| `ws.git.*` | Scoped git/branch/rebase methods |
+
+## Common Inputs
+
+Examples (camelCase keys):
 
 ```javascript
+manager.discover({ paths: ["/work/repos"], recursive: true, maxDepth: 3 });
+
 manager.createWorkspace({
-  name: "my-feature",       // required
-  repos: ["wsm", "geppetto"], // required
-  branch: "",               // optional, auto-generated if empty
-  branchPrefix: "task",     // default prefix for auto-generation
-  baseBranch: "",           // optional, defaults to repo default
-  agentSource: "",          // optional, AGENT.md template path
-  dryRun: false,            // preview without creating
+  name: "ws-api-demo",
+  repos: ["repo1", "repo2"],
+  branchPrefix: "feat",
+  dryRun: false,
+});
+
+manager.workspaces.add({
+  workspaceName: "ws-api-demo",
+  repoName: "repo3",
+  force: true,
+});
+
+manager.git.commit({
+  workspaceName: "ws-api-demo",
+  message: "Apply coordinated update",
+  addAll: true,
+  push: false,
 });
 ```
 
-**StatusInput**:
+## Error and Batch Semantics
 
-```javascript
-manager.status({
-  workspaceName: "my-feature",
-  jobs: 4,                  // defaults to manager's defaultJobs
-});
+Validation errors are thrown as JS `TypeError` before workflow execution for
+required fields, for example:
+
+- `createWorkspace` requires `name` and `repos`.
+- `workspaces.add` requires `workspaceName` and `repoName`.
+- `workspaces.merge` requires `workspaceName`.
+- `git.commit` requires `message` or `template`.
+- `git.branch.create/switch` require `branchName`.
+
+Execution failures (workspace not found, git failures, etc.) throw regular JS
+errors from Go workflow/service errors.
+
+Batch-oriented operations return arrays/rows rather than throwing per
+repository row failure. Row objects contain success/error signals, for example:
+
+- branch operations: `results[]` with repository-level `success` and `error`.
+- rebase status/action: `rows[]` with repository-level state or action result.
+
+## Type Contract
+
+Completion-level declarations are maintained in:
+
+- `pkg/wsmjs/spec/wsm.d.ts.tmpl`
+- `pkg/wsmjs/spec/wsm.d.ts` (generated snapshot)
+
+Regenerate and validate with:
+
+```bash
+go generate ./pkg/wsmjs/spec
+go test ./pkg/wsmjs/spec
 ```
 
-**ListRepositoriesInput**:
-
-```javascript
-manager.listRepositories({
-  tags: ["go", "cli"],      // optional filter
-});
-```
-
-### Constants
-
-The `wsm.consts` object exposes branch resolution enums and remote defaults.
-These match the Go types in `pkg/wsm/branch/`.
-
-```javascript
-wsm.consts.resolutionMode.CREATE_WORKTREE
-wsm.consts.resolutionMode.ADD_REPOSITORY
-wsm.consts.resolutionMode.SYNC
-
-wsm.consts.resolutionStrategy.USE_LOCAL
-wsm.consts.resolutionStrategy.TRACK_REMOTE
-wsm.consts.resolutionStrategy.CREATE_FROM_BASE
-wsm.consts.resolutionStrategy.CREATE_FROM_HEAD
-
-wsm.consts.remoteRefKind.NONE
-wsm.consts.remoteRefKind.REMOTE_TRACKING_BRANCH
-
-wsm.consts.remote.ORIGIN  // "origin"
-```
-
-## Complete example
-
-This script discovers repositories, lists them, and returns a summary:
+## Example Script
 
 ```javascript
 const wsm = require("wsm");
+const manager = wsm.createManager({ defaultJobs: 4 });
 
-var manager = wsm.createManager({ defaultJobs: 4 });
-
-// List all discovered repositories
-var repos = manager.registry.listRepositories({ tags: [] });
-
-// List all workspaces
-var workspaces = manager.listWorkspaces();
+const repos = manager.registry.listRepositories({});
+const workspaces = manager.registry.listWorkspaces();
 
 ({
+  ok: true,
   version: wsm.version,
-  repositoryCount: repos.length,
-  workspaceCount: workspaces.length,
-  defaultRemote: wsm.consts.remote.ORIGIN,
+  repositories: repos.length,
+  workspaces: workspaces.length,
+  remote: wsm.consts.remote.ORIGIN,
 });
 ```
 
-Run it:
-
-```bash
-wsm runner summary.js
-```
-
-## Error handling
-
-API methods throw on error. In goja, thrown Go errors surface as JavaScript
-exceptions. A script that calls an operation on a non-existent workspace will
-terminate with an error message.
-
-For bulk operations (like status across multiple repos), the result object
-contains per-repository success/failure information rather than throwing on the
-first failure.
-
-## Design notes
-
-- The JS API routes through the same Go workflow/service layer as the CLI.
-  There are no separate code paths -- `manager.createWorkspace()` calls the
-  same `CreateWorkflow` that `wsm create` uses.
-- Result values are converted to plain JavaScript objects via JSON round-trip
-  for predictable types. Go structs with `time.Time` fields become ISO strings,
-  slices become arrays, etc.
-- The goja runtime is single-threaded. All operations run synchronously.
-  Parallelism within an operation (e.g. `--jobs`) is handled in Go, not JS.
-
 ## Troubleshooting
 
-| Problem | Cause | Solution |
+| Problem | Cause | Fix |
 |---|---|---|
-| `Cannot find module 'wsm'` | Script not run through the runner | Use `wsm runner <script.js>`, not `node` |
-| Empty or missing result | Script ends with a statement, not an expression | End the script with an object literal: `({ key: value })` |
-| Unexpected data in automations | Human output mode enabled | Use `--output-mode data --print-result=false` |
-| `createWorkspace requires name` | Missing required field | Pass `{ name: "...", repos: [...] }` |
+| `Cannot find module 'wsm'` | Script not run via runner | Use `wsm runner <script.js>` |
+| Missing result in data mode | Script ends with statement | End with expression object, for example `({ ok: true })` |
+| Validation `TypeError` | Required fields missing | Supply required input keys |
+| Unexpected mixed human output | Wrong mode | Use `--output-mode data --output json --print-result=false` |
 
 ## See Also
 

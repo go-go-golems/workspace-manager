@@ -265,6 +265,30 @@ output:
 wsm runner script.js --output-mode data --print-result=false
 ```
 
+### `TypeError` from JS API call
+
+The JS wrappers validate required inputs before running workflows. Common
+examples:
+
+- `createWorkspace` requires `name` and `repos`
+- `workspaces.add` requires `workspaceName` and `repoName`
+- `workspaces.merge` requires `workspaceName`
+- `git.commit` requires `message` or `template`
+- `git.branch.create/switch` require `branchName`
+
+**Fix**: pass all required fields in the method input object.
+
+### Script fails on one repository in batch operations
+
+Some APIs return per-repository row results instead of throwing for every row
+failure. Check row payloads for repository-level `success`/`error` fields:
+
+- `git.branch.create/switch` return `results[]`
+- `git.rebase.status/continue/abort` return `rows[]`
+
+If the call itself fails (for example workspace not found), a top-level error
+is thrown.
+
 ## Diagnostic commands reference
 
 Here are the most useful commands for debugging, all using `--output-mode data`
