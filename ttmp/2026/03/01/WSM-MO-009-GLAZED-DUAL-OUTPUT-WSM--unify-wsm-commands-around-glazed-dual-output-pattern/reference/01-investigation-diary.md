@@ -49,6 +49,8 @@ RelatedFiles:
       Note: Workspace status command migrated to Run + RunIntoGlazeProcessor in phase 13
     - Path: cmd/wsm/cmds/git/commit.go
       Note: Git commit command migrated to Run + RunIntoGlazeProcessor in phase 14
+    - Path: cmd/wsm/cmds/git/diff.go
+      Note: Git diff command migrated to Run + RunIntoGlazeProcessor in phase 15
     - Path: ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/design-doc/01-wsm-glazed-dual-output-implementation-plan.md
       Note: |-
         Primary implementation document produced in this work
@@ -59,7 +61,7 @@ ExternalSources:
     - /home/manuel/code/wesen/corporate-headquarters/glazed/pkg/doc/tutorials/05-build-first-command.md
     - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/glazed/cmd/examples/new-api-dual-mode/main.go
 Summary: Chronological record of ticket creation, command inventory, Glazed dual-output alignment decisions, and final implementation document authoring.
-LastUpdated: 2026-03-01T13:56:00-05:00
+LastUpdated: 2026-03-01T14:09:00-05:00
 WhatFor: Preserve investigation steps and reasoning for the WSM dual-output unification plan.
 WhenToUse: Use this diary to review what was inspected, why design decisions were made, and how to validate delivery artifacts.
 ---
@@ -1266,3 +1268,85 @@ For structured mode, I added an explicit guard that rejects `--interactive` so a
   - `go test ./cmd/wsm/... -count=1`
   - `git add cmd/wsm/cmds/git/commit.go`
   - `git commit --no-verify -m "wsm(git): migrate commit to Run+RunIntoGlazeProcessor"`
+
+## Step 15: Migrate `wsm diff` to split Run/Glaze interfaces
+
+I migrated `wsm diff` to split methods and removed command-local output-mode branching. The command now resolves workspace and diff once in `execute(...)`, renders terminal output in `Run`, and emits a single structured row via `RunIntoGlazeProcessor`.
+
+This keeps human output unchanged while aligning structured output with the Glazed processor path.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 5)
+
+**Assistant interpretation:** Continue through the git task list one command at a time with phase commits and documentation updates.
+
+**Inferred user intent:** Keep momentum through the git migration queue without skipping process discipline.
+
+**Commit (code):** `9139467cf6a61bb3ce45efcc80eae76ab602647a` — "wsm(git): migrate diff to Run+RunIntoGlazeProcessor"
+
+### What I did
+
+- Updated `cmd/wsm/cmds/git/diff.go`:
+  - Added `cmds.GlazeCommand` assertion.
+  - Added `diffExecutionResult`, shared `execute(...)`, and `diffResultToRow(...)`.
+  - Added `RunIntoGlazeProcessor(...)`.
+  - Switched wrapper to `BuildCobraCommandDualMode(...)`.
+  - Removed runtime output-mode checks and `EmitRows` calls.
+- Preserved behavior:
+  - workspace header and staged/repo filter notes
+  - no-change notice
+  - raw diff output rendering in human mode
+- Ran:
+  - `gofmt -w cmd/wsm/cmds/git/diff.go`
+  - `go test ./cmd/wsm/cmds/git -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+- Committed code phase.
+
+### Why
+
+- `diff` was next in git task order and is a straightforward single-result command for applying the split-interface pattern.
+
+### What worked
+
+- Migration compiled cleanly.
+- Existing human output remained intact while structured output became simpler.
+
+### What didn't work
+
+- N/A in this phase.
+
+### What I learned
+
+- Single-payload commands are efficient to migrate: one execution result struct and one row helper covers both output paths.
+
+### What was tricky to build
+
+- The tricky part was preserving no-change semantics (`empty` vs canonical no-change message) in both render paths.
+- Symptom: diff provider can return either empty string or explicit message.
+- Approach: normalize with `HasChanges` and keep original diff payload in structured row.
+
+### What warrants a second pair of eyes
+
+- Whether diff rows should include a normalized `no_changes_reason` field to make automation decisions explicit.
+
+### What should be done in the future
+
+- Continue with `wsm log`, then branch/rebase tasks and directory normalization.
+
+### Code review instructions
+
+- Start with:
+  - `cmd/wsm/cmds/git/diff.go`
+- Validate with:
+  - `go test ./cmd/wsm/cmds/git -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+
+### Technical details
+
+- Commands run:
+  - `gofmt -w cmd/wsm/cmds/git/diff.go`
+  - `go test ./cmd/wsm/cmds/git -count=1`
+  - `go test ./cmd/wsm/... -count=1`
+  - `git add cmd/wsm/cmds/git/diff.go`
+  - `git commit --no-verify -m "wsm(git): migrate diff to Run+RunIntoGlazeProcessor"`

@@ -204,3 +204,13 @@ Phase 14: migrated `wsm commit` to the Glazed split interface (`Run` + `RunIntoG
 
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/commit.go — Replaced runtime output-mode branching and EmitRows usage with split interface methods; glaze mode now rejects `--interactive`
 - /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/tasks.md — Git commit rewrite task marked complete
+
+
+## 2026-03-01
+
+Phase 15: migrated `wsm diff` to the Glazed split interface (`Run` + `RunIntoGlazeProcessor`) with shared execution and dual-mode cobra wrapper; committed as 9139467.
+
+### Related Files
+
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/cmd/wsm/cmds/git/diff.go — Replaced runtime output-mode branching and EmitRows usage with split interface methods
+- /home/manuel/workspaces/2025-08-23/refactor-workspace-manager/workspace-manager/ttmp/2026/03/01/WSM-MO-009-GLAZED-DUAL-OUTPUT-WSM--unify-wsm-commands-around-glazed-dual-output-pattern/tasks.md — Git diff rewrite task marked complete
