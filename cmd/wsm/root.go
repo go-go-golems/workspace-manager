@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
 	gitcmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/git"
+	jscmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/js"
 	registrycmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/registry"
 	workspacecmds "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/workspace"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
@@ -69,6 +70,11 @@ func init() {
 	if err := gitcmds.Register(rootCmd); err != nil {
 		output.PrintError("Failed to register git commands: %v", err)
 		log.Fatal().Err(err).Msg("Failed to register git commands")
+	}
+
+	if err := jscmds.Register(rootCmd); err != nil {
+		output.PrintError("Failed to register js commands: %v", err)
+		log.Fatal().Err(err).Msg("Failed to register js commands")
 	}
 
 	carapace.Gen(rootCmd)
