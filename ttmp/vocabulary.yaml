@@ -7,6 +7,16 @@ topics:
       description: Topic refactor
     - slug: workspace-manager
       description: Topic workspace-manager
+    - slug: glazed
+      description: Glazed command framework and CLI schema-based command authoring
+    - slug: api-design
+      description: API design and interface modeling work
+    - slug: geppetto
+      description: Geppetto runtime or module related work
+    - slug: goja
+      description: Goja JavaScript runtime and embedding topics
+    - slug: javascript
+      description: JavaScript API and integration topics
 docTypes:
     - slug: index
       description: Doc type index
