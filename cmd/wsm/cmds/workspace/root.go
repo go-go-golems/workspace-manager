@@ -47,6 +47,11 @@ func Register(root *cobra.Command) error {
 		return errors.Wrap(err, "failed to build merge command")
 	}
 
-	root.AddCommand(infoCmd, addCmd, removeCmd, statusCmd, createCmd, forkCmd, deleteCmd, mergeCmd)
+	pathCmd, err := NewPathCobraCommand()
+	if err != nil {
+		return errors.Wrap(err, "failed to build path command")
+	}
+
+	root.AddCommand(infoCmd, addCmd, removeCmd, statusCmd, createCmd, forkCmd, deleteCmd, mergeCmd, pathCmd)
 	return nil
 }
