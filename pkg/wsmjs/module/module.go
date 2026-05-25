@@ -24,13 +24,19 @@ type Options struct {
 	ManagerOptions service.ManagerOptions
 }
 
+// NewLoader returns the native wsm module loader for use with a require
+// registry or an xgoja provider wrapper.
+func NewLoader(opts Options) require.ModuleLoader {
+	mod := &module{opts: opts}
+	return mod.Loader
+}
+
 // Register registers the native wsm module on a require registry.
 func Register(reg *require.Registry, opts Options) {
 	if reg == nil {
 		return
 	}
-	mod := &module{opts: opts}
-	reg.RegisterNativeModule(ModuleName, mod.Loader)
+	reg.RegisterNativeModule(ModuleName, NewLoader(opts))
 }
 
 type module struct {
