@@ -1,0 +1,24 @@
+name: wsm-provider
+target:
+  kind: xgoja
+  output: dist/wsm-provider
+packages:
+  - id: workspace-manager
+    import: github.com/go-go-golems/workspace-manager/pkg/wsmjs/provider
+    version: v0.0.0
+    replace: ../../..
+runtimes:
+  main:
+    modules:
+      - package: workspace-manager
+        name: wsm
+        as: wsm
+        config:
+          defaultJobs: 2
+commands:
+  eval:
+    enabled: true
+    runtime: main
+  run:
+    enabled: true
+    runtime: main
