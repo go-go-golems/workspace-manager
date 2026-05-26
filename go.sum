@@ -107,6 +107,8 @@ github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dlclark/regexp2 v1.11.5 h1:Q/sSnsKerHeCkc/jSTNq1oCm7KiVgUMZRDUoRu0JQZQ=
 github.com/dlclark/regexp2 v1.11.5/go.mod h1:DHkYz0B9wPfa6wondMfaivmHpzrQ3v9q8cnmRbL6yW8=
+github.com/dop251/base64dec v0.0.0-20231022112746-c6c9f9a96217 h1:16iT9CBDOniJwFGPI41MbUDfEk74hFaKTqudrX8kenY=
+github.com/dop251/base64dec v0.0.0-20231022112746-c6c9f9a96217/go.mod h1:eIb+f24U+eWQCIsj9D/ah+MD9UP+wdxuqzsdLD+mhGM=
 github.com/dop251/goja v0.0.0-20260226184354-913bd86fb70c h1:hIlkLbQ+tYoUqlG42LnxwGcohL5jaGqD8mGeJWavm8A=
 github.com/dop251/goja v0.0.0-20260226184354-913bd86fb70c/go.mod h1:MxLav0peU43GgvwVgNbLAj1s/bSGboKkhuULvq/7hx4=
 github.com/dop251/goja_nodejs v0.0.0-20260212111938-1f56ff5bcf14 h1:3U8dTgyNBhEQ/GVw0jZW5q+93Zw2gAZPRWhJ9TwV3rM=
@@ -126,8 +128,8 @@ github.com/go-go-golems/clay v0.4.0 h1:8VeR+o3ah9P95TWLFtitSLabF567AzhjjoeYK87vE
 github.com/go-go-golems/clay v0.4.0/go.mod h1:8wx9hz+dUN4jodWN4CzfMqjBfcXyZ4X6DaJfFFAI8eE=
 github.com/go-go-golems/glazed v1.2.5 h1:URTJ6oxzjRAXLmuo7SrR8K/ZOrpGPIKVz9oW6mCvMSM=
 github.com/go-go-golems/glazed v1.2.5/go.mod h1:1oF2sFLSCHFJBGx7xQ/pIXI+9WLZhonD4U8X46AqQrM=
-github.com/go-go-golems/go-go-goja v0.4.17 h1:ntiNh16h9GP1hhiBYpk2o0HnSozIoF2YQpSmhh80KgY=
-github.com/go-go-golems/go-go-goja v0.4.17/go.mod h1:h2eI4uVtUFy7UdOmUWVwUgg3iLl3CHpyk3gEbOYvbJc=
+github.com/go-go-golems/go-go-goja v0.6.0 h1:O2nPhg3j4TzK2zOElnMVcyBIYqrHVfBgXiXmaQ82ntw=
+github.com/go-go-golems/go-go-goja v0.6.0/go.mod h1:h2eI4uVtUFy7UdOmUWVwUgg3iLl3CHpyk3gEbOYvbJc=
 github.com/go-jose/go-jose/v4 v4.1.4 h1:moDMcTHmvE6Groj34emNPLs/qtYXRVcd6S7NHbHz3kA=
 github.com/go-jose/go-jose/v4 v4.1.4/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
@@ -341,6 +343,8 @@ go.opentelemetry.io/otel/metric v1.41.0 h1:rFnDcs4gRzBcsO9tS8LCpgR0dxg4aaxWlJxCn
 go.opentelemetry.io/otel/metric v1.41.0/go.mod h1:xPvCwd9pU0VN8tPZYzDZV/BMj9CM9vs00GuBjeKhJps=
 go.opentelemetry.io/otel/trace v1.41.0 h1:Vbk2co6bhj8L59ZJ6/xFTskY+tGAbOnCtQGVVa9TIN0=
 go.opentelemetry.io/otel/trace v1.41.0/go.mod h1:U1NU4ULCoxeDKc09yCWdWe+3QoyweJcISEVa1RBzOis=
+go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
+go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 go.yaml.in/yaml/v3 v3.0.4 h1:tfq32ie2Jv2UxXFdLJdh3jXuOzWiL1fo0bu/FbuKpbc=
 go.yaml.in/yaml/v3 v3.0.4/go.mod h1:DhzuOOF2ATzADvBadXxruRBLzYTpT36CKvDb3+aBEFg=
 golang.org/x/crypto v0.51.0 h1:IBPXwPfKxY7cWQZ38ZCIRPI50YLeevDLlLnyC5wRGTI=
