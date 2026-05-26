@@ -149,10 +149,10 @@ func printReposHuman(repos []wsm.Repository, tags []string) error {
 		}
 
 		_, _ = fmt.Fprintf(&md, "## %s\n\n", repo.Name)
-		md.WriteString(fmt.Sprintf("- **Branch:** `%s`\n", branch))
-		md.WriteString(fmt.Sprintf("- **Path:** `%s`\n", repo.Path))
-		md.WriteString(fmt.Sprintf("- **Tags:** %s\n", tagsJoined))
-		md.WriteString(fmt.Sprintf("- **Remote:** `%s`\n\n", remote))
+		_, _ = fmt.Fprintf(&md, "- **Branch:** `%s`\n", branch)
+		_, _ = fmt.Fprintf(&md, "- **Path:** `%s`\n", repo.Path)
+		_, _ = fmt.Fprintf(&md, "- **Tags:** %s\n", tagsJoined)
+		_, _ = fmt.Fprintf(&md, "- **Remote:** `%s`\n\n", remote)
 	}
 
 	output.PrintMarkdown(md.String())
