@@ -58,7 +58,7 @@ func Execute() error {
 }
 
 func init() {
-	err := clay.InitGlazed("workspace-manager", rootCmd)
+	err := clay.InitGlazed("workspace-manager", rootCmd) //nolint:staticcheck // Existing workspace-manager bootstrap; migration is outside this xgoja rollout.
 	if err != nil {
 		output.PrintError("Failed to initialize configuration: %v", err)
 		log.Fatal().Err(err).Msg("Failed to initialize Glazed")

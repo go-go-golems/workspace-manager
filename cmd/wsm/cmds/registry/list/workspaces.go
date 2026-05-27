@@ -107,7 +107,7 @@ func printWorkspacesHuman(workspaces []wsm.Workspace) error {
 	}
 
 	var md strings.Builder
-	md.WriteString(fmt.Sprintf("# Workspaces (%d)\n\n", len(workspaces)))
+	_, _ = fmt.Fprintf(&md, "# Workspaces (%d)\n\n", len(workspaces))
 
 	for _, workspace := range workspaces {
 		repoNames := make([]string, len(workspace.Repositories))
@@ -131,12 +131,12 @@ func printWorkspacesHuman(workspaces []wsm.Workspace) error {
 			baseBranch = "-"
 		}
 
-		md.WriteString(fmt.Sprintf("## %s\n\n", workspace.Name))
-		md.WriteString(fmt.Sprintf("- **Branch:** `%s`\n", branch))
-		md.WriteString(fmt.Sprintf("- **Path:** `%s`\n", workspace.Path))
-		md.WriteString(fmt.Sprintf("- **Repos:** %d (%s)\n", len(workspace.Repositories), repos))
-		md.WriteString(fmt.Sprintf("- **Base:** `%s`\n", baseBranch))
-		md.WriteString(fmt.Sprintf("- **Created:** `%s`\n\n", workspace.Created.Format("2006-01-02 15:04")))
+		_, _ = fmt.Fprintf(&md, "## %s\n\n", workspace.Name)
+		_, _ = fmt.Fprintf(&md, "- **Branch:** `%s`\n", branch)
+		_, _ = fmt.Fprintf(&md, "- **Path:** `%s`\n", workspace.Path)
+		_, _ = fmt.Fprintf(&md, "- **Repos:** %d (%s)\n", len(workspace.Repositories), repos)
+		_, _ = fmt.Fprintf(&md, "- **Base:** `%s`\n", baseBranch)
+		_, _ = fmt.Fprintf(&md, "- **Created:** `%s`\n\n", workspace.Created.Format("2006-01-02 15:04"))
 	}
 
 	output.PrintMarkdown(md.String())

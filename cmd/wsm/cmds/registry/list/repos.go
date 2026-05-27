@@ -123,9 +123,9 @@ func printReposHuman(repos []wsm.Repository, tags []string) error {
 	}
 
 	var md strings.Builder
-	md.WriteString(fmt.Sprintf("# Repositories (%d)\n\n", len(repos)))
+	_, _ = fmt.Fprintf(&md, "# Repositories (%d)\n\n", len(repos))
 	if len(tags) > 0 {
-		md.WriteString(fmt.Sprintf("> Filter tags: `%s`\n\n", strings.Join(tags, ", ")))
+		_, _ = fmt.Fprintf(&md, "> Filter tags: `%s`\n\n", strings.Join(tags, ", "))
 	}
 
 	for _, repo := range repos {
@@ -148,11 +148,11 @@ func printReposHuman(repos []wsm.Repository, tags []string) error {
 			remote = remote[:93] + "..."
 		}
 
-		md.WriteString(fmt.Sprintf("## %s\n\n", repo.Name))
-		md.WriteString(fmt.Sprintf("- **Branch:** `%s`\n", branch))
-		md.WriteString(fmt.Sprintf("- **Path:** `%s`\n", repo.Path))
-		md.WriteString(fmt.Sprintf("- **Tags:** %s\n", tagsJoined))
-		md.WriteString(fmt.Sprintf("- **Remote:** `%s`\n\n", remote))
+		_, _ = fmt.Fprintf(&md, "## %s\n\n", repo.Name)
+		_, _ = fmt.Fprintf(&md, "- **Branch:** `%s`\n", branch)
+		_, _ = fmt.Fprintf(&md, "- **Path:** `%s`\n", repo.Path)
+		_, _ = fmt.Fprintf(&md, "- **Tags:** %s\n", tagsJoined)
+		_, _ = fmt.Fprintf(&md, "- **Remote:** `%s`\n\n", remote)
 	}
 
 	output.PrintMarkdown(md.String())
