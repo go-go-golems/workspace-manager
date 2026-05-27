@@ -1,5 +1,7 @@
 package branch
 
+//glazedclilint:file-ignore branch helper reads optional environment override outside command flag parsing
+
 import (
 	"os"
 	"strings"
