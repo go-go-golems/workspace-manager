@@ -11,7 +11,7 @@ require (
 	github.com/dop251/goja v0.0.0-20260226184354-913bd86fb70c
 	github.com/dop251/goja_nodejs v0.0.0-20260212111938-1f56ff5bcf14
 	github.com/go-go-golems/clay v0.4.11
-	github.com/go-go-golems/glazed v1.3.4
+	github.com/go-go-golems/glazed v1.3.5
 	github.com/go-go-golems/go-go-goja v0.6.0
 	github.com/mattn/go-isatty v0.0.20
 	github.com/pkg/errors v0.9.1
