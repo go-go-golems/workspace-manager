@@ -115,3 +115,24 @@ jobs:
           TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
           FURY_TOKEN: ${{ secrets.FURY_TOKEN }}
+
+  publish-docs:
+    name: Publish docs
+    permissions:
+      contents: read
+      id-token: write
+    needs:
+      - goreleaser-merge
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    uses: go-go-golems/infra-tooling/.github/workflows/publish-docsctl.yml@main
+    with:
+      package_name: workspace-manager
+      package_version: ${{ github.ref_name }}
+      export_command: GOWORK=off go run ./cmd/wsm help export --format sqlite --output-path .docsctl/help.sqlite
+      sqlite_path: .docsctl/help.sqlite
+      docsctl_install_command: go install github.com/go-go-golems/glazed/cmd/docsctl@latest
+      vault_role: docsctl-workspace-manager-publisher
+      vault_token_role: docsctl-workspace-manager-publisher
+      registry_url: https://docs-registry.yolo.scapegoat.dev
+      verify_packages_url: https://docs.yolo.scapegoat.dev/api/packages
+      verify_publish: true
