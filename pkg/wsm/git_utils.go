@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	branchsvc "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
-	"github.com/rs/zerolog/log"
 )
 
 // getGitCurrentBranch returns the current branch name.

@@ -1,0 +1,3 @@
+package workspacemanager
+
+//go:generate go tool logcopter-gen -area-prefix go-go-golems.workspace-manager -strip-prefix github.com/go-go-golems/workspace-manager ./cmd/... ./pkg/...

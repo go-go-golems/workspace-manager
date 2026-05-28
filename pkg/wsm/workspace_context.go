@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 // WorkspaceContextService centralizes workspace detection and loading behavior.

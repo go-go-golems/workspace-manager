@@ -13,7 +13,6 @@ import (
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
 	branchsvc "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 // MergeRequest captures merge execution options.
