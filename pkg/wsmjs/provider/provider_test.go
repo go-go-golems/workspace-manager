@@ -10,7 +10,7 @@ import (
 )
 
 func TestRegisterProvider(t *testing.T) {
-	registry := providerapi.NewRegistry()
+	registry := providerapi.NewProviderRegistry()
 	if err := Register(registry); err != nil {
 		t.Fatalf("register provider: %v", err)
 	}
@@ -24,7 +24,7 @@ func TestRegisterProvider(t *testing.T) {
 }
 
 func TestModuleLoaderInstallsWsmExports(t *testing.T) {
-	registry := providerapi.NewRegistry()
+	registry := providerapi.NewProviderRegistry()
 	if err := Register(registry); err != nil {
 		t.Fatalf("register provider: %v", err)
 	}
@@ -32,7 +32,7 @@ func TestModuleLoaderInstallsWsmExports(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing module")
 	}
-	loader, err := mod.New(providerapi.ModuleSetupContext{
+	loader, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{
 		Name:   wsmmodule.ModuleName,
 		As:     wsmmodule.ModuleName,
 		Config: json.RawMessage(`{"defaultJobs": 4}`),
@@ -57,7 +57,7 @@ func TestModuleLoaderInstallsWsmExports(t *testing.T) {
 }
 
 func TestInvalidConfig(t *testing.T) {
-	registry := providerapi.NewRegistry()
+	registry := providerapi.NewProviderRegistry()
 	if err := Register(registry); err != nil {
 		t.Fatalf("register provider: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestInvalidConfig(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing module")
 	}
-	if _, err := mod.New(providerapi.ModuleSetupContext{Config: json.RawMessage(`{"defaultJobs": -1}`)}); err == nil {
+	if _, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{Config: json.RawMessage(`{"defaultJobs": -1}`)}); err == nil {
 		t.Fatalf("expected invalid defaultJobs error")
 	}
 }
