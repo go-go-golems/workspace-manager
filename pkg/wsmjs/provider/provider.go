@@ -28,13 +28,13 @@ var configSchema = json.RawMessage(`{
   "additionalProperties": false
 }`)
 
-func Register(registry *providerapi.Registry) error {
+func Register(registry *providerapi.ProviderRegistry) error {
 	return registry.Package(PackageID, providerapi.Module{
 		Name:         wsmmodule.ModuleName,
 		DefaultAs:    wsmmodule.ModuleName,
 		Description:  "Workspace Manager automation module exposed as require(\"wsm\").",
 		ConfigSchema: configSchema,
-		New: func(ctx providerapi.ModuleContext) (require.ModuleLoader, error) {
+		NewModuleFactory: func(ctx providerapi.ModuleSetupContext) (require.ModuleLoader, error) {
 			opts, err := optionsFromConfig(ctx.Config)
 			if err != nil {
 				return nil, fmt.Errorf("workspace-manager provider config: %w", err)

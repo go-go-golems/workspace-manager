@@ -11,8 +11,8 @@ require (
 	github.com/dop251/goja v0.0.0-20260226184354-913bd86fb70c
 	github.com/dop251/goja_nodejs v0.0.0-20260212111938-1f56ff5bcf14
 	github.com/go-go-golems/clay v0.4.11
-	github.com/go-go-golems/glazed v1.3.5
-	github.com/go-go-golems/go-go-goja v0.7.0
+	github.com/go-go-golems/glazed v1.3.6
+	github.com/go-go-golems/go-go-goja v0.8.3
 	github.com/go-go-golems/logcopter v0.1.0
 	github.com/mattn/go-isatty v0.0.20
 	github.com/pkg/errors v0.9.1
@@ -90,6 +90,7 @@ require (
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
+	github.com/mattn/go-pointer v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.19 // indirect
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
@@ -119,6 +120,8 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tiendc/go-deepcopy v1.7.1 // indirect
 	github.com/tj/go-naturaldate v1.3.0 // indirect
+	github.com/tree-sitter/go-tree-sitter v0.25.0 // indirect
+	github.com/tree-sitter/tree-sitter-javascript v0.25.0 // indirect
 	github.com/ugorji/go/codec v1.3.0 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.30 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect

@@ -32,7 +32,7 @@ func TestModuleLoaderInstallsWsmExports(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing module")
 	}
-	loader, err := mod.New(providerapi.ModuleContext{
+	loader, err := mod.New(providerapi.ModuleSetupContext{
 		Name:   wsmmodule.ModuleName,
 		As:     wsmmodule.ModuleName,
 		Config: json.RawMessage(`{"defaultJobs": 4}`),
@@ -65,7 +65,7 @@ func TestInvalidConfig(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing module")
 	}
-	if _, err := mod.New(providerapi.ModuleContext{Config: json.RawMessage(`{"defaultJobs": -1}`)}); err == nil {
+	if _, err := mod.New(providerapi.ModuleSetupContext{Config: json.RawMessage(`{"defaultJobs": -1}`)}); err == nil {
 		t.Fatalf("expected invalid defaultJobs error")
 	}
 }
