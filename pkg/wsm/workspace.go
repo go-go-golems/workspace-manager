@@ -25,7 +25,8 @@ type WorkspaceManager struct {
 	branches     branchsvc.Service
 }
 
-func getRegistryPath() (string, error) {
+// GetRegistryPath returns the path to the workspace-manager registry file.
+func GetRegistryPath() (string, error) {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
@@ -40,7 +41,7 @@ func NewWorkspaceManager() (*WorkspaceManager, error) {
 		return nil, errors.Wrap(err, "failed to load config")
 	}
 
-	registryPath, err := getRegistryPath()
+	registryPath, err := GetRegistryPath()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get registry path")
 	}

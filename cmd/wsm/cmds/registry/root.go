@@ -13,10 +13,20 @@ func Register(root *cobra.Command) error {
 		return errors.Wrap(err, "failed to build discover command")
 	}
 
+	validateCmd, err := NewValidateCobraCommand()
+	if err != nil {
+		return errors.Wrap(err, "failed to build validate command")
+	}
+
+	pruneCmd, err := NewPruneCobraCommand()
+	if err != nil {
+		return errors.Wrap(err, "failed to build prune command")
+	}
+
 	if err := listcmd.Register(root); err != nil {
 		return errors.Wrap(err, "failed to register list commands")
 	}
 
-	root.AddCommand(discoverCmd)
+	root.AddCommand(discoverCmd, validateCmd, pruneCmd)
 	return nil
 }
