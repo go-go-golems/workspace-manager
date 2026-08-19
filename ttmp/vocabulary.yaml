@@ -25,6 +25,8 @@ topics:
       description: Workspace forking operations
     - slug: status
       description: Workspace status reporting
+    - slug: cli
+      description: Command-line interface commands and flags
 docTypes:
     - slug: index
       description: Doc type index
