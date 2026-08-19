@@ -123,7 +123,47 @@ func ResolveBaseRef(
 	return res, nil
 }
 
-// DistinctBranches returns the sorted unique branch names from a repo->branch map.
+// DefaultBaseBranchForRepo resolves a repository's effective default base branch
+// using the git client: first the remote's advertised default (via
+// `git symbolic-ref refs/remotes/<remote>/HEAD`), then a probe of common
+// candidates (main, master, develop) via RemoteTrackingBranchExists. Returns
+// "" if neither yields a result (caller falls back to env/main).
+//
+// This belongs in the branch layer so both discovery (persistence) and status
+// (resolution) share one definition of "the repo's default".
+func DefaultBaseBranchForRepo(
+	ctx context.Context,
+	gc gitclient.GitClient,
+	repoPath string,
+	remote RemoteName,
+) (string, error) {
+	r := remote
+	if r == "" {
+		r = DefaultRemoteName
+	}
+	h, err := gc.Open(ctx, repoPath)
+	if err != nil {
+		return "", errors.Wrap(err, "open repository")
+	}
+
+	// 1) remote-advertised default.
+	if def, err := gc.DefaultBranch(ctx, h, string(r)); err == nil && def != "" {
+		return def, nil
+	}
+
+	// 2) probe common candidates in order (documented heuristic).
+	for _, cand := range []string{"main", "master", "develop"} {
+		exists, err := gc.RemoteTrackingBranchExists(ctx, h, string(r), cand)
+		if err != nil {
+			return "", errors.Wrap(err, "probe candidate "+cand)
+		}
+		if exists {
+			return cand, nil
+		}
+	}
+	return "", nil
+}
+
 // Used by callers building divergence prompts.
 func DistinctBranches(branches map[string]string) []string {
 	seen := make(map[string]struct{}, len(branches))

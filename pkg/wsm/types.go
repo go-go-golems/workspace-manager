@@ -17,6 +17,12 @@ type Repository struct {
 	LastCommit    string    `json:"last_commit"`
 	LastUpdated   time.Time `json:"last_updated"`
 	Categories    []string  `json:"categories"`
+	// DefaultBaseBranch is the remote's advertised default branch name
+	// (e.g. "main", "master", "develop"), discovered via
+	// `git symbolic-ref refs/remotes/origin/HEAD` with a main/master/develop
+	// probe fallback. Used by status resolution when no explicit per-repo or
+	// workspace base is configured. Empty means undiscovered.
+	DefaultBaseBranch string `json:"default_base_branch,omitempty"`
 }
 
 // RepositoryRegistry stores discovered repositories

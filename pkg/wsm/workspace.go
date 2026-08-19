@@ -1521,10 +1521,11 @@ type WorkspaceMetadata struct {
 
 // RepositoryMetadata represents repository information in the metadata
 type RepositoryMetadata struct {
-	Name         string   `json:"name"`
-	Path         string   `json:"path"`
-	Categories   []string `json:"categories"`
-	WorktreePath string   `json:"worktreePath"`
+	Name              string   `json:"name"`
+	Path              string   `json:"path"`
+	Categories        []string `json:"categories"`
+	WorktreePath      string   `json:"worktreePath"`
+	DefaultBaseBranch string   `json:"defaultBaseBranch,omitempty"`
 }
 
 // createWorkspaceMetadata creates a wsm.json file with workspace metadata
@@ -1539,10 +1540,11 @@ func (wm *WorkspaceManager) createWorkspaceMetadata(workspace *Workspace) error 
 	repoMetadata := make([]RepositoryMetadata, len(workspace.Repositories))
 	for i, repo := range workspace.Repositories {
 		repoMetadata[i] = RepositoryMetadata{
-			Name:         repo.Name,
-			Path:         repo.Path,
-			Categories:   repo.Categories,
-			WorktreePath: filepath.Join(workspace.Path, repo.Name),
+			Name:              repo.Name,
+			Path:              repo.Path,
+			Categories:        repo.Categories,
+			WorktreePath:      filepath.Join(workspace.Path, repo.Name),
+			DefaultBaseBranch: repo.DefaultBaseBranch,
 		}
 	}
 
