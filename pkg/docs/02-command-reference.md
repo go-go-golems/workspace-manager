@@ -142,6 +142,39 @@ wsm status --untracked --jobs 4
 | `--untracked` | bool | `false` | Include untracked files |
 | `--jobs` | int | `1` | Parallel repository processing |
 
+The detailed table includes a `BASE` column showing the resolved comparison
+ref and its source, e.g. `origin/main (remote-tracking)` or
+`task/deploy-dev-indexer (local)`. The `MERGED` and `REBASE` columns are
+honest about the outcome: `✓`/`-`/`⚠️` only when a real comparison ran;
+`?` when the base ref could not be resolved (unknown); `!` when git itself
+failed (error). The reason appears in the `BASE` column and the JSON fields
+`base`/`base_ref`/`base_source`/`base_status`/`base_reason`.
+
+### `wsm set-base <repo>`
+
+### `wsm set-base <repo>`
+
+Set the base (upstream) branch `wsm status` compares against for a single
+repository. Two flag-selected stores, never mirrored: the default writes the
+in-workspace `.wsm/wsm.json` (workspace-specific); `--global` writes the
+config-dir workspace JSON. The in-workspace override takes precedence at load
+time (local beats global).
+
+```bash
+wsm set-base goldeneaglecoin.com --branch develop --fetch
+wsm set-base goldeneaglecoin.com --branch develop --global
+wsm set-base repo1 --branch main --remote upstream
+```
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `repo-name` | argument | *(required)* | Repository name |
+| `--workspace` | string | *(auto-detect)* | Workspace name |
+| `--branch` | string | *(required)* | Base branch to compare against |
+| `--remote` | string | `origin` | Remote for the base |
+| `--global` | bool | `false` | Write config-dir JSON instead of `.wsm/wsm.json` |
+| `--fetch` | bool | `false` | `git fetch <remote> <branch>` in the worktree first |
+
 ### `wsm add <workspace> <repo>`
 
 Add a repository to an existing workspace.

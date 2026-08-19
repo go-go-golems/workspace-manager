@@ -23,10 +23,27 @@ WSM now uses an explicit branch abstraction layer in `pkg/wsm/branch`:
 
 - `BranchService` is the single policy engine for branch decisions.
 - Resolution uses typed enums: `ResolutionMode`, `ResolutionStrategy`, and `RemoteRefKind`.
-- Git backend APIs are explicit primitives (`ListLocalBranches`, `ListRemoteTrackingBranches`, `LocalBranchExists`, `RemoteTrackingBranchExists`).
+- Git backend APIs are explicit primitives (`ListLocalBranches`, `ListRemoteTrackingBranches`, `LocalBranchExists`, `RemoteTrackingBranchExists`, `DefaultBranch`).
 - Branch policy no longer relies on ambiguous mixed branch lists or string-only heuristics.
 
 This behavior is intentionally breaking compared to older internal branch helper semantics.
+
+## Status Base Resolution
+
+`wsm status` compares each repo's HEAD against a *base* branch to report
+`is_merged`/`needs_rebase`. The base is resolved through one precedence function
+(`ResolveBaseBranchForRepo`): in-workspace per-repo override > config-dir
+per-repo override > workspace base > discovered default (`git symbolic-ref
+refs/remotes/origin/HEAD`) > `WSM_BASE_BRANCH` env > `main`. The resolved ref
+prefers the remote-tracking branch and falls back to the local branch, so
+forked workspaces with a local-only base still produce a real comparison
+instead of a silent false. The status table shows the resolved ref in a `BASE`
+column and honest `?`/`!` glyphs when the comparison could not run.
+
+- `wsm set-base <repo> --branch <branch>` sets a per-repo override (default:
+  in-workspace `.wsm/wsm.json`; `--global` writes the config-dir JSON).
+- `wsm discover` records each repo's remote-advertised default branch.
+
 
 ## Installation
 
