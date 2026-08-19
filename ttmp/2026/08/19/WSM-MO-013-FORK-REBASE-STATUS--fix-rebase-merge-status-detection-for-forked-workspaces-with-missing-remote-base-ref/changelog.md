@@ -103,3 +103,12 @@ Step 8: Phase E4 — wsm set-base command default in-workspace / --global config
 
 - /home/manuel/workspaces/2026-08-19/fix-git-rebase-bug/workspace-manager/cmd/wsm/cmds/workspace/set_base.go — E4
 
+
+## 2026-08-19
+
+Step 9: Phase E5 — status table BASE column + honest MERGED/REBASE (?/!) + additive JSON base fields (commit c90666c). Smoke-tested end-to-end on fix-git-rebase-bug workspace; reverted test mutation to leave clean tree for E6.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-08-19/fix-git-rebase-bug/workspace-manager/cmd/wsm/cmds/workspace/status.go — E5
+

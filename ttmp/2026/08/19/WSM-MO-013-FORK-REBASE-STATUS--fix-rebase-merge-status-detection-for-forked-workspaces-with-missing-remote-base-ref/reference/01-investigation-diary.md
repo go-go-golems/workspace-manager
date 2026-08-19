@@ -15,6 +15,10 @@ Owners: []
 RelatedFiles:
     - Path: repo://cmd/wsm/cmds/workspace/set_base.go
       Note: wsm set-base command default/--global (E4, commit 925c327)
+    - Path: repo://cmd/wsm/cmds/workspace/status.go
+      Note: BASE column + honest MERGED/REBASE glyphs + JSON base fields (E5, commit c90666c)
+    - Path: repo://cmd/wsm/cmds/workspace/status_render_test.go
+      Note: rendering tests for baseString/getMerged/getRebase/StatusToRows (E5, commit c90666c)
     - Path: repo://pkg/wsm/branch/status_resolve.go
       Note: |-
         ResolveBaseRef resolver + BaseRefResolution (Step 4, commit a58504b)
@@ -41,6 +45,8 @@ LastUpdated: 2026-08-19T10:32:00-04:00
 WhatFor: Resuming or reviewing the investigation of WSM-MO-013.
 WhenToUse: Read before continuing work on the forked-workspace status bug.
 ---
+
+
 
 
 
@@ -491,3 +497,62 @@ Mirroring to both stores creates two sources of truth that drift; flag-selection
 ### Technical details
 - `wsm set-base <repo> --branch develop --fetch` → writes `.wsm/wsm.json` RepositoryMetadata.BaseBranch="develop", then `git fetch origin develop` in `<ws>/<repo>`.
 - `wsm set-base <repo> --branch develop --global` → writes config-dir `Repository.BaseBranch="develop"` via `SaveWorkspace`; `.wsm/wsm.json` untouched.
+
+## Step 9: Phase E5 — surface BASE column + honest MERGED/REBASE in status
+
+This step made the status table and JSON output show which branch the comparison
+ran against and stopped printing confident booleans when the truth is "couldn't
+compare". It is the user-visible surface for Q1 (why did it fail) and Q2 (which
+branch was it compared against).
+
+**Commit (code):** c90666c — ":sparkles: E5: surface BASE column + honest MERGED/REBASE in status (Q1/Q2)"
+
+### Prompt Context
+
+**User prompt (verbatim):** "do E5, but then let me test E6 myself."
+
+**Assistant interpretation:** Implement the status table/JSON rendering of the Base provenance (E5); leave the real-workspace validation (E6) for the user to do manually.
+
+**Inferred user intent:** See the resolved base + reason in `wsm status`, with honest glyphs, so a human can diagnose a forked or misconfigured workspace at a glance.
+
+### What I did
+- `cmd/wsm/cmds/workspace/status.go`:
+  - `printStatusDetailed` gains a `BASE` column (between BRANCH and STATUS) rendered by new `baseString()`: `"origin/develop (remote-tracking)"` / `"task/deploy-dev-indexer (local)"` / `"? <reason>"` (unknown) / `"! <reason>"` (error).
+  - `getMergedString`/`getRebaseString` now switch on `Base.Status`: `"✓"`/`"-"` or `"⚠️"`/`"✓"` only when `BaseResolved`; `"?"` when `BaseUnknown`; `"!"` when `BaseError`. The old code returned a confident `"-"`/`"✓"` for a swallowed error — this is the user-visible half of the bug.
+  - `statusToRows` emits additive JSON fields: `base`, `base_ref`, `base_source`, `base_status`, `base_reason` (existing `is_merged`/`needs_rebase` kept).
+- `cmd/wsm/cmds/workspace/status_render_test.go`: table-driven tests for `baseString`/`getMergedString`/`getRebaseString` across all three `Base.Status` values, plus `TestStatusToRows_IncludesBaseFields` asserting the new JSON fields are present.
+
+### Why
+The `Base` struct (E1) carries the provenance but nothing rendered it; without E5 the user still sees a confident `false`. The `BASE` column answers Q2 (which branch) and the `?`/`!` glyphs answer Q1 (why it failed) without requiring the user to read debug logs.
+
+### What worked
+- Smoke-tested on this very workspace: `wsm status` shows `workspace-manager  task/fix-git-rebase-bug  origin/main (remote-tracking)  clean  -  ✓  -  ✓` — the BASE column renders the resolved ref + source, and `set-base workspace-manager --branch task/fix-git-rebase-bug` then showed `task/fix-git-rebase-bug (local)` with `MERGED ✓` (HEAD is the base), proving the full E1→E5 chain end-to-end.
+- JSON output confirmed to carry `base`, `base_ref`, `base_source`, `base_status`, `base_reason` alongside the existing bools.
+
+### What didn't work
+- First `TestStatusToRows_IncludesBaseFields` used `row.Get(key)` as a single value; `types.Row.Get` returns `(GenericCellValue, bool)` (two values). Fixed to capture both and format via `fmt.Sprintf("%v", v)`.
+- `GenericCellValue` is `interface{}` with no `String()` method; `v.String()` failed to compile. Used `fmt.Sprintf("%v", v)` instead.
+
+### What I learned
+- `glazed`'s `types.Row.Get` is a two-return `(value, present)` API, not a single-value getter — easy to misremember coming from map idioms.
+- The info log line (`ℹ Detected workspace: ...`) is printed to stdout *before* the JSON array in glaze mode, so a naive `grep` of the JSON can miss fields; parse the array, not the raw stream.
+
+### What was tricky to build
+- Column ordering in the tabwriter: inserting `BASE` between `BRANCH` and `STATUS` required updating both the header and the `Fprintf` format string + arg order together, else columns misalign. Kept the separator row dashes in sync.
+- Keeping the new JSON fields additive (no rename/removal of `is_merged`/`needs_rebase`) so existing consumers (integration tests parse `is_merged`/`needs_rebase`) keep working — verified by the full suite staying green.
+
+### What warrants a second pair of eyes
+- The `baseString` `default` case returns `"?"`; confirm no `BaseComparisonStatus` value is ever produced outside resolved/unknown/error (currently only those three exist, so it's defensive only).
+- `getMergedString`/`getRebaseString` for `BaseUnknown` return `"?"` — verify this is the desired glyph vs e.g. `"-"` with a footnote. The design doc (E2) chose `"?"` for honesty; a user testing E6 should confirm it reads well.
+
+### What should be done in the future
+- E6 (user-driven): validate on the real `ragkit-coinvault-mysql` workspace and confirm no `exit status 128` debug logs remain; the forked repos should show their local base in the BASE column.
+- Consider a `--verbose`/`wsm show-base` that prints the resolved precedence *layer* (workspace/global/discovered/default) per repo, to make the 6-layer order auditable at runtime — currently only the ref+source show, not which precedence layer won.
+
+### Code review instructions
+- Start at `cmd/wsm/cmds/workspace/status.go` (`baseString`, `getMergedString`, `getRebaseString`, `statusToRows`, `printStatusDetailed`).
+- Validate: `GOTOOLCHAIN=auto go test ./cmd/wsm/cmds/workspace/ -run 'BaseString|Merged|Rebase|StatusToRows' -v`; then `go build -o /tmp/wsm ./cmd/wsm && /tmp/wsm status`.
+
+### Technical details
+- BASE column render: `BaseResolved` -> `"<ref> (<source>)"`; `BaseUnknown` -> `"? <reason>"`; `BaseError` -> `"! <reason>"`.
+- Smoke test reverted the `.wsm/wsm.json` `baseBranch` it wrote, so the workspace is left clean for the user's E6 run.
