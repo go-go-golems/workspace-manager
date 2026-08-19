@@ -439,6 +439,133 @@ func (wm *WorkspaceManager) SaveWorkspace(workspace *Workspace) error {
 	return nil
 }
 
+// SetRepoBaseOptions configures a per-repo base-branch override write.
+type SetRepoBaseOptions struct {
+	RepoName string
+	Branch   string
+	Remote   string // "" -> origin at resolve time
+	Global   bool   // true: write config-dir JSON; false (default): write in-workspace .wsm/wsm.json
+	Fetch    bool   // git fetch <remote> <branch> in the worktree before returning
+}
+
+// SetRepoBase sets a per-repo comparison-base override. By default it writes
+// only the in-workspace .wsm/wsm.json (workspace-specific); with Global=true it
+// writes only the config-dir workspace JSON (--global). It never writes both
+// stores in one call (no mirroring). Local beats global at load time
+// (overlayWorkspaceBaseOverrides). Optional Fetch materializes the
+// remote-tracking ref so the next status check can compare against it.
+func (wm *WorkspaceManager) SetRepoBase(ctx context.Context, workspaceName string, opts SetRepoBaseOptions) error {
+	if opts.RepoName == "" {
+		return errors.New("repository name is required")
+	}
+	if opts.Branch == "" {
+		return errors.New("base branch is required")
+	}
+
+	workspace, err := wm.LoadWorkspace(workspaceName)
+	if err != nil {
+		return errors.Wrapf(err, "failed to load workspace '%s'", workspaceName)
+	}
+
+	// Validate the repo exists in the workspace.
+	repoIdx := -1
+	for i, repo := range workspace.Repositories {
+		if repo.Name == opts.RepoName {
+			repoIdx = i
+			break
+		}
+	}
+	if repoIdx == -1 {
+		return errors.Errorf("repository '%s' not found in workspace '%s'", opts.RepoName, workspaceName)
+	}
+
+	if opts.Fetch {
+		worktreePath := filepath.Join(workspace.Path, opts.RepoName)
+		remote := opts.Remote
+		if remote == "" {
+			remote = string(branchsvc.DefaultRemoteName)
+		}
+		if err := wm.fetchBaseRef(ctx, worktreePath, remote, opts.Branch); err != nil {
+			// Non-fatal: warn but still record the override so status can resolve
+			// once the ref is available (e.g. after a manual fetch).
+			output.LogWarn(
+				fmt.Sprintf("fetch of %s/%s failed: %v", remote, opts.Branch, err),
+				"Could not fetch base ref; override still recorded",
+				"repo", opts.RepoName,
+				"remote", remote,
+				"branch", opts.Branch,
+				"error", err,
+			)
+		}
+	}
+
+	if opts.Global {
+		// Write only the config-dir workspace JSON.
+		workspace.Repositories[repoIdx].BaseBranch = opts.Branch
+		workspace.Repositories[repoIdx].BaseRemote = opts.Remote
+		return wm.SaveWorkspace(workspace)
+	}
+
+	// Default: write only the in-workspace .wsm/wsm.json.
+	return wm.setRepoBaseInWorkspace(workspace, opts)
+}
+
+// fetchBaseRef runs `git fetch <remote> <branch>` in the worktree so the
+// remote-tracking ref exists for the next status comparison.
+func (wm *WorkspaceManager) fetchBaseRef(ctx context.Context, worktreePath, remote, branch string) error {
+	if _, err := os.Stat(worktreePath); err != nil {
+		return errors.Wrapf(err, "worktree path not found: %s", worktreePath)
+	}
+	cmd := exec.CommandContext(ctx, "git", "fetch", remote, branch)
+	cmd.Dir = worktreePath
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return errors.Wrapf(err, "git fetch %s %s failed: %s", remote, branch, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// setRepoBaseInWorkspace writes the per-repo base override to the in-workspace
+// .wsm/wsm.json only, preserving all other metadata. Creates the file if absent.
+func (wm *WorkspaceManager) setRepoBaseInWorkspace(workspace *Workspace, opts SetRepoBaseOptions) error {
+	wsmDir := filepath.Join(workspace.Path, ".wsm")
+	if err := os.MkdirAll(wsmDir, 0755); err != nil {
+		return errors.Wrapf(err, "failed to create .wsm directory: %s", wsmDir)
+	}
+	metaPath := filepath.Join(wsmDir, "wsm.json")
+
+	var meta WorkspaceMetadata
+	if data, err := os.ReadFile(metaPath); err == nil {
+		if err := json.Unmarshal(data, &meta); err != nil {
+			return errors.Wrapf(err, "failed to parse existing %s", metaPath)
+		}
+	} else if !os.IsNotExist(err) {
+		return errors.Wrapf(err, "failed to read %s", metaPath)
+	}
+
+	found := false
+	for i := range meta.Repositories {
+		if meta.Repositories[i].Name == opts.RepoName {
+			meta.Repositories[i].BaseBranch = opts.Branch
+			meta.Repositories[i].BaseRemote = opts.Remote
+			found = true
+			break
+		}
+	}
+	if !found {
+		return errors.Errorf("repository '%s' not found in .wsm/wsm.json; run 'wsm create'/'wsm add' first", opts.RepoName)
+	}
+
+	data, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal workspace metadata")
+	}
+	if err := os.WriteFile(metaPath, data, 0644); err != nil {
+		return errors.Wrapf(err, "failed to write %s", metaPath)
+	}
+	return nil
+}
+
 // loadConfig loads workspace manager configuration
 func loadConfig() (*WorkspaceConfig, error) {
 	home, err := os.UserHomeDir()
