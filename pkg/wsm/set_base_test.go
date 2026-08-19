@@ -135,3 +135,58 @@ func TestSetRepoBase_UnknownRepoErrors(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
+
+// TestSetRepoBase_SeedsMetadataWhenFileAbsent verifies the P2 fix: for a valid
+// workspace whose .wsm/wsm.json is missing (e.g. creation previously failed
+// non-fatally), the default `wsm set-base` mode creates the file seeded from
+// the loaded workspace instead of failing with "repository not found".
+func TestSetRepoBase_SeedsMetadataWhenFileAbsent(t *testing.T) {
+	wm, wsPath, _ := newSetBaseTestWorkspace(t, "repo1")
+	ctx := context.Background()
+
+	// Delete the in-workspace metadata to simulate the absent-file case.
+	require.NoError(t, os.Remove(filepath.Join(wsPath, ".wsm", "wsm.json")))
+
+	// set-base (default mode) should succeed by seeding the file from the
+	// loaded workspace and writing the override.
+	require.NoError(t, wm.SetRepoBase(ctx, "ws", SetRepoBaseOptions{
+		RepoName: "repo1",
+		Branch:   "develop",
+	}))
+
+	// The file now exists and carries the override.
+	metaData, err := os.ReadFile(filepath.Join(wsPath, ".wsm", "wsm.json"))
+	require.NoError(t, err)
+	var meta WorkspaceMetadata
+	require.NoError(t, json.Unmarshal(metaData, &meta))
+	assert.Equal(t, "develop", meta.Repositories[0].BaseBranch)
+}
+
+// TestCreateWorkspaceMetadata_PreservesLocalBaseOverrides verifies the P2 fix:
+// when createWorkspaceMetadata regenerates .wsm/wsm.json (e.g. after `wsm add`),
+// it preserves per-repo in-workspace base overrides that were set by
+// `wsm set-base`, rather than dropping them.
+func TestCreateWorkspaceMetadata_PreservesLocalBaseOverrides(t *testing.T) {
+	wm, wsPath, _ := newSetBaseTestWorkspace(t, "repo1")
+	ctx := context.Background()
+
+	// Set a local override first.
+	require.NoError(t, wm.SetRepoBase(ctx, "ws", SetRepoBaseOptions{
+		RepoName: "repo1",
+		Branch:   "task/preserved",
+		Remote:   "upstream",
+	}))
+
+	// Reload the workspace and regenerate metadata (as `wsm add` would).
+	ws, err := wm.LoadWorkspace("ws")
+	require.NoError(t, err)
+	require.NoError(t, wm.createWorkspaceMetadata(ws))
+
+	// The override must survive the regeneration.
+	metaData, err := os.ReadFile(filepath.Join(wsPath, ".wsm", "wsm.json"))
+	require.NoError(t, err)
+	var meta WorkspaceMetadata
+	require.NoError(t, json.Unmarshal(metaData, &meta))
+	assert.Equal(t, "task/preserved", meta.Repositories[0].BaseBranch, "local override preserved across metadata regeneration")
+	assert.Equal(t, "upstream", meta.Repositories[0].BaseRemote)
+}

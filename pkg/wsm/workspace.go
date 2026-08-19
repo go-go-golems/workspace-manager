@@ -542,6 +542,11 @@ func (wm *WorkspaceManager) setRepoBaseInWorkspace(workspace *Workspace, opts Se
 		}
 	} else if !os.IsNotExist(err) {
 		return errors.Wrapf(err, "failed to read %s", metaPath)
+	} else {
+		// File absent (e.g. its creation previously failed and was treated as
+		// non-fatal): seed the metadata from the loaded workspace so the repo
+		// lookup below can succeed and the file is created, as documented.
+		meta = seedMetadataFromWorkspace(workspace)
 	}
 
 	found := false
@@ -561,13 +566,59 @@ func (wm *WorkspaceManager) setRepoBaseInWorkspace(workspace *Workspace, opts Se
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal workspace metadata")
 	}
-	if err := os.WriteFile(metaPath, data, 0644); err != nil {
+	if err := os.WriteFile(metaPath, data, 0644); err != nil { // #nosec G306 -- workspace metadata file; world-readable is intentional.
 		return errors.Wrapf(err, "failed to write %s", metaPath)
 	}
 	return nil
 }
 
-// loadConfig loads workspace manager configuration
+// seedMetadataFromWorkspace builds a WorkspaceMetadata skeleton from a loaded
+// workspace, used when .wsm/wsm.json is absent (its creation previously failed
+// and was treated as non-fatal). The repos are seeded with name/path/categories/
+// worktreePath/defaultBaseBranch so `wsm set-base` can create the file.
+func seedMetadataFromWorkspace(workspace *Workspace) WorkspaceMetadata {
+	repos := make([]RepositoryMetadata, len(workspace.Repositories))
+	for i, repo := range workspace.Repositories {
+		repos[i] = RepositoryMetadata{
+			Name:              repo.Name,
+			Path:              repo.Path,
+			Categories:        repo.Categories,
+			WorktreePath:      filepath.Join(workspace.Path, repo.Name),
+			DefaultBaseBranch: repo.DefaultBaseBranch,
+		}
+	}
+	return WorkspaceMetadata{
+		Name:         workspace.Name,
+		Path:         workspace.Path,
+		Branch:       workspace.Branch,
+		BaseBranch:   workspace.BaseBranch,
+		GoWorkspace:  workspace.GoWorkspace,
+		AgentMD:      workspace.AgentMD,
+		CreatedAt:    time.Now(),
+		Repositories: repos,
+	}
+}
+
+// loadExistingBaseOverrides reads .wsm/wsm.json (if present) and returns the
+// per-repo BaseBranch/BaseRemote overrides, so createWorkspaceMetadata can
+// preserve them when regenerating the file. Missing/unreadable file -> empty map.
+func loadExistingBaseOverrides(metaPath string) map[string]RepositoryMetadata {
+	data, err := os.ReadFile(metaPath)
+	if err != nil {
+		return nil
+	}
+	var meta WorkspaceMetadata
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return nil
+	}
+	out := make(map[string]RepositoryMetadata, len(meta.Repositories))
+	for _, rm := range meta.Repositories {
+		if rm.Name != "" && (rm.BaseBranch != "" || rm.BaseRemote != "") {
+			out[rm.Name] = rm
+		}
+	}
+	return out
+}
 func loadConfig() (*WorkspaceConfig, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -1755,16 +1806,25 @@ func (wm *WorkspaceManager) createWorkspaceMetadata(workspace *Workspace) error 
 		return errors.Wrapf(err, "failed to create .wsm directory: %s", wsmDir)
 	}
 
-	// Prepare repository metadata
+	// Prepare repository metadata. Preserve per-repo in-workspace base overrides
+	// (BaseBranch/BaseRemote, set by `wsm set-base`) from the existing .wsm/wsm.json
+	// so regenerating the file (e.g. via `wsm add`) does not silently drop them.
+	metaPath := filepath.Join(wsmDir, "wsm.json")
+	preservedOverrides := loadExistingBaseOverrides(metaPath)
 	repoMetadata := make([]RepositoryMetadata, len(workspace.Repositories))
 	for i, repo := range workspace.Repositories {
-		repoMetadata[i] = RepositoryMetadata{
+		rm := RepositoryMetadata{
 			Name:              repo.Name,
 			Path:              repo.Path,
 			Categories:        repo.Categories,
 			WorktreePath:      filepath.Join(workspace.Path, repo.Name),
 			DefaultBaseBranch: repo.DefaultBaseBranch,
 		}
+		if prev, ok := preservedOverrides[repo.Name]; ok {
+			rm.BaseBranch = prev.BaseBranch
+			rm.BaseRemote = prev.BaseRemote
+		}
+		repoMetadata[i] = rm
 	}
 
 	// Prepare environment variables
