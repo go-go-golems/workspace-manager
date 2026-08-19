@@ -1,0 +1,73 @@
+almanach_studio_version: 1
+theme: brutalist
+paperWidth: 384
+bodyScale: 1
+feedLines: 8
+blocks:
+- id: head
+  type: row
+  data:
+    cols:
+    - w: 1fr
+      text: WSM-013
+      preset: micro
+    - w: 1fr
+      text: PLAN
+      preset: micro
+      align: right
+- id: r1
+  type: rule
+  data:
+    weight: heavy
+- id: gap1
+  type: space
+  data:
+    size: s
+- id: title
+  type: text
+  data:
+    text: Forked WSM Status + Enhancements
+    preset: h1
+    lines: 3
+- id: gap2
+  type: space
+  data:
+    size: s
+- id: summary
+  type: text
+  data:
+    text: Fix forked-workspace rebase/merge status; add per-repo base, default detection, honest comparison, set-base, then
+      fork divergence.
+    preset: body
+- id: gap3
+  type: space
+  data:
+    size: m
+- id: planhead
+  type: text
+  data:
+    text: PLAN
+    preset: h2
+- id: plan
+  type: checks
+  data:
+    items:
+    - E1 BaseComparison model + honest checks
+    - E2 default-branch detection (symbolic-ref)
+    - E3 per-repo override + precedence
+    - E4 wsm set-base (default/--global)
+    - E5 status table BASE column
+    - E6 validate on real workspace
+    - F1-F3 fork divergence prompt
+- id: r2
+  type: rule
+  data:
+    weight: hair
+- id: facts
+  type: kv
+  data:
+    items:
+    - - PHASES
+      - '7'
+    - - NEXT
+      - E1 BaseComparison model + honest checks

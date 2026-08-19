@@ -58,3 +58,21 @@ Added design-doc 03 (fork divergence confirmation) + tasks F1-F3; deferring impl
 
 - /home/manuel/workspaces/2026-08-19/fix-git-rebase-bug/workspace-manager/pkg/wsm/workflows/fork_workflow.go — deferred fork divergence fix
 
+
+## 2026-08-19
+
+Step 4: Phase E1 part 1 — BaseComparison model + ResolveBaseRef resolver (commit a58504b). ResolveBaseRef prefers remote-tracking, falls back to local, else BaseUnknown with reason; type aliases keep branch as single source of truth.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-08-19/fix-git-rebase-bug/workspace-manager/pkg/wsm/branch/status_resolve.go — E1 resolver
+
+
+## 2026-08-19
+
+Step 5: Phase E1 part 2 — honest checks + status wiring + regression tests (commit ba6b6f7). CheckBranchMerged/CheckBranchNeedsRebase return BaseComparison; merge-base exit 1 distinguished from real failure via errors.As; fixed empty-base->main regression caught by TestStatusSemanticMergedAndNeedsRebase. go test ./... all green.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-08-19/fix-git-rebase-bug/workspace-manager/pkg/wsm/git_utils.go — E1 honest checks
+
