@@ -2,9 +2,12 @@ package workflows
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
+	branch "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"github.com/pkg/errors"
 )
 
@@ -14,8 +17,40 @@ type ForkRequest struct {
 	SourceWorkspaceName string
 	Branch              string
 	BranchPrefix        string
-	AgentSource         string
-	DryRun              bool
+	// BaseBranch is an explicit base/upstream branch to fork from. When set,
+	// Plan uses it directly and skips the uniform-branch check, so a fork can
+	// proceed even when source repos are on different branches (F1).
+	BaseBranch  string
+	AgentSource string
+	DryRun      bool
+}
+
+// ErrBranchDivergence is returned by ForkWorkflow.Plan when source workspace
+// repositories are on different branches and no explicit BaseBranch was
+// provided. It carries the per-repo branch map and the conventional expected
+// branch so the caller (CLI) can prompt the user to choose a base instead of
+// hard-failing.
+type ErrBranchDivergence struct {
+	// Branches maps each repo name to its current branch.
+	Branches map[string]string
+	// Expected is the conventional branch for the source workspace name
+	// (task/<source-name> from BuildWorkspaceBranch), offered as a default.
+	Expected string
+	// Source is the source workspace name, for messaging.
+	Source string
+}
+
+// Error implements the error interface.
+func (e *ErrBranchDivergence) Error() string {
+	distinct := e.DistinctBranches()
+	return fmt.Sprintf("repositories in source workspace '%s' are on different branches (%s); pass --base-branch or confirm interactively",
+		e.Source, strings.Join(distinct, ", "))
+}
+
+// DistinctBranches returns the sorted unique branch names observed across the
+// source repositories, for building a prompt or an error message.
+func (e *ErrBranchDivergence) DistinctBranches() []string {
+	return branch.DistinctBranches(e.Branches)
 }
 
 // ForkPlan captures source and derived values for a fork operation.
@@ -76,15 +111,31 @@ func (fw *ForkWorkflow) Plan(ctx context.Context, req ForkRequest) (*ForkPlan, e
 		return nil, errors.New("source workspace has no repositories")
 	}
 
-	baseBranch := status.Repositories[0].CurrentBranch
-	if baseBranch == "" {
-		return nil, errors.New("failed to detect base branch from source workspace")
-	}
-
-	for _, repoStatus := range status.Repositories {
-		if repoStatus.CurrentBranch != baseBranch {
-			return nil, errors.Errorf("repositories in source workspace are on different branches: %s is on %s, but expected %s",
-				repoStatus.Repository.Name, repoStatus.CurrentBranch, baseBranch)
+	// Resolve the base branch.
+	// 1) Explicit override (F1): use it directly and skip the uniformity check.
+	var baseBranch string
+	if req.BaseBranch != "" {
+		baseBranch = req.BaseBranch
+	} else {
+		// 2) Detect from source repos; require uniformity, else return a typed
+		// divergence error so the CLI can prompt instead of hard-failing.
+		branches := make(map[string]string, len(status.Repositories))
+		for _, rs := range status.Repositories {
+			branches[rs.Repository.Name] = rs.CurrentBranch
+		}
+		distinct := branch.DistinctBranches(branches)
+		if len(distinct) == 0 {
+			return nil, errors.New("failed to detect base branch from source workspace")
+		}
+		if len(distinct) == 1 {
+			baseBranch = distinct[0]
+		} else {
+			expected, _ := BuildWorkspaceBranch(sourceWorkspaceName, "", "task")
+			return nil, &ErrBranchDivergence{
+				Branches: branches,
+				Expected: expected,
+				Source:   sourceWorkspaceName,
+			}
 		}
 	}
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/huh"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
@@ -14,6 +15,7 @@ import (
 	wsmcmdcommon "github.com/go-go-golems/workspace-manager/cmd/wsm/cmds/common"
 	"github.com/go-go-golems/workspace-manager/pkg/output"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm"
+	branch "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm/workflows"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -31,6 +33,7 @@ type ForkSettings struct {
 	SourceWorkspaceName    string `glazed:"workspace"`
 	Branch                 string `glazed:"branch"`
 	BranchPrefix           string `glazed:"branch-prefix"`
+	BaseBranch             string `glazed:"base-branch"`
 	AgentSource            string `glazed:"agent-source"`
 	DryRun                 bool   `glazed:"dry-run"`
 }
@@ -59,6 +62,7 @@ If source workspace is not provided, detects from current workspace.`),
 			fields.New("workspace", fields.TypeString, fields.WithHelp("Source workspace name")),
 			fields.New("branch", fields.TypeString, fields.WithHelp("Branch name for the new workspace")),
 			fields.New("branch-prefix", fields.TypeString, fields.WithDefault("task"), fields.WithHelp("Prefix for auto-generated branch names")),
+			fields.New("base-branch", fields.TypeString, fields.WithHelp("Base/upstream branch to fork from (use when source repos are on different branches)")),
 			fields.New("agent-source", fields.TypeString, fields.WithHelp("Path to AGENT.md template file")),
 			fields.New("dry-run", fields.TypeBool, fields.WithDefault(false), fields.WithHelp("Show what would be created without creating")),
 		),
@@ -70,7 +74,7 @@ If source workspace is not provided, detects from current workspace.`),
 }
 
 func (c *ForkCommand) Run(ctx context.Context, vals *values.Values) error {
-	result, err := c.execute(ctx, vals)
+	result, err := c.execute(ctx, vals, true, true)
 	if err != nil {
 		return err
 	}
@@ -132,7 +136,7 @@ func (c *ForkCommand) RunIntoGlazeProcessor(
 	vals *values.Values,
 	gp middlewares.Processor,
 ) error {
-	result, err := c.execute(ctx, vals)
+	result, err := c.execute(ctx, vals, false, false)
 	if err != nil {
 		return err
 	}
@@ -145,7 +149,7 @@ func (c *ForkCommand) RunIntoGlazeProcessor(
 	return gp.AddRow(ctx, row)
 }
 
-func (c *ForkCommand) execute(ctx context.Context, vals *values.Values) (*forkExecutionResult, error) {
+func (c *ForkCommand) execute(ctx context.Context, vals *values.Values, emitHuman bool, allowPrompt bool) (*forkExecutionResult, error) {
 	settings_ := &ForkSettings{}
 	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings_); err != nil {
 		return nil, errors.Wrap(err, "failed to decode fork settings")
@@ -170,13 +174,37 @@ func (c *ForkCommand) execute(ctx context.Context, vals *values.Values) (*forkEx
 		SourceWorkspaceName: sourceWorkspaceName,
 		Branch:              settings_.Branch,
 		BranchPrefix:        settings_.BranchPrefix,
+		BaseBranch:          settings_.BaseBranch,
 		AgentSource:         settings_.AgentSource,
 		DryRun:              settings_.DryRun,
 	}
 
 	plan, err := workflow.Plan(ctx, req)
 	if err != nil {
-		return nil, err
+		// F1/F2: branch divergence -> prompt interactively, or require
+		// --base-branch in non-interactive mode (mirrors delete's --force gate).
+		var div *workflows.ErrBranchDivergence
+		if errors.As(err, &div) {
+			if !allowPrompt {
+				return nil, errors.Errorf(
+					"source workspace '%s' repos are on different branches (%s); pass --base-branch to choose one",
+					div.Source, strings.Join(div.DistinctBranches(), ", "))
+			}
+			chosen, ok, cancelled := promptBaseBranch(div)
+			if cancelled {
+				return &forkExecutionResult{Cancelled: true}, nil
+			}
+			if !ok {
+				return nil, errors.New("no base branch selected")
+			}
+			req.BaseBranch = chosen
+			plan, err = workflow.Plan(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	workspace, _, err := workflow.Fork(ctx, req)
@@ -217,4 +245,78 @@ func NewForkCobraCommand() (*cobra.Command, error) {
 		return nil, fmt.Errorf("failed to build fork command: %w", err)
 	}
 	return wsmcmdcommon.BuildCobraCommandDualMode(command)
+}
+
+// promptBaseBranch asks the user to choose a base branch when a fork's source
+// repos are on different branches. It returns (chosen, ok, cancelled):
+// cancelled=true if the user aborted; ok=false if the user did not confirm.
+// The default is the most frequent observed branch; the conventional
+// task/<source-name> is offered if not already among the observed branches.
+func promptBaseBranch(div *workflows.ErrBranchDivergence) (chosen string, ok bool, cancelled bool) {
+	options := div.DistinctBranches()
+	// Ensure the conventional expected branch is selectable even if no repo
+	// is currently on it.
+	if div.Expected != "" {
+		present := false
+		for _, o := range options {
+			if o == div.Expected {
+				present = true
+				break
+			}
+		}
+		if !present {
+			options = append([]string{div.Expected}, options...)
+		}
+	}
+
+	defaultBranch := branch.MostFrequentBranch(div.Branches)
+	if defaultBranch == "" {
+		defaultBranch = div.Expected
+	}
+
+	selected := defaultBranch
+	var confirm bool
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Source repos are on different branches. Choose the base branch to fork from:").
+				Options(huh.NewOptions(options...)...).
+				Value(&selected),
+			huh.NewConfirm().
+				Title(fmt.Sprintf("Fork using base branch '%s'?", selected)).
+				Description(showDivergence(div)).
+				Value(&confirm),
+		),
+	)
+	if err := form.Run(); err != nil {
+		if isUserCancelledError(err) {
+			return "", false, true
+		}
+		return "", false, false
+	}
+	return selected, confirm, false
+}
+
+// showDivergence renders the per-repo branch map so the user can see exactly
+// which repo is on which branch before confirming.
+func showDivergence(div *workflows.ErrBranchDivergence) string {
+	repos := make([]string, 0, len(div.Branches))
+	for name := range div.Branches {
+		repos = append(repos, name)
+	}
+	sortStrings(repos)
+	lines := make([]string, 0, len(repos))
+	for _, name := range repos {
+		lines = append(lines, fmt.Sprintf("  %s -> %s", name, div.Branches[name]))
+	}
+	return "Per-repo branches:\n" + strings.Join(lines, "\n")
+}
+
+// sortStrings is a tiny helper to keep fork.go dependency-light.
+func sortStrings(s []string) {
+	for i := 1; i < len(s); i++ {
+		for j := i; j > 0 && s[j-1] > s[j]; j-- {
+			s[j-1], s[j] = s[j], s[j-1]
+		}
+	}
 }
