@@ -8,3 +8,9 @@
 - [ ] Phase 4: Surface BASE_REF/unknown column in status table <!-- t:p5vo -->
 - [ ] Phase 5: Regression test TestStatus_ForkedWorkspace_LocalOnlyBase <!-- t:ngv6 -->
 - [ ] Phase 6: Validate against real workspace + no exit 128 in logs <!-- t:554x -->
+- [ ] E1: BaseComparison model + honest checks (Q1/Q2 core) <!-- t:6sqa -->
+- [ ] E2: DefaultBranch discovery via symbolic-ref + persistence (Q3) <!-- t:y398 -->
+- [ ] E3: Per-repo override storage + LoadWorkspace merge + precedence (Q4 core) <!-- t:wmpg -->
+- [ ] E4: wsm set-base command (Q4 surface) <!-- t:adt3 -->
+- [ ] E5: Status table BASE column + honest MERGED/REBASE + JSON fields (Q1/Q2 surface) <!-- t:8h31 -->
+- [ ] E6: Validate end-to-end on ragkit-coinvault-mysql + set-base flow <!-- t:ayaj -->
