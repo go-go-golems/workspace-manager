@@ -112,3 +112,12 @@ Step 9: Phase E5 — status table BASE column + honest MERGED/REBASE (?/!) + add
 
 - /home/manuel/workspaces/2026-08-19/fix-git-rebase-bug/workspace-manager/cmd/wsm/cmds/workspace/status.go — E5
 
+
+## 2026-08-19
+
+Step 10: Phases F1+F2 — fork divergence confirmation (commit d1f4aa9). ErrBranchDivergence typed error; --base-branch flag; huh prompt in interactive / require flag in non-interactive; integration tests prove divergent source fails helpfully and succeeds with --base-branch.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-08-19/fix-git-rebase-bug/workspace-manager/pkg/wsm/workflows/fork_workflow.go — F1+F2
+

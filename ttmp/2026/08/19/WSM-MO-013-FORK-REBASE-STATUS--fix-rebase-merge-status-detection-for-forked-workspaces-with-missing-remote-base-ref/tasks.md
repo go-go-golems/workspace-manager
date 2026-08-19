@@ -14,6 +14,6 @@
 - [x] E4: wsm set-base command (Q4 surface) <!-- t:adt3 -->
 - [x] E5: Status table BASE column + honest MERGED/REBASE + JSON fields (Q1/Q2 surface) <!-- t:8h31 -->
 - [ ] E6: Validate end-to-end on ragkit-coinvault-mysql + set-base flow <!-- t:ayaj -->
-- [ ] F1: ForkWorkflow typed ErrBranchDivergence + BaseBranch override <!-- t:2esw -->
-- [ ] F2: fork CLI --base-branch flag + huh prompt + allowPrompt gating <!-- t:dnix -->
-- [ ] F3: Validate fork divergence flow end-to-end <!-- t:yqzf -->
+- [x] F1: ForkWorkflow typed ErrBranchDivergence + BaseBranch override <!-- t:2esw -->
+- [x] F2: fork CLI --base-branch flag + huh prompt + allowPrompt gating <!-- t:dnix -->
+- [x] F3: Validate fork divergence flow end-to-end <!-- t:yqzf -->

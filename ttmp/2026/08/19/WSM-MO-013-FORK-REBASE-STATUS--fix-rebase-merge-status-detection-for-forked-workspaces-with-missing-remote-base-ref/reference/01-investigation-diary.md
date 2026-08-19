@@ -13,6 +13,8 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: repo://cmd/wsm/cmds/workspace/fork.go
+      Note: --base-branch flag + promptBaseBranch huh prompt + allowPrompt gating (F2, commit d1f4aa9)
     - Path: repo://cmd/wsm/cmds/workspace/set_base.go
       Note: wsm set-base command default/--global (E4, commit 925c327)
     - Path: repo://cmd/wsm/cmds/workspace/status.go
@@ -37,14 +39,21 @@ RelatedFiles:
         getRepositoryStatusWithClient uses ResolveBaseBranchForRepo (E3, commit f842186)
     - Path: repo://pkg/wsm/types.go
       Note: BaseComparison model + type aliases to branch (Step 4, commit a58504b)
+    - Path: repo://pkg/wsm/workflows/fork_workflow.go
+      Note: ErrBranchDivergence + BaseBranch + Plan divergence handling (F1, commit d1f4aa9)
     - Path: repo://pkg/wsm/workspace.go
       Note: RepositoryMetadata overrides + overlayWorkspaceBaseOverrides + SetRepoBase (E3/E4, commits f842186/925c327)
+    - Path: repo://test/integration/scenarios/fork_divergence_test.go
+      Note: end-to-end fork divergence via real wsm binary (F3, commit d1f4aa9)
 ExternalSources: []
 Summary: Chronological investigation of the forked-workspace rebase/merge status bug, from log triage to root cause and proposed fix.
 LastUpdated: 2026-08-19T10:32:00-04:00
 WhatFor: Resuming or reviewing the investigation of WSM-MO-013.
 WhenToUse: Read before continuing work on the forked-workspace status bug.
 ---
+
+
+
 
 
 
@@ -556,3 +565,70 @@ The `Base` struct (E1) carries the provenance but nothing rendered it; without E
 ### Technical details
 - BASE column render: `BaseResolved` -> `"<ref> (<source>)"`; `BaseUnknown` -> `"? <reason>"`; `BaseError` -> `"! <reason>"`.
 - Smoke test reverted the `.wsm/wsm.json` `baseBranch` it wrote, so the workspace is left clean for the user's E6 run.
+
+## Step 10: Phases F1+F2 — fork divergence confirmation (typed error + --base-branch + prompt)
+
+This step fixed the user-reported `wsm fork` hard-fail when source repos are on
+different branches. The workflow now returns a typed divergence error (instead
+of a plain string), and the CLI either prompts interactively (huh select +
+confirm) or requires `--base-branch` in non-interactive mode. This leans on the
+E1/E3 base-resolution foundation: the chosen base flows through
+`ResolveBaseBranchForRepo` → `ResolveBaseRef`, so a fork onto a local-only base
+still resolves at status time.
+
+**Commit (code):** d1f4aa9 — ":sparkles: F1+F2: fork divergence confirmation (typed error + --base-branch + prompt)"
+
+### Prompt Context
+
+**User prompt (verbatim):** "Ok, implement. commit at appropriate intervals and keep a detailed diary as you work (using the diary format from the skill)" (after I explained F1-F3 and the user confirmed).
+
+**Assistant interpretation:** Implement the fork-divergence design (F1 workflow typed error + BaseBranch, F2 CLI --base-branch + prompt, F3 validate) with focused commits and a diary step.
+
+**Inferred user intent:** `wsm fork ttc-admin-chat deploy-dev-indexer` should stop hard-failing and instead let the user choose a base branch when the source repos have diverged.
+
+### What I did
+- `pkg/wsm/workflows/fork_workflow.go`:
+  - `ForkRequest` gains `BaseBranch`; `ErrBranchDivergence` type with `Branches`/`Expected`/`Source` + `DistinctBranches()` (reuses `branch.DistinctBranches`).
+  - `Plan`: if `BaseBranch` set, use it and skip the uniformity check; else build the per-repo branch map, and on >1 distinct branch return `*ErrBranchDivergence` (Expected = `task/<source-name>`). Uniform sources still produce a single-branch plan.
+- `cmd/wsm/cmds/workspace/fork.go`:
+  - `--base-branch` flag + `ForkSettings.BaseBranch`; `execute` threads `emitHuman`/`allowPrompt` (`Run`→true,true; `RunIntoGlazeProcessor`→false,false).
+  - On `errors.As(err, &div)`: non-interactive requires `--base-branch` (error names branches); interactive calls `promptBaseBranch` (huh select defaulting to most-frequent + conventional expected, then confirm) and re-plans with the chosen base.
+  - `showDivergence` renders the per-repo branch map; `sortStrings` keeps the file dependency-light.
+- Tests: `fork_workflow_test.go` (type-level: distinct branches, error message, single-branch sanity, ForkRequest field, deterministic order); `fork_divergence_test.go` (integration via the real `wsm` binary: divergent source fails without `--base-branch` mentioning both branches + `--base-branch`, succeeds with it; uniform source still forks).
+
+### Why
+The divergence is detected in the workflow but interaction belongs in the CLI (layering rule; delete/create already do this). A typed error carries the branch map the CLI needs without changing Plan's signature or importing `huh` into `pkg/wsm`. `--base-branch` is the non-interactive escape hatch for CI/automation, mirroring delete's `--force is required when using --with-glaze-output`.
+
+### What worked
+- The integration test reproduces the exact user scenario (repo2 on `task/divergent` while repo1 on `task/base`) and proves both the failure-with-help and the `--base-branch` success end to end through the real binary.
+- Reusing `branch.MostFrequentBranch` (from E1) for the prompt default and `branch.DistinctBranches` for the options kept the CLI helper logic trivial.
+
+### What didn't work
+- `huh.NewSelect.Options` is variadic (`huh.Option[string]...`), but `huh.NewOptions(options...)` returns a slice; passing the slice directly failed to compile. Fixed with `.Options(huh.NewOptions(options...)...)` (spread the slice).
+- The import edit left duplicate stray lines (`workflows`/`errors`/`cobra` appeared twice after the closing `)`) because the oldText didn't capture the full original import block; gofmt then choked on a non-declaration outside a function body. Fixed by removing the duplicate lines and the extra `)`.
+
+### What I learned
+- `huh` option construction: `huh.NewOptions(values...)` returns `[]huh.Option[T]`; the `.Options(...)` setter is variadic, so spread with `...`. Easy to get backwards.
+- When editing an import block, capture the *entire* block in oldText or the tail lines survive as stray declarations. A build error "expected declaration, found 'string'" after an import edit is the tell.
+
+### What was tricky to build
+- Keeping `Plan` re-callable: on divergence the CLI re-runs `Plan` with `req.BaseBranch` set. `Plan` re-runs `GetWorkspaceStatus` (cheap, local git) — acceptable for the divergent path only.
+- The `Expected` conventional branch uses the *source* workspace name (`BuildWorkspaceBranch(sourceWorkspaceName, "", "task")`), since divergence is relative to the source's convention, not the new workspace's.
+- Threading `emitHuman`/`allowPrompt` without changing the `Run`/`RunIntoGlazeProcessor` *signatures* (they're interface methods) — done by passing the booleans into `execute`, not the interface methods.
+
+### What warrants a second pair of eyes
+- The prompt offers the conventional `task/<source-name>` even if no repo is on it; confirm that's desired (a user might pick a branch nothing is currently on, which `ResolveBaseRef` will then resolve or report unknown at status time). The design doc (F3) chose to offer it; a `--strict` that limits to observed branches is a possible follow-up.
+- `errors.As(err, &div)` requires `ErrBranchDivergence` to be a pointer receiver (it is) and `Plan` to return `&ErrBranchDivergence{...}` (it does). Confirm no wrapping between `Plan` and the `errors.As` site obscures the type — `Plan` returns the error directly, so it's unwrapped.
+
+### What should be done in the future
+- A `--strict` flag (or prompt option) to limit the selectable base to branches a repo is actually on, if the conventional branch is not observed.
+- F3 manual validation: reproduce the original `wsm fork ttc-admin-chat deploy-dev-indexer` on a real divergent workspace and confirm the prompt + `--base-branch` both work.
+- Consider warning at fork time when the chosen base has no remote-tracking ref (the forked-workspace condition from E1), so the user knows status will resolve via the local fallback.
+
+### Code review instructions
+- Start at `pkg/wsm/workflows/fork_workflow.go` (`ErrBranchDivergence`, `Plan` divergence block), then `cmd/wsm/cmds/workspace/fork.go` (`execute` `errors.As` branch, `promptBaseBranch`, `showDivergence`).
+- Validate: `GOTOOLCHAIN=auto go test ./pkg/wsm/workflows/ ./test/integration/scenarios/ -count=1 -run 'ForkDivergence|ErrBranchDivergence'`; then `go run ./cmd/wsm fork --help | grep base-branch`.
+
+### Technical details
+- Precedence in the prompt default: `MostFrequentBranch` (ties broken by sorted order) → `Expected` if the map is empty.
+- Non-interactive error: `source workspace '%s' repos are on different branches (%s); pass --base-branch to choose one`.
