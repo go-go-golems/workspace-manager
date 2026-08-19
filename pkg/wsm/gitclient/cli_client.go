@@ -28,6 +28,7 @@ func (c *CliGitClient) Open(ctx context.Context, repoPath string) (RepositoryHan
 }
 
 func runGit(ctx context.Context, dir string, args ...string) ([]byte, error) {
+	// #nosec G204 -- git is invoked with a literal binary and program-derived args; no shell, no user-tainted input.
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()

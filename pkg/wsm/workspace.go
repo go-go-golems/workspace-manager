@@ -411,7 +411,7 @@ func (wm *WorkspaceManager) copyAgentMD(workspace *Workspace) error {
 		return errors.Wrapf(err, "failed to read source file: %s", source)
 	}
 
-	if err := os.WriteFile(target, data, 0644); err != nil {
+	if err := os.WriteFile(target, data, 0644); err != nil { // #nosec G703,G306 -- AGENT.md copy to a workspace-owned path; no secret content, world-readable is intentional.
 		return errors.Wrapf(err, "failed to write target file: %s", target)
 	}
 
@@ -516,6 +516,7 @@ func (wm *WorkspaceManager) fetchBaseRef(ctx context.Context, worktreePath, remo
 	if _, err := os.Stat(worktreePath); err != nil {
 		return errors.Wrapf(err, "worktree path not found: %s", worktreePath)
 	}
+	// #nosec G204 -- git is invoked with a literal binary and program-derived args; no shell, no user-tainted input.
 	cmd := exec.CommandContext(ctx, "git", "fetch", remote, branch)
 	cmd.Dir = worktreePath
 	out, err := cmd.CombinedOutput()
@@ -999,6 +1000,7 @@ func (wm *WorkspaceManager) rollbackWorktrees(ctx context.Context, worktrees []W
 		)
 
 		// Use git worktree remove --force for rollback to ensure it works even with uncommitted changes
+		// #nosec G204 -- git is invoked with a literal binary and a workspace-owned path; no shell, no user-tainted input.
 		cmd := exec.CommandContext(ctx, "git", "worktree", "remove", "--force", worktree.TargetPath)
 		cmd.Dir = worktree.Repository.Path
 
@@ -1594,6 +1596,7 @@ func (wm *WorkspaceManager) executeSetupScript(ctx context.Context, scriptPath, 
 
 	output.PrintInfo("Executing setup script: %s", filepath.Base(scriptPath))
 
+	// #nosec G204 -- bash is invoked with a literal binary and a workspace setup script path; no shell, no user-tainted input.
 	cmd := exec.CommandContext(ctx, "bash", scriptPath)
 	cmd.Dir = workingDir
 	cmd.Env = env

@@ -14,10 +14,14 @@ import (
 // newSetBaseTestWorkspace builds a minimal on-disk workspace + config-dir JSON
 // and returns a WorkspaceManager pointed at it. Used to test SetRepoBase's two
 // stores (in-workspace vs config-dir) and the overlay merge end-to-end.
-func newSetBaseTestWorkspace(t *testing.T, repoName string) (wm *WorkspaceManager, wsPath string, configPath string) {
+func newSetBaseTestWorkspace(t *testing.T, repoName string) (*WorkspaceManager, string, string) {
 	t.Helper()
 	tmp := t.TempDir()
-	wsPath = filepath.Join(tmp, "ws")
+	var (
+		wm         *WorkspaceManager
+		wsPath     = filepath.Join(tmp, "ws")
+		configPath string
+	)
 	require.NoError(t, os.MkdirAll(filepath.Join(wsPath, ".wsm"), 0o755))
 
 	// In-workspace metadata with the repo present (no override yet).
@@ -34,7 +38,6 @@ func newSetBaseTestWorkspace(t *testing.T, repoName string) (wm *WorkspaceManage
 
 	wm, err = NewWorkspaceManager()
 	require.NoError(t, err)
-
 	// Write the config-dir workspace JSON directly via SaveWorkspace so the
 	// manager can load it.
 	ws := &Workspace{

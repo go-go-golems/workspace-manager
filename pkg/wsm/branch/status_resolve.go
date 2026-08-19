@@ -1,5 +1,7 @@
 package branch
 
+//glazedclilint:file-ignore branch helper reads optional environment override outside command flag parsing
+
 import (
 	"context"
 	"os"
@@ -159,7 +161,7 @@ type RepoBaseInput struct {
 // override specified BaseRemote). The caller then runs ResolveBaseRef to turn
 // the branch into a concrete ref. This centralizes precedence (including the
 // empty->main fallback) so status checks cannot forget a layer.
-func ResolveBaseBranchForRepo(in RepoBaseInput) (branch BranchName, remote RemoteName) {
+func ResolveBaseBranchForRepo(in RepoBaseInput) (BranchName, RemoteName) {
 	switch {
 	case in.BaseBranchWorkspace != "":
 		return BranchName(in.BaseBranchWorkspace), normalizeRemote(RemoteName(in.BaseRemoteWorkspace), DefaultRemoteName)

@@ -354,6 +354,7 @@ func remoteTrackingBranchExists(ctx context.Context, repoPath, branch string) bo
 }
 
 func fetchBranch(ctx context.Context, repoPath, branch string) error {
+	// #nosec G204 -- git is invoked with a literal binary and program-derived args; no shell, no user-tainted input.
 	cmd := exec.CommandContext(ctx, "git", "fetch", string(branchsvc.DefaultRemoteName), branch+":"+branch)
 	cmd.Dir = repoPath
 	return cmd.Run()
@@ -361,6 +362,7 @@ func fetchBranch(ctx context.Context, repoPath, branch string) error {
 
 func performRebase(ctx context.Context, repoPath, targetBranch string, interactive bool) error {
 	var cmd *exec.Cmd
+	// #nosec G204 -- git is invoked with a literal binary and program-derived args; no shell, no user-tainted input.
 	if interactive {
 		cmd = exec.CommandContext(ctx, "git", "rebase", "-i", targetBranch)
 	} else {
@@ -377,6 +379,7 @@ func performRebase(ctx context.Context, repoPath, targetBranch string, interacti
 }
 
 func getCommitsAhead(ctx context.Context, repoPath, targetBranch string) (int, error) {
+	// #nosec G204 -- git is invoked with a literal binary and program-derived args; no shell, no user-tainted input.
 	cmd := exec.CommandContext(ctx, "git", "rev-list", "--count", fmt.Sprintf("HEAD..%s", targetBranch))
 	cmd.Dir = repoPath
 	out, err := cmd.Output()

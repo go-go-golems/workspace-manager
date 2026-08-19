@@ -14,9 +14,11 @@ import (
 // branch (via symbolic-ref HEAD) plus a client clone, and a second remote
 // whose HEAD is unset, to exercise both the symbolic-ref path and the
 // unset-HEAD fallback.
-func defaultBranchFixture(t *testing.T) (developClient string, unsetClient string) {
+func defaultBranchFixture(t *testing.T) (string, string) {
 	t.Helper()
 	tmp := t.TempDir()
+
+	var developClient, unsetClient string
 
 	// Remote A: default branch = develop (advertised via HEAD).
 	remoteA := filepath.Join(tmp, "originA.git")
@@ -35,7 +37,6 @@ func defaultBranchFixture(t *testing.T) (developClient string, unsetClient strin
 	runGitOrFail(t, seedA, "add", "README.md")
 	runGitOrFail(t, seedA, "commit", "-m", "seed commit")
 	runGitOrFail(t, seedA, "push", "-u", "origin", "develop")
-	// Clone normally so origin/HEAD is set to origin/develop.
 	runGitOrFail(t, "", "clone", remoteA, developClient)
 
 	// Remote B: default branch unset (no symbolic-ref HEAD).

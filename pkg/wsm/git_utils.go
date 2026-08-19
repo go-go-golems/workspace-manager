@@ -28,6 +28,7 @@ func getGitCurrentBranch(ctx context.Context, path string) (string, error) {
 // default). Used by the status checks so a failed comparison carries a real
 // reason instead of a bare exit code.
 func runGitCapture(ctx context.Context, dir string, args ...string) ([]byte, error) {
+	// #nosec G204 -- git is invoked with a literal binary and program-derived args; no shell, no user-tainted input.
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
@@ -197,6 +198,7 @@ func CheckBranchNeedsRebase(
 // runGitCaptureNoOut runs git and returns only an error (stdout discarded).
 // Used for `merge-base --is-ancestor`, which signals via exit code.
 func runGitCaptureNoOut(ctx context.Context, dir string, args ...string) error {
+	// #nosec G204 -- git is invoked with a literal binary and program-derived args; no shell, no user-tainted input.
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()

@@ -252,7 +252,7 @@ func NewForkCobraCommand() (*cobra.Command, error) {
 // cancelled=true if the user aborted; ok=false if the user did not confirm.
 // The default is the most frequent observed branch; the conventional
 // task/<source-name> is offered if not already among the observed branches.
-func promptBaseBranch(div *workflows.ErrBranchDivergence) (chosen string, ok bool, cancelled bool) {
+func promptBaseBranch(div *workflows.ErrBranchDivergence) (string, bool, bool) {
 	options := div.DistinctBranches()
 	// Ensure the conventional expected branch is selectable even if no repo
 	// is currently on it.

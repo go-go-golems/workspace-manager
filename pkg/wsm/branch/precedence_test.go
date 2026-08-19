@@ -91,6 +91,6 @@ func TestResolveBaseBranchForRepo_EnvSetButDiscoveredPresent_DiscoversWins(t *te
 // Ensure the test process does not inherit a WSM_BASE_BRANCH that would make
 // MainFallback flaky.
 func TestMain(m *testing.M) {
-	os.Unsetenv("WSM_BASE_BRANCH")
+	_ = os.Unsetenv("WSM_BASE_BRANCH")
 	os.Exit(m.Run())
 }

@@ -308,6 +308,7 @@ func (mw *MergeWorkflow) mergeRepository(ctx context.Context, candidate MergeCan
 }
 
 func executeGitCommand(ctx context.Context, repoPath string, args ...string) error {
+	// #nosec G204 -- git is invoked with a literal binary (args[0] is always "git") and program-derived args; no shell, no user-tainted input.
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Dir = repoPath
 
