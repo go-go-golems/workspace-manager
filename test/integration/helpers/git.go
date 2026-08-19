@@ -87,6 +87,7 @@ func RunForTest(t *testing.T, s *Sandbox, dir string, extraEnv map[string]string
 
 func run(t *testing.T, s *Sandbox, dir string, extraEnv map[string]string, name string, args ...string) string {
 	t.Helper()
+	// #nosec G204 -- test helper running git/shell with test-controlled args; not production code.
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
 	cmd.Env = s.Env(extraEnv)

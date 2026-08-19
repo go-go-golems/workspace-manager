@@ -192,6 +192,7 @@ func StageResolved(ctx context.Context, repoPath string, all bool, files []strin
 		return errors.New("no files specified; use --all to stage all")
 	}
 	args := append([]string{"add"}, files...)
+	// #nosec G204 -- git is invoked with a literal binary and program-derived args; no shell, no user-tainted input.
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = repoPath
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -201,6 +202,7 @@ func StageResolved(ctx context.Context, repoPath string, all bool, files []strin
 }
 
 func rebasePathExists(ctx context.Context, repoPath, gitPath string) bool {
+	// #nosec G204 -- git is invoked with a literal binary and a fixed rev-parse argument; no shell, no user-tainted input.
 	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--git-path", gitPath)
 	cmd.Dir = repoPath
 	out, err := cmd.Output()

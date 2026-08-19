@@ -182,6 +182,11 @@ func statusToRows(status *wsm.WorkspaceStatus, includeUntracked bool) []types.Ro
 			types.MRP("behind", repoStatus.Behind),
 			types.MRP("is_merged", repoStatus.IsMerged),
 			types.MRP("needs_rebase", repoStatus.NeedsRebase),
+			types.MRP("base", baseString(repoStatus)),
+			types.MRP("base_ref", repoStatus.Base.ResolvedRef),
+			types.MRP("base_source", string(repoStatus.Base.RefSource)),
+			types.MRP("base_status", string(repoStatus.Base.Status)),
+			types.MRP("base_reason", repoStatus.Base.Reason),
 			types.MRP("staged_count", len(repoStatus.StagedFiles)),
 			types.MRP("modified_count", len(repoStatus.ModifiedFiles)),
 			types.MRP("untracked_count", len(repoStatus.UntrackedFiles)),
@@ -246,8 +251,8 @@ func printStatusDetailed(status *wsm.WorkspaceStatus, includeUntracked bool) err
 		}
 	}()
 
-	fmt.Fprintln(w, "REPOSITORY\tBRANCH\tSTATUS\tCHANGES\tSYNC\tMERGED\tREBASE")
-	fmt.Fprintln(w, "----------\t------\t------\t-------\t----\t------\t------")
+	fmt.Fprintln(w, "REPOSITORY\tBRANCH\tBASE\tSTATUS\tCHANGES\tSYNC\tMERGED\tREBASE")
+	fmt.Fprintln(w, "----------\t------\t----\t------\t-------\t----\t------\t------")
 
 	for _, repoStatus := range status.Repositories {
 		repoName := repoStatus.Repository.Name
@@ -259,11 +264,12 @@ func printStatusDetailed(status *wsm.WorkspaceStatus, includeUntracked bool) err
 		statusStr := getStatusString(repoStatus)
 		changesStr := getChangesString(repoStatus, includeUntracked)
 		syncStr := getSyncString(repoStatus)
+		baseStr := baseString(repoStatus)
 		mergedStr := getMergedString(repoStatus)
 		rebaseStr := getRebaseString(repoStatus)
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			repoName, branch, statusStr, changesStr, syncStr, mergedStr, rebaseStr)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			repoName, branch, baseStr, statusStr, changesStr, syncStr, mergedStr, rebaseStr)
 	}
 
 	fmt.Fprintln(w)
@@ -348,18 +354,71 @@ func getSyncString(status wsm.RepositoryStatus) string {
 	return fmt.Sprintf("↑%d ↓%d", status.Ahead, status.Behind)
 }
 
-func getMergedString(status wsm.RepositoryStatus) string {
-	if status.IsMerged {
-		return "✓"
+// baseString renders the BASE column: the resolved ref plus its source in
+// parentheses, or "?" with the reason when the comparison could not run. This
+// lets a human see at a glance which branch status was computed against and
+// why (e.g. "origin/develop (remote-tracking)" vs "? no base ref").
+func baseString(status wsm.RepositoryStatus) string {
+	switch status.Base.Status {
+	case wsm.BaseResolved:
+		if status.Base.ResolvedRef == "" {
+			return "?"
+		}
+		if status.Base.RefSource != "" {
+			return fmt.Sprintf("%s (%s)", status.Base.ResolvedRef, status.Base.RefSource)
+		}
+		return status.Base.ResolvedRef
+	case wsm.BaseUnknown:
+		if status.Base.Reason != "" {
+			return "? " + status.Base.Reason
+		}
+		return "?"
+	case wsm.BaseError:
+		if status.Base.Reason != "" {
+			return "! " + status.Base.Reason
+		}
+		return "!"
+	default:
+		return "?"
 	}
-	return "-"
 }
 
-func getRebaseString(status wsm.RepositoryStatus) string {
-	if status.NeedsRebase {
-		return "⚠️"
+// getMergedString renders the MERGED column honestly: only "✓"/"-" when a real
+// comparison ran (BaseResolved); "?" when the base could not be resolved
+// (unknown); "!" when git itself failed (error). The old code returned a
+// confident "-" for a swallowed error, which is the bug this fixes.
+func getMergedString(status wsm.RepositoryStatus) string {
+	switch status.Base.Status {
+	case wsm.BaseResolved:
+		if status.IsMerged {
+			return "✓"
+		}
+		return "-"
+	case wsm.BaseUnknown:
+		return "?"
+	case wsm.BaseError:
+		return "!"
+	default:
+		return "?"
 	}
-	return "✓"
+}
+
+// getRebaseString renders the REBASE column with the same honesty rules as
+// getMergedString: "⚠️"/"✓" only when BaseResolved; "?"/"!" otherwise.
+func getRebaseString(status wsm.RepositoryStatus) string {
+	switch status.Base.Status {
+	case wsm.BaseResolved:
+		if status.NeedsRebase {
+			return "⚠️"
+		}
+		return "✓"
+	case wsm.BaseUnknown:
+		return "?"
+	case wsm.BaseError:
+		return "!"
+	default:
+		return "?"
+	}
 }
 
 func NewStatusCobraCommand() (*cobra.Command, error) {

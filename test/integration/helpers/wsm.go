@@ -47,6 +47,7 @@ func (s *Sandbox) RunWSM(t *testing.T, ctx context.Context, workDir string, args
 	}
 
 	var cmd *exec.Cmd
+	// #nosec G204 -- test helper running the built wsm binary with test-controlled args; not production code.
 	if ctx == nil {
 		cmd = exec.Command(bin, args...)
 	} else {

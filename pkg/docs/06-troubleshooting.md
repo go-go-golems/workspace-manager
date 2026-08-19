@@ -115,6 +115,52 @@ wsm delete <name>
 wsm create <name> --repos correct,repos
 ```
 
+## Status issues
+
+`wsm status` compares each repo against a resolved base branch and reports
+`is_merged`/`needs_rebase`. The `BASE` column shows the resolved ref and
+source; `MERGED`/`REBASE` use honest glyphs.
+
+### `wsm status` shows `?` in MERGED/REBASE
+
+The base branch could not be resolved into a concrete ref -- it exists neither
+as a remote-tracking branch (`<remote>/<base>`) nor as a local branch. The
+`BASE` column prints `? <reason>` naming the missing refs.
+
+Fix it by setting an explicit base for that repo:
+
+```bash
+wsm set-base <repo> --branch <branch> [--remote <remote>] [--fetch]
+```
+
+Use `--fetch` so the remote-tracking ref exists before the next status check.
+The override is stored in the in-workspace `.wsm/wsm.json` by default; pass
+`--global` to store it in the config-dir workspace JSON (the in-workspace
+override wins at load time).
+
+### `wsm status` shows `!` in MERGED/REBASE
+
+git itself failed while running the comparison (e.g. a corrupt object database).
+The `BASE` column and the JSON `base_reason` field carry the captured stderr.
+Inspect the reason; it is a git-level problem, not a WSM configuration issue.
+
+### `wsm status` compares against the wrong branch for one repo
+
+The base is resolved by precedence (in-workspace override > config-dir
+override > workspace base > discovered default > env > `main`). A repo whose
+remote default is `develop` (not `main`) should be compared against `develop`
+after `wsm discover`; if it is not, either the discovered default is stale
+(re-run `wsm discover`) or an override is taking precedence -- check
+`.wsm/wsm.json` and `wsm set-base --global`.
+
+### Forked workspace reports a confident false that looks wrong
+
+This was the original bug: a forked workspace whose base branch was never
+pushed had no `origin/<base>` ref, so the old checks swallowed an `exit 128`
+into `false`. The fix resolves the local base branch as a fallback; the `BASE`
+column now shows `task/<base> (local)` and `MERGED`/`REBASE` reflect a real
+comparison.
+
 ## Rebase issues
 
 Rebase is the most complex multi-repo operation. Problems usually affect one

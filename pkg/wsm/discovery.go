@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-go-golems/workspace-manager/pkg/output"
+	branchsvc "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"github.com/pkg/errors"
 )
 
@@ -200,6 +201,12 @@ func (rd *RepositoryDiscoverer) analyzeRepository(ctx context.Context, path stri
 			if lastCommit, err := gc.LastCommit(ctx, handle); err == nil {
 				repo.LastCommit = lastCommit
 			}
+		}
+		// Discover the remote's default base branch (symbolic-ref origin/HEAD,
+		// with a main/master/develop probe fallback). Persisted on the repo so
+		// status resolution can use it when no explicit base is configured.
+		if def, err := branchsvc.DefaultBaseBranchForRepo(ctx, gc, path, branchsvc.DefaultRemoteName); err == nil {
+			repo.DefaultBaseBranch = def
 		}
 	}
 

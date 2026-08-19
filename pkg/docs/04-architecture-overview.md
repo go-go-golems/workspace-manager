@@ -104,7 +104,12 @@ git CLI backend:
 ## Branch resolution system
 
 Branch policy is centralized in `pkg/wsm/branch/` to avoid duplicating branch
-decisions across commands. The system uses typed enums:
+decisions across commands. The system has two parts: a creation/checkout
+resolver, and a status base-ref resolver.
+
+### Creation/checkout resolution
+
+The original resolution system uses typed enums:
 
 **ResolutionMode** -- what operation triggered the branch decision:
 - `CreateWorktree` -- creating a new workspace worktree
@@ -124,6 +129,30 @@ decisions across commands. The system uses typed enums:
 A `BranchResolutionRequest` goes in, a `BranchResolutionPlan` comes out. The
 plan is deterministic: same inputs always produce the same strategy. Commands
 and workflows use the branch service rather than implementing their own logic.
+
+### Status base-ref resolution (`pkg/wsm/branch/status_resolve.go`)
+
+`wsm status` compares each repo's HEAD against a *base* branch to report
+`is_merged`/`needs_rebase`. The base is resolved through a single precedence
+function, `ResolveBaseBranchForRepo`, so no call site can forget a layer:
+
+1. in-workspace per-repo override (`RepositoryMetadata.BaseBranch` in `.wsm/wsm.json`, set by `wsm set-base`)
+2. config-dir per-repo override (`Repository.BaseBranch`, set by `wsm set-base --global`)
+3. workspace-level base (`Workspace.BaseBranch`)
+4. discovered per-repo default (`Repository.DefaultBaseBranch`, from `git symbolic-ref refs/remotes/origin/HEAD`)
+5. `WSM_BASE_BRANCH` env
+6. `main`
+
+The chosen branch is then turned into a concrete git ref by `ResolveBaseRef`,
+which prefers the remote-tracking ref (`<remote>/<base>`) and falls back to the
+local branch (`<base>`) -- the latter is what makes forked workspaces work when
+the base branch was never pushed. The outcome is a `BaseComparison` carrying
+`ResolvedRef`, `RefSource`, `Status` (`resolved`/`unknown`/`error`), `Reason`, and
+the `IsMerged`/`NeedsRebase` values. The status table renders this in a `BASE`
+column; `MERGED`/`REBASE` glyphs are honest: `?` for unknown, `!` for error.
+
+See `wsm help wsm-persistence-and-state` for the two stores and `wsm set-base`
+for the override command.
 
 ## JS integration
 
@@ -179,6 +208,8 @@ sequentially.
 | Duplicate branch decisions | Branch policy bypassed | Route through `pkg/wsm/branch/` service |
 | JS API diverges from CLI behavior | Separate code paths | Both must call the same workflow |
 | Rebase state detection fails | Missing `.git/rebase-merge` check | See `rebase_operations.go` for state detection logic |
+| `wsm status` shows `?` in MERGED/REBASE | Base branch could not be resolved (no remote-tracking and no local ref) | Set a base with `wsm set-base <repo> --branch <branch>`, or check the `BASE` column reason |
+| `wsm status` shows `!` in MERGED/REBASE | git itself failed during the comparison | Inspect the `base_reason` JSON field / `BASE` column; the captured stderr explains the git failure |
 
 ## See Also
 

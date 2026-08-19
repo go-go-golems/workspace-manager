@@ -28,6 +28,7 @@ func (c *CliGitClient) Open(ctx context.Context, repoPath string) (RepositoryHan
 }
 
 func runGit(ctx context.Context, dir string, args ...string) ([]byte, error) {
+	// #nosec G204 -- git is invoked with a literal binary and program-derived args; no shell, no user-tainted input.
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
@@ -117,6 +118,25 @@ func (c *CliGitClient) RemoteTrackingBranchExists(ctx context.Context, repo Repo
 		return false, err
 	}
 	return strings.TrimSpace(string(out)) != "", nil
+}
+
+// DefaultBranch returns the remote's advertised default branch name via
+// `git symbolic-ref refs/remotes/<remote>/HEAD`, stripped of the
+// "refs/remotes/<remote>/" prefix (e.g. "develop", "main"). An unset HEAD is
+// not an error: it returns ("", nil) so callers can fall back to probing
+// candidates (main/master/develop).
+func (c *CliGitClient) DefaultBranch(ctx context.Context, repo RepositoryHandle, remote string) (string, error) {
+	if remote == "" {
+		remote = "origin"
+	}
+	out, err := runGit(ctx, repo.Path(), "symbolic-ref", "refs/remotes/"+remote+"/HEAD")
+	if err != nil {
+		// Unset origin/HEAD -> not an error; caller probes candidates.
+		return "", nil
+	}
+	ref := strings.TrimSpace(string(out)) // e.g. refs/remotes/origin/develop
+	prefix := "refs/remotes/" + remote + "/"
+	return strings.TrimPrefix(ref, prefix), nil // "develop"
 }
 
 func (c *CliGitClient) ListTags(ctx context.Context, repo RepositoryHandle) ([]string, error) {

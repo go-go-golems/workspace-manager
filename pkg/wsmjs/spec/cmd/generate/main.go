@@ -20,7 +20,7 @@ func main() {
 		return
 	}
 
-	if err := os.WriteFile(outputPath, templateData, 0o644); err != nil {
+	if err := os.WriteFile(outputPath, templateData, 0o644); err != nil { // #nosec G703 -- generated spec output written to a caller-supplied path in the repo; no secret content.
 		panic(fmt.Errorf("write output %s: %w", outputPath, err))
 	}
 }

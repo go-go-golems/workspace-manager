@@ -47,8 +47,16 @@ separately, typically under a date-stamped root:
         ├── workspace-manager/       # git worktree
         ├── geppetto/                # git worktree
         ├── go.work                  # if Go workspace detected
-        └── AGENT.md                 # if agent-source was specified
+        ├── AGENT.md                 # if agent-source was specified
+        └── .wsm/
+            └── wsm.json             # in-workspace metadata + per-repo overrides
 ```
+
+The in-workspace `.wsm/wsm.json` mirrors the workspace definition for human
+inspection and carries per-repo base overrides set by `wsm set-base` (default
+mode). At load time, `wsm status` overlays these in-workspace overrides onto
+the config-dir `Repository` entries (local beats global). Editing `.wsm/wsm.json`
+by hand is supported; it is authoritative for per-repo base overrides.
 
 ## The registry (`registry.json`)
 
@@ -82,9 +90,14 @@ Each workspace gets its own JSON file containing:
 - AGENT.md source path (if any)
 
 **Created by**: `wsm create`, `wsm fork`
-**Updated by**: `wsm add`, `wsm remove`
+**Updated by**: `wsm add`, `wsm remove`, `wsm set-base --global`
 **Deleted by**: `wsm delete`
 **Read by**: `wsm status`, `wsm info`, `wsm commit`, all git commands
+
+Each `Repository` entry can carry a per-repo base override (`base_branch`/
+`base_remote`, set by `wsm set-base --global`) and the discovered default
+(`default_base_branch`, set by `wsm discover`). See *Status base-ref resolution*
+in `wsm help wsm-architecture-overview`.
 
 ## Workspace directories on disk
 
@@ -106,15 +119,18 @@ Here is exactly which commands write to which files:
 | Command | Writes to |
 |---------|-----------|
 | `wsm discover` | `registry.json` |
-| `wsm create` | New `workspaces/<name>.json` + creates worktree directories |
-| `wsm fork` | New `workspaces/<name>.json` + creates worktree directories |
-| `wsm add` | Updates existing `workspaces/<name>.json` |
-| `wsm remove` | Updates existing `workspaces/<name>.json` |
+| `wsm create` | New `workspaces/<name>.json` + creates worktree directories + `.wsm/wsm.json` |
+| `wsm fork` | New `workspaces/<name>.json` + creates worktree directories + `.wsm/wsm.json` |
+| `wsm add` | Updates existing `workspaces/<name>.json` + `.wsm/wsm.json` |
+| `wsm remove` | Updates existing `workspaces/<name>.json` + `.wsm/wsm.json` |
 | `wsm delete` | Removes `workspaces/<name>.json` + optionally deletes directory |
 | `wsm merge` | May remove `workspaces/<name>.json` if `--keep-workspace` is false |
+| `wsm set-base` (default) | Updates `.wsm/wsm.json` only (per-repo `baseBranch`/`baseRemote`) |
+| `wsm set-base --global` | Updates `workspaces/<name>.json` only (per-repo `base_branch`/`base_remote`) |
 
 No other commands write to disk. Status, diff, log, branch list, and the JS API
-are all read-only operations.
+are all read-only operations. `wsm set-base --fetch` also runs `git fetch` in
+the worktree but writes no WSM state beyond the override.
 
 ## Runtime state vs persisted state
 
@@ -131,6 +147,9 @@ runtime:
 - Rebase state detection (checks `.git/rebase-merge` and `.git/rebase-apply`)
 - Workspace detection from current working directory
 - Conflict file lists
+- The `BaseComparison` for each repo (resolved base ref, source, status,
+  reason, is_merged/needs_rebase) -- computed by `ResolveBaseRef` against
+  the loaded workspace + repo overrides
 
 If runtime output and persisted files ever seem inconsistent, the persisted
 files are the source of truth for workspace membership and configuration, while

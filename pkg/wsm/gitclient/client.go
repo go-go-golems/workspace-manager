@@ -54,6 +54,11 @@ type GitClient interface {
 	ListRemoteTrackingBranches(ctx context.Context, repo RepositoryHandle, remote string) ([]string, error)
 	// RemoteTrackingBranchExists reports whether refs/remotes/<remote>/<branch> exists.
 	RemoteTrackingBranchExists(ctx context.Context, repo RepositoryHandle, remote string, branch string) (bool, error)
+	// DefaultBranch returns the remote's advertised default branch name (e.g.
+	// "main", "master", "develop") without the "<remote>/" prefix, read from
+	// `git symbolic-ref refs/remotes/<remote>/HEAD`. Returns "" if origin/HEAD is
+	// unset (caller may then probe candidates).
+	DefaultBranch(ctx context.Context, repo RepositoryHandle, remote string) (string, error)
 	ListTags(ctx context.Context, repo RepositoryHandle) ([]string, error)
 	LastCommit(ctx context.Context, repo RepositoryHandle) (string, error)
 

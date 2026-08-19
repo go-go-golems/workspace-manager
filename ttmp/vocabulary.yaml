@@ -17,6 +17,16 @@ topics:
       description: Goja JavaScript runtime and embedding topics
     - slug: javascript
       description: JavaScript API and integration topics
+    - slug: bugfix
+      description: Bug fix work
+    - slug: rebase
+      description: Git rebase operations and status detection
+    - slug: fork
+      description: Workspace forking operations
+    - slug: status
+      description: Workspace status reporting
+    - slug: cli
+      description: Command-line interface commands and flags
 docTypes:
     - slug: index
       description: Doc type index

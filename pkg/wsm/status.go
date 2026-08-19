@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 
+	branchsvc "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm/gitclient"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -148,12 +149,42 @@ func (sc *StatusChecker) getRepositoryStatusWithClient(ctx context.Context, repo
 
 	status.HasConflicts = false
 
-	// Preserve legacy semantics used by status table columns.
-	if isMerged, err := CheckBranchMerged(ctx, repoPath, baseBranch); err == nil {
-		status.IsMerged = isMerged
-	}
-	if needsRebase, err := CheckBranchNeedsRebase(ctx, repoPath, baseBranch); err == nil {
-		status.NeedsRebase = needsRebase
+	// Resolve the effective base branch + remote for this repo via the full
+	// precedence (in-workspace override > config-dir override > workspace base
+	// > discovered default > env > main). The repo's BaseBranch/BaseRemote fields
+	// carry the per-repo override (overlaid from .wsm/wsm.json at load time, see
+	// LoadWorkspace); baseBranch is the workspace-level base. Centralizing this
+	// here means the checks cannot forget a layer (e.g. the empty->main fallback
+	// that bit us in E1 part 2).
+	base, remote := branchsvc.ResolveBaseBranchForRepo(branchsvc.RepoBaseInput{
+		BaseBranchWorkspace: repo.BaseBranchWorkspace,
+		BaseRemoteWorkspace: repo.BaseRemoteWorkspace,
+		BaseBranchGlobal:    repo.BaseBranch,
+		BaseRemoteGlobal:    repo.BaseRemote,
+		WorkspaceBase:       baseBranch,
+		DefaultBaseBranch:   repo.DefaultBaseBranch,
+	})
+
+	// Compute merge/rebase status against the resolved base ref (prefer
+	// remote-tracking, fall back to local, else unknown). The result carries
+	// provenance (which ref, why if it could not compare); the bool mirrors are
+	// kept for JSON compatibility with existing consumers.
+	mergedCmp, _ := CheckBranchMerged(ctx, gc, repoPath, string(base), string(remote))
+	status.Base = mergedCmp
+	status.IsMerged = mergedCmp.IsMerged
+
+	// Always honor the rebase comparison's outcome, even if it returned an
+	// error: a failed comparison must surface as BaseError (e.g. context
+	// expiry or a git object error), not be swallowed into a confident
+	// NeedsRebase=false. If the rebase check errored where the merge check
+	// resolved, promote the error so the status table shows '!' rather than a
+	// misleading rebase checkmark.
+	rebaseCmp, _ := CheckBranchNeedsRebase(ctx, gc, repoPath, string(base), string(remote))
+	status.Base.NeedsRebase = rebaseCmp.NeedsRebase
+	status.NeedsRebase = rebaseCmp.NeedsRebase
+	if rebaseCmp.Status == BaseError && mergedCmp.Status != BaseError {
+		status.Base.Status = rebaseCmp.Status
+		status.Base.Reason = rebaseCmp.Reason
 	}
 
 	return status, nil
