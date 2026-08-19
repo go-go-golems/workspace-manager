@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 
+	branchsvc "github.com/go-go-golems/workspace-manager/pkg/wsm/branch"
 	"github.com/go-go-golems/workspace-manager/pkg/wsm/gitclient"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -148,12 +149,22 @@ func (sc *StatusChecker) getRepositoryStatusWithClient(ctx context.Context, repo
 
 	status.HasConflicts = false
 
-	// Preserve legacy semantics used by status table columns.
-	if isMerged, err := CheckBranchMerged(ctx, repoPath, baseBranch); err == nil {
-		status.IsMerged = isMerged
-	}
-	if needsRebase, err := CheckBranchNeedsRebase(ctx, repoPath, baseBranch); err == nil {
-		status.NeedsRebase = needsRebase
+	// Compute merge/rebase status against the resolved base ref (prefer
+	// remote-tracking, fall back to local, else unknown). The result carries
+	// provenance (which ref, why if it could not compare); the bool mirrors are
+	// kept for JSON compatibility with existing consumers.
+	mergedCmp, _ := CheckBranchMerged(ctx, gc, repoPath, baseBranch, string(branchsvc.DefaultRemoteName))
+	status.Base = mergedCmp
+	status.IsMerged = mergedCmp.IsMerged
+	if rebaseCmp, err := CheckBranchNeedsRebase(ctx, gc, repoPath, baseBranch, string(branchsvc.DefaultRemoteName)); err == nil {
+		status.Base.NeedsRebase = rebaseCmp.NeedsRebase
+		status.NeedsRebase = rebaseCmp.NeedsRebase
+		// If the rebase check reached a different outcome (e.g. errored where the
+		// merged check resolved), prefer the most informative Status.
+		if rebaseCmp.Status == BaseError && mergedCmp.Status != BaseError {
+			status.Base.Status = rebaseCmp.Status
+			status.Base.Reason = rebaseCmp.Reason
+		}
 	}
 
 	return status, nil
