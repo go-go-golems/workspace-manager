@@ -504,6 +504,8 @@ func LoadWorkspaces() ([]Workspace, error) {
 				continue
 			}
 
+			overlayWorkspaceBaseOverrides(&workspace)
+
 			workspaces = append(workspaces, workspace)
 		}
 	}
@@ -534,7 +536,50 @@ func (wm *WorkspaceManager) LoadWorkspace(name string) (*Workspace, error) {
 		return nil, errors.Wrapf(err, "failed to parse workspace file: %s", workspacePath)
 	}
 
+	overlayWorkspaceBaseOverrides(&workspace)
+
 	return &workspace, nil
+}
+
+// overlayWorkspaceBaseOverrides reads the in-workspace .wsm/wsm.json and overlays
+// per-repo BaseBranch/BaseRemote overrides onto the loaded Workspace's
+// repositories as BaseBranchWorkspace/BaseRemoteWorkspace (local beats global).
+// Missing or unreadable .wsm/wsm.json is non-fatal: the config-dir values
+// (Repository.BaseBranch) remain in effect. This makes the in-workspace file
+// authoritative for per-repo overrides (Decision E3) while wsm status still
+// loads workspace identity from the config-dir JSON.
+func overlayWorkspaceBaseOverrides(workspace *Workspace) {
+	if workspace == nil || workspace.Path == "" {
+		return
+	}
+	metaPath := filepath.Join(workspace.Path, ".wsm", "wsm.json")
+	data, err := os.ReadFile(metaPath)
+	if err != nil {
+		return // in-workspace metadata optional; not an error
+	}
+	var meta WorkspaceMetadata
+	if err := json.Unmarshal(data, &meta); err != nil {
+		log.Debug().Err(err).Str("path", metaPath).Msg("Failed to parse in-workspace wsm.json for base override overlay")
+		return
+	}
+	// Index per-repo overrides by repo name.
+	override := make(map[string]RepositoryMetadata, len(meta.Repositories))
+	for _, rm := range meta.Repositories {
+		if rm.Name != "" && (rm.BaseBranch != "" || rm.BaseRemote != "") {
+			override[rm.Name] = rm
+		}
+	}
+	if len(override) == 0 {
+		return
+	}
+	for i := range workspace.Repositories {
+		rm, ok := override[workspace.Repositories[i].Name]
+		if !ok {
+			continue
+		}
+		workspace.Repositories[i].BaseBranchWorkspace = rm.BaseBranch
+		workspace.Repositories[i].BaseRemoteWorkspace = rm.BaseRemote
+	}
 }
 
 // DeleteWorkspace deletes a workspace and optionally removes its files
@@ -1526,6 +1571,14 @@ type RepositoryMetadata struct {
 	Categories        []string `json:"categories"`
 	WorktreePath      string   `json:"worktreePath"`
 	DefaultBaseBranch string   `json:"defaultBaseBranch,omitempty"`
+	// BaseBranch is an in-workspace per-repo override of the comparison base
+	// branch (set by `wsm set-base` default mode). Empty means inherit the
+	// next precedence layer (config-dir override -> workspace base ->
+	// discovered default -> env -> main).
+	BaseBranch string `json:"baseBranch,omitempty"`
+	// BaseRemote is the remote to compare against for this repo's override
+	// (defaults to "origin" when empty).
+	BaseRemote string `json:"baseRemote,omitempty"`
 }
 
 // createWorkspaceMetadata creates a wsm.json file with workspace metadata

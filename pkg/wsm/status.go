@@ -149,14 +149,30 @@ func (sc *StatusChecker) getRepositoryStatusWithClient(ctx context.Context, repo
 
 	status.HasConflicts = false
 
+	// Resolve the effective base branch + remote for this repo via the full
+	// precedence (in-workspace override > config-dir override > workspace base
+	// > discovered default > env > main). The repo's BaseBranch/BaseRemote fields
+	// carry the per-repo override (overlaid from .wsm/wsm.json at load time, see
+	// LoadWorkspace); baseBranch is the workspace-level base. Centralizing this
+	// here means the checks cannot forget a layer (e.g. the empty->main fallback
+	// that bit us in E1 part 2).
+	base, remote := branchsvc.ResolveBaseBranchForRepo(branchsvc.RepoBaseInput{
+		BaseBranchWorkspace: repo.BaseBranchWorkspace,
+		BaseRemoteWorkspace: repo.BaseRemoteWorkspace,
+		BaseBranchGlobal:    repo.BaseBranch,
+		BaseRemoteGlobal:    repo.BaseRemote,
+		WorkspaceBase:       baseBranch,
+		DefaultBaseBranch:   repo.DefaultBaseBranch,
+	})
+
 	// Compute merge/rebase status against the resolved base ref (prefer
 	// remote-tracking, fall back to local, else unknown). The result carries
 	// provenance (which ref, why if it could not compare); the bool mirrors are
 	// kept for JSON compatibility with existing consumers.
-	mergedCmp, _ := CheckBranchMerged(ctx, gc, repoPath, baseBranch, string(branchsvc.DefaultRemoteName))
+	mergedCmp, _ := CheckBranchMerged(ctx, gc, repoPath, string(base), string(remote))
 	status.Base = mergedCmp
 	status.IsMerged = mergedCmp.IsMerged
-	if rebaseCmp, err := CheckBranchNeedsRebase(ctx, gc, repoPath, baseBranch, string(branchsvc.DefaultRemoteName)); err == nil {
+	if rebaseCmp, err := CheckBranchNeedsRebase(ctx, gc, repoPath, string(base), string(remote)); err == nil {
 		status.Base.NeedsRebase = rebaseCmp.NeedsRebase
 		status.NeedsRebase = rebaseCmp.NeedsRebase
 		// If the rebase check reached a different outcome (e.g. errored where the

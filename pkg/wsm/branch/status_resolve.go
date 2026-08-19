@@ -2,6 +2,7 @@ package branch
 
 import (
 	"context"
+	"os"
 	"sort"
 
 	"github.com/go-go-golems/workspace-manager/pkg/wsm/gitclient"
@@ -121,6 +122,58 @@ func ResolveBaseRef(
 	res.Reason = string(base) + " is not a remote-tracking ref on " + string(r) +
 		" and is not a local branch"
 	return res, nil
+}
+
+// RepoBaseInput carries the per-repo and workspace base configuration used by
+// ResolveBaseBranchForRepo. It is populated by the wsm layer from the loaded
+// Workspace + Repository (with in-workspace overrides already overlaid on the
+// config-dir values by LoadWorkspace). Keeping this in the branch package
+// avoids an import cycle (branch must not import wsm).
+type RepoBaseInput struct {
+	// BaseBranchWorkspace is the in-workspace .wsm/wsm.json per-repo override
+	// (highest precedence).
+	BaseBranchWorkspace string
+	// BaseRemoteWorkspace is the remote for BaseBranchWorkspace (default origin).
+	BaseRemoteWorkspace string
+	// BaseBranchGlobal is the config-dir per-repo override (--global).
+	BaseBranchGlobal string
+	// BaseRemoteGlobal is the remote for BaseBranchGlobal (default origin).
+	BaseRemoteGlobal string
+	// WorkspaceBase is the workspace-level base branch (Workspace.BaseBranch).
+	WorkspaceBase string
+	// DefaultBaseBranch is the discovered remote default (Repository.DefaultBaseBranch).
+	DefaultBaseBranch string
+}
+
+// ResolveBaseBranchForRepo picks the effective base branch + remote for a repo
+// using the documented precedence (most-specific first):
+//
+//  1. in-workspace per-repo override (BaseBranchWorkspace)
+//  2. config-dir per-repo override (BaseBranchGlobal)
+//  3. workspace-level base (WorkspaceBase)
+//  4. discovered per-repo default (DefaultBaseBranch)
+//  5. WSM_BASE_BRANCH env
+//  6. "main"
+//
+// It returns the chosen branch name and the default remote ("origin" unless an
+// override specified BaseRemote). The caller then runs ResolveBaseRef to turn
+// the branch into a concrete ref. This centralizes precedence (including the
+// empty->main fallback) so status checks cannot forget a layer.
+func ResolveBaseBranchForRepo(in RepoBaseInput) (branch BranchName, remote RemoteName) {
+	switch {
+	case in.BaseBranchWorkspace != "":
+		return BranchName(in.BaseBranchWorkspace), normalizeRemote(RemoteName(in.BaseRemoteWorkspace), DefaultRemoteName)
+	case in.BaseBranchGlobal != "":
+		return BranchName(in.BaseBranchGlobal), normalizeRemote(RemoteName(in.BaseRemoteGlobal), DefaultRemoteName)
+	case in.WorkspaceBase != "":
+		return BranchName(in.WorkspaceBase), DefaultRemoteName
+	case in.DefaultBaseBranch != "":
+		return BranchName(in.DefaultBaseBranch), DefaultRemoteName
+	case os.Getenv("WSM_BASE_BRANCH") != "":
+		return BranchName(os.Getenv("WSM_BASE_BRANCH")), DefaultRemoteName
+	default:
+		return DefaultBaseBranch, DefaultRemoteName
+	}
 }
 
 // DefaultBaseBranchForRepo resolves a repository's effective default base branch

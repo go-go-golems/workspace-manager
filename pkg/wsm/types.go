@@ -23,6 +23,20 @@ type Repository struct {
 	// probe fallback. Used by status resolution when no explicit per-repo or
 	// workspace base is configured. Empty means undiscovered.
 	DefaultBaseBranch string `json:"default_base_branch,omitempty"`
+	// BaseBranch is a per-repo override of the comparison base branch, set by
+	// `wsm set-base --global` (stored in the config-dir workspace JSON). The
+	// in-workspace .wsm/wsm.json override (RepositoryMetadata.BaseBranch) takes
+	// precedence over this at load time (local beats global).
+	BaseBranch string `json:"base_branch,omitempty"`
+	// BaseRemote is the remote for BaseBranch (defaults to "origin").
+	BaseRemote string `json:"base_remote,omitempty"`
+	// BaseBranchWorkspace is the in-workspace .wsm/wsm.json per-repo override,
+	// overlaid onto the config-dir value by LoadWorkspace (local beats global).
+	// It is NOT serialized to the config-dir JSON (it comes from .wsm/wsm.json).
+	// Highest precedence in ResolveBaseBranchForRepo.
+	BaseBranchWorkspace string `json:"-"`
+	// BaseRemoteWorkspace is the remote for BaseBranchWorkspace (default origin).
+	BaseRemoteWorkspace string `json:"-"`
 }
 
 // RepositoryRegistry stores discovered repositories
