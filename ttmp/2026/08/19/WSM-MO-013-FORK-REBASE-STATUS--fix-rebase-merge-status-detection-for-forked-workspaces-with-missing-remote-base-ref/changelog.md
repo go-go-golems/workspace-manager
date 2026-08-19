@@ -49,3 +49,12 @@ Updated design-doc 02 per user feedback: wsm set-base now defaults to the in-wor
 
 - /home/manuel/workspaces/2026-08-19/fix-git-rebase-bug/workspace-manager/cmd/wsm/cmds/workspace/set_base.go — set-base default=workspace, --global=config-dir
 
+
+## 2026-08-19
+
+Added design-doc 03 (fork divergence confirmation) + tasks F1-F3; deferring implementation until E1-E6 base-resolution foundation lands
+
+### Related Files
+
+- /home/manuel/workspaces/2026-08-19/fix-git-rebase-bug/workspace-manager/pkg/wsm/workflows/fork_workflow.go — deferred fork divergence fix
+
