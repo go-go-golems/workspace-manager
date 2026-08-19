@@ -76,3 +76,30 @@ Step 5: Phase E1 part 2 — honest checks + status wiring + regression tests (co
 
 - /home/manuel/workspaces/2026-08-19/fix-git-rebase-bug/workspace-manager/pkg/wsm/git_utils.go — E1 honest checks
 
+
+## 2026-08-19
+
+Step 6: Phase E2 — discover per-repo default base via symbolic-ref + persistence (commit aae5359). DefaultBranch git method; DefaultBaseBranchForRepo helper; Repository.DefaultBaseBranch + wsm.json.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-08-19/fix-git-rebase-bug/workspace-manager/pkg/wsm/gitclient/cli_client.go — E2
+
+
+## 2026-08-19
+
+Step 7: Phase E3 — per-repo override + 6-layer precedence + LoadWorkspace overlay (commit f842186). ResolveBaseBranchForRepo; in-workspace beats config-dir; overlay reads .wsm/wsm.json.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-08-19/fix-git-rebase-bug/workspace-manager/pkg/wsm/branch/status_resolve.go — E3
+
+
+## 2026-08-19
+
+Step 8: Phase E4 — wsm set-base command default in-workspace / --global config-dir, optional --fetch (commit 925c327).
+
+### Related Files
+
+- /home/manuel/workspaces/2026-08-19/fix-git-rebase-bug/workspace-manager/cmd/wsm/cmds/workspace/set_base.go — E4
+

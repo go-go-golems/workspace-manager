@@ -13,24 +13,39 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: repo://cmd/wsm/cmds/workspace/set_base.go
+      Note: wsm set-base command default/--global (E4, commit 925c327)
     - Path: repo://pkg/wsm/branch/status_resolve.go
-      Note: ResolveBaseRef resolver + BaseRefResolution (Step 4, commit a58504b)
+      Note: |-
+        ResolveBaseRef resolver + BaseRefResolution (Step 4, commit a58504b)
+        DefaultBaseBranchForRepo + ResolveBaseBranchForRepo precedence (E2/E3, commits aae5359/f842186)
     - Path: repo://pkg/wsm/branch/status_resolve_test.go
       Note: ResolveBaseRef unit tests (Step 4, commit a58504b)
     - Path: repo://pkg/wsm/git_utils.go
       Note: honest CheckBranchMerged/CheckBranchNeedsRebase returning BaseComparison (Step 5, commit ba6b6f7)
     - Path: repo://pkg/wsm/git_utils_test.go
       Note: forked-workspace regression tests (Step 5, commit ba6b6f7)
+    - Path: repo://pkg/wsm/gitclient/cli_client.go
+      Note: DefaultBranch via symbolic-ref (E2, commit aae5359)
     - Path: repo://pkg/wsm/status.go
-      Note: getRepositoryStatusWithClient wires status.Base + bool mirrors (Step 5, commit ba6b6f7)
+      Note: |-
+        getRepositoryStatusWithClient wires status.Base + bool mirrors (Step 5, commit ba6b6f7)
+        getRepositoryStatusWithClient uses ResolveBaseBranchForRepo (E3, commit f842186)
     - Path: repo://pkg/wsm/types.go
       Note: BaseComparison model + type aliases to branch (Step 4, commit a58504b)
+    - Path: repo://pkg/wsm/workspace.go
+      Note: RepositoryMetadata overrides + overlayWorkspaceBaseOverrides + SetRepoBase (E3/E4, commits f842186/925c327)
 ExternalSources: []
 Summary: Chronological investigation of the forked-workspace rebase/merge status bug, from log triage to root cause and proposed fix.
 LastUpdated: 2026-08-19T10:32:00-04:00
 WhatFor: Resuming or reviewing the investigation of WSM-MO-013.
 WhenToUse: Read before continuing work on the forked-workspace status bug.
 ---
+
+
+
+
+
 
 
 
@@ -323,3 +338,156 @@ The old `merged := err == nil` turned "ref doesn't exist" into `false`; the old 
 - `isNotAncestorExit`: `var ee *exec.ExitError; errors.As(err, &ee); ee.ExitCode() == 1`.
 - `runGitCapture` uses `cmd.CombinedOutput()` so stderr lands in the wrapped error message (the reason `BaseError.Reason` is human-readable).
 - The integration test `TestStatusSemanticMergedAndNeedsRebase` is the canary for the empty-base→main fallback; if it breaks again, the checks are passing `""` to `ResolveBaseRef` instead of `ResolveBaseBranch("")` first.
+
+## Step 6: Phase E2 — discover per-repo default base branch via symbolic-ref
+
+This step stopped the hardcoded "main" assumption. Each repo's remote-advertised
+default branch is now discovered (`git symbolic-ref refs/remotes/origin/HEAD`),
+persisted on the repo and in `.wsm/wsm.json`, and a shared helper combines
+symbolic-ref with a main/master/develop probe fallback. Status doesn't consume
+it yet (E3 wires precedence); this step just makes the data available.
+
+**Commit (code):** aae5359 — ":sparkles: E2: discover per-repo default base branch via symbolic-ref (Q3)"
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 4) — then "do E2 - E4, commit at appropriate intervals."
+
+**Assistant interpretation:** Implement default-branch detection (Q3), per-repo override + precedence (Q4 core), and the set-base command (Q4 surface), committing each phase separately.
+
+**Inferred user intent:** A repo like goldeneaglecoin.com (origin/HEAD -> develop) must compare against develop, not main; the foundation for "manage different branches" per the user's earlier note.
+
+### What I did
+- `pkg/wsm/gitclient/client.go`: added `DefaultBranch(ctx, repo, remote)` to the `GitClient` interface.
+- `pkg/wsm/gitclient/cli_client.go`: implemented via `git symbolic-ref refs/remotes/<remote>/HEAD`, stripped to the branch name; unset HEAD returns `("", nil)` (not an error) so callers probe candidates.
+- `pkg/wsm/gitclient/default_branch_test.go`: advertised (develop), unset-returns-empty (deletes `origin/HEAD` to simulate a truly unset remote — `git clone --branch main` *synthesizes* `origin/HEAD`, so the delete is necessary), default-remote normalization.
+- `pkg/wsm/branch/status_resolve.go`: `DefaultBaseBranchForRepo` combines symbolic-ref with a `main`/`master`/`develop` probe via `RemoteTrackingBranchExists`.
+- `pkg/wsm/types.go`: `Repository.DefaultBaseBranch` (json `default_base_branch`).
+- `pkg/wsm/discovery.go`: `analyzeRepository` populates it.
+- `pkg/wsm/workspace.go`: `RepositoryMetadata.DefaultBaseBranch` (json `defaultBaseBranch`); emitted in `createWorkspaceMetadata`.
+
+### Why
+The remote's own advertised default is the most correct base; probing covers the rare unset-HEAD case. Persisting it on the repo + in `.wsm/wsm.json` means status can use it without re-running git on every status call.
+
+### What worked
+- `symbolic-ref` on the bare remote *before* push (`git --git-dir remoteA.git symbolic-ref HEAD refs/heads/develop`) reliably advertises `develop` as the default, so a normal `git clone` sets `origin/HEAD -> origin/develop`. Verified the test returns `"develop"`.
+
+### What didn't work
+- First `TestCliDefaultBranch_UnsetReturnsEmpty` failed: `git clone --branch main remoteB clientB` set `origin/HEAD -> origin/main` on the client even though the bare remote's HEAD was never set (clone synthesizes it from the cloned branch). Fixed by deleting the ref on the client: `git symbolic-ref -d refs/remotes/origin/HEAD` — that's the only way to simulate a genuinely unset default.
+
+### What I learned
+- `git clone --branch X` always sets `origin/HEAD -> origin/X` on the client, regardless of the remote's own HEAD. So "unset default" is hard to construct from a clone alone; you must delete the synthesized ref.
+- A repo can legitimately default to `master` or `develop` (goldeneaglecoin.com confirmed `origin/HEAD -> origin/develop` during the design phase), so the probe order `main, master, develop` is a documented heuristic, not "main always".
+
+### What was tricky to build
+- Keeping the "unset HEAD is not an error" contract (`("", nil)`) distinct from a real git failure, so the probe fallback runs only when symbolic-ref genuinely has nothing. `runGit` returns an error on non-zero exit, so the impl swallows that specific error and returns empty.
+
+### What warrants a second pair of eyes
+- The probe order (`main, master, develop`) is arbitrary-but-documented; confirm no repo in the fleet defaults to something else (e.g. `trunk`, `production`). If so, extend the list or prefer the symbolic-ref result strictly.
+
+### What should be done in the future
+- E3's `ResolveBaseBranchForRepo` consumes `DefaultBaseBranch` (done in Step 7); a follow-up could re-discover it on `wsm discover` only (cheap to store), not on every status — currently it's persisted, so status doesn't re-run git for it.
+
+### Code review instructions
+- Start at `pkg/wsm/gitclient/cli_client.go` (`DefaultBranch`), then `pkg/wsm/branch/status_resolve.go` (`DefaultBaseBranchForRepo`), then `pkg/wsm/discovery.go` (`analyzeRepository`).
+- Validate: `GOTOOLCHAIN=auto go test ./pkg/wsm/gitclient/ -run DefaultBranch -v`.
+
+### Technical details
+- `git symbolic-ref refs/remotes/origin/HEAD` -> `refs/remotes/origin/develop` -> trim prefix -> `"develop"`.
+
+## Step 7: Phase E3 — per-repo override + precedence + LoadWorkspace overlay
+
+This step wired the discovered default into a single precedence resolver and
+added per-repo overrides with local-beats-global semantics. All base resolution
+now flows through `ResolveBaseBranchForRepo`, which structurally prevents the
+empty→main bug from Step 5 recurring (the checks can no longer forget a layer).
+
+**Commit (code):** f842186 — ":sparkles: E3: per-repo base override + precedence + LoadWorkspace overlay (Q4)"
+
+### What I did
+- `pkg/wsm/branch/status_resolve.go`: `RepoBaseInput` + `ResolveBaseBranchForRepo` implementing 6-layer precedence (in-workspace per-repo > config-dir per-repo > workspace base > discovered default > env > main). Returns `(branch, remote)`; override `BaseRemote` wins, defaulting to origin.
+- `pkg/wsm/types.go`: `Repository` gains `BaseBranch`/`BaseRemote` (config-dir, `--global`; json `base_branch`/`base_remote`) and `BaseBranchWorkspace`/`BaseRemoteWorkspace` (in-workspace overlay; `json:"-"` since they come from `.wsm/wsm.json` at load).
+- `pkg/wsm/workspace.go`: `RepositoryMetadata` gains `BaseBranch`/`BaseRemote` (in-workspace `.wsm/wsm.json` fields). New `overlayWorkspaceBaseOverrides` reads `<workspace>/.wsm/wsm.json` and overlays per-repo overrides onto the loaded `Repository` as the `*Workspace` fields (local beats global). Called from both `LoadWorkspace` and `LoadWorkspaces` (the latter is what `wsm status` uses). Missing/unreadable `wsm.json` is non-fatal.
+- `pkg/wsm/status.go`: `getRepositoryStatusWithClient` builds a `RepoBaseInput` from the repo (with overlaid fields) + workspace base, calls `ResolveBaseBranchForRepo`, passes `(base, remote)` to the checks. Replaces the per-check `ResolveBaseBranch` call.
+- Tests: `precedence_test.go` (all 6 layers + override-remote + env-vs-discovered + a `TestMain` that unsets `WSM_BASE_BRANCH` so `MainFallback` isn't flaky), `workspace_overlay_test.go` (overlay merge, missing-file safety, nil safety).
+
+### Why
+Centralizing precedence in one function means the empty→main fallback (which bit Step 5) lives in exactly one place. Two stores with flag selection (not mirroring) keeps each write to one file and makes precedence auditable.
+
+### What worked
+- Type aliases + a `RepoBaseInput` struct in `branch` (not `wsm`) avoided the import cycle while letting `wsm` build the input from loaded types.
+- The overlay reads the in-workspace file the user actually sees, so editing `.wsm/wsm.json` by hand works without a re-save.
+
+### What didn't work
+- First overlay test asserted `BaseRemoteWorkspace` empty for `goldeneaglecoin.com`, but the fixture set `BaseRemote: "origin"`, so it was correctly `"origin"`. Fixed the expectation (the overlay faithfully copies whatever's in the file, including explicit "origin").
+
+### What I learned
+- `json:"-"` on `BaseBranchWorkspace`/`BaseRemoteWorkspace` keeps them out of the config-dir JSON (they're load-time overlays, not persisted there), while still letting `LoadWorkspace` set them on the in-memory struct.
+- `TestMain` in a package test file is the clean way to neutralize env vars (`WSM_BASE_BRANCH`) that would make a "falls back to main" test flaky if inherited from the environment.
+
+### What was tricky to build
+- The overlay must run in BOTH `LoadWorkspace` and `LoadWorkspaces`, because `wsm status` goes through `WorkspaceContextService.LoadWorkspace` → `LoadWorkspaces`. Forgetting one makes the override invisible to status. Caught by the integration suite still passing (it uses the default path), but the overlay test asserts both.
+- Distinguishing "no override file" (non-fatal, inherit config-dir) from "corrupt file" (log a debug warning, inherit) — both fall through rather than failing status.
+
+### What warrants a second pair of eyes
+- The `status.go` merge of two `BaseComparison`s (merged sets `Base`, rebase overlays `NeedsRebase`, rebase `BaseError` promotes over merged `BaseResolved`). Confirm error-beats-resolved is desired; both checks compare the same ref so one `Status` is correct, but if they ever diverge (e.g. ref deleted between the two calls) the promotion is the safer choice.
+- `BaseBranchWorkspace`/`BaseRemoteWorkspace` use `json:"-"` so they're NEVER persisted to config-dir — confirm no code path serializes a `Repository` expecting them to round-trip (they're rebuild-only at load).
+
+### What should be done in the future
+- E5 should render `Base.Status` + `Base.ResolvedRef`/`RefSource` in the table so the precedence winner is visible (e.g. "develop (default)" vs "task/x (workspace)").
+- Consider a `wsm show-base` / `wsm status --verbose` that prints the resolved precedence layer per repo, to make the 6-layer order auditable at runtime.
+
+### Code review instructions
+- Start at `pkg/wsm/branch/status_resolve.go` (`ResolveBaseBranchForRepo`), then `pkg/wsm/workspace.go` (`overlayWorkspaceBaseOverrides`), then `pkg/wsm/status.go` (`getRepositoryStatusWithClient`).
+- Validate: `GOTOOLCHAIN=auto go test ./pkg/wsm/branch/ ./pkg/wsm/ -count=1`.
+
+### Technical details
+- Precedence is a `switch` (first non-empty wins); `normalizeRemote` (already in resolver.go) handles empty→origin for the override remotes.
+
+## Step 8: Phase E4 — wsm set-base command (default in-workspace, --global config-dir)
+
+This step added the user-facing command to set a per-repo base override,
+writing to one of two stores (never both), with optional `--fetch` to
+materialize the remote-tracking ref.
+
+**Commit (code):** 925c327 — ":sparkles: E4: wsm set-base command (default in-workspace, --global config-dir)"
+
+### What I did
+- `pkg/wsm/workspace.go`: `SetRepoBase(ctx, workspaceName, SetRepoBaseOptions)` + `SetRepoBaseOptions{RepoName, Branch, Remote, Global, Fetch}`. Validates the repo exists; `Global=true` writes `Repository.BaseBranch`/`BaseRemote` via `SaveWorkspace`; default writes `RepositoryMetadata.BaseBranch`/`BaseRemote` to `.wsm/wsm.json` via new `setRepoBaseInWorkspace` (preserves all other metadata). Optional `--fetch` runs `git fetch <remote> <branch>` (`fetchBaseRef`); fetch failure is non-fatal (warns, still records the override).
+- `cmd/wsm/cmds/workspace/set_base.go`: `SetBaseCommand` (Bare + Glaze dual mode) with flags `--branch` (required), `--remote`, `--global`, `--fetch`, plus `--workspace` and positional `<repo-name>`. Detects workspace from cwd. Prints `[stored: workspace|global]`.
+- `cmd/wsm/cmds/workspace/root.go`: register `set-base`.
+- Tests: `set_base_test.go` — default-writes-in-workspace-only (config-dir untouched), `--global`-writes-config-dir-only (`.wsm/wsm.json` untouched), local-beats-global-after-load (overlay precedence), required-branch, unknown-repo.
+
+### Why
+Mirroring to both stores creates two sources of truth that drift; flag-selection keeps each write to one file. Defaulting to the in-workspace store (the most local, highest-precedence) means the common "set a base for this worktree" needs no flag. `--fetch` makes the override immediately usable (the remote-tracking ref exists) without a separate step.
+
+### What worked
+- Reusing `WorkspaceManager.LoadWorkspace`/`SaveWorkspace` for the `--global` path kept the config-dir write consistent with how workspaces are normally persisted.
+- The "fetch failure is non-fatal" choice lets a user set a base for a not-yet-pushed branch and still record the override; status resolves once the ref exists.
+
+### What didn't work
+- Several `declared and not used` build failures from multi-return captures (`wm, wsPath, configPath := ...`) where a test only used some returns. Go is strict; fixed by discarding with `_` at the call site and recomputing the in-workspace path from the loaded `Workspace.Path` where needed.
+
+### What I learned
+- For test helpers returning `(wm, wsPath, configPath)`, only capture what each test uses; recomputing from a loaded object (e.g. `loaded.Path`) is cleaner than carrying an unused variable.
+- A command that writes two different stores based on a flag should validate the target store's repo entry exists in BOTH the workspace repos and (for the default path) the in-workspace metadata — `setRepoBaseInWorkspace` errors if the repo isn't in `.wsm/wsm.json`, which is the right guard (the file is the source of truth for that store).
+
+### What was tricky to build
+- The default path writes `.wsm/wsm.json` while the `--global` path writes config-dir JSON; the command must not accidentally write both. Enforced by the `if opts.Global { ... return }` early return so the in-workspace write only runs in the default branch.
+- `--fetch` runs `git fetch` in the worktree path, which must exist; `fetchBaseRef` stats it first and returns a clear error if the worktree is missing (e.g. repo not added to the workspace).
+
+### What warrants a second pair of eyes
+- `SetRepoBase` loads the workspace via `wm.LoadWorkspace` (which overlays in-workspace overrides), but for `--global` it then mutates `Repository.BaseBranch` and saves — confirm the overlay fields (`BaseBranchWorkspace`, `json:"-"`) are NOT serialized into the config-dir JSON by `SaveWorkspace` (they're `json:"-"`, so they aren't). If they were, a re-save would leak in-workspace values into the config-dir store.
+- The `--fetch` warning on failure: confirm it doesn't mask a genuinely broken remote (e.g. wrong remote name). The override is still recorded, so the user can fix the remote and re-run status; acceptable.
+
+### What should be done in the future
+- A `--clear` flag to remove an override (revert to inherited). Trivial extension: set the field to `""` and save.
+- E5 should surface the resolved base + store in `wsm status` so a user can see which store a given repo's base came from.
+
+### Code review instructions
+- Start at `pkg/wsm/workspace.go` (`SetRepoBase`, `setRepoBaseInWorkspace`, `fetchBaseRef`), then `cmd/wsm/cmds/workspace/set_base.go` (`execute`).
+- Validate: `GOTOOLCHAIN=auto go test ./pkg/wsm/ -run SetRepoBase -v` and `go run ./cmd/wsm set-base --help`.
+
+### Technical details
+- `wsm set-base <repo> --branch develop --fetch` → writes `.wsm/wsm.json` RepositoryMetadata.BaseBranch="develop", then `git fetch origin develop` in `<ws>/<repo>`.
+- `wsm set-base <repo> --branch develop --global` → writes config-dir `Repository.BaseBranch="develop"` via `SaveWorkspace`; `.wsm/wsm.json` untouched.
