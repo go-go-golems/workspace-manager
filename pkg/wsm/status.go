@@ -172,15 +172,19 @@ func (sc *StatusChecker) getRepositoryStatusWithClient(ctx context.Context, repo
 	mergedCmp, _ := CheckBranchMerged(ctx, gc, repoPath, string(base), string(remote))
 	status.Base = mergedCmp
 	status.IsMerged = mergedCmp.IsMerged
-	if rebaseCmp, err := CheckBranchNeedsRebase(ctx, gc, repoPath, string(base), string(remote)); err == nil {
-		status.Base.NeedsRebase = rebaseCmp.NeedsRebase
-		status.NeedsRebase = rebaseCmp.NeedsRebase
-		// If the rebase check reached a different outcome (e.g. errored where the
-		// merged check resolved), prefer the most informative Status.
-		if rebaseCmp.Status == BaseError && mergedCmp.Status != BaseError {
-			status.Base.Status = rebaseCmp.Status
-			status.Base.Reason = rebaseCmp.Reason
-		}
+
+	// Always honor the rebase comparison's outcome, even if it returned an
+	// error: a failed comparison must surface as BaseError (e.g. context
+	// expiry or a git object error), not be swallowed into a confident
+	// NeedsRebase=false. If the rebase check errored where the merge check
+	// resolved, promote the error so the status table shows '!' rather than a
+	// misleading rebase checkmark.
+	rebaseCmp, _ := CheckBranchNeedsRebase(ctx, gc, repoPath, string(base), string(remote))
+	status.Base.NeedsRebase = rebaseCmp.NeedsRebase
+	status.NeedsRebase = rebaseCmp.NeedsRebase
+	if rebaseCmp.Status == BaseError && mergedCmp.Status != BaseError {
+		status.Base.Status = rebaseCmp.Status
+		status.Base.Reason = rebaseCmp.Reason
 	}
 
 	return status, nil

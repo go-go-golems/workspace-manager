@@ -275,20 +275,35 @@ func promptBaseBranch(div *workflows.ErrBranchDivergence) (string, bool, bool) {
 	}
 
 	selected := defaultBranch
-	var confirm bool
-	form := huh.NewForm(
+	// Run the selection first, then the confirmation as a separate form, so the
+	// confirm title reflects the branch the user actually selected rather than
+	// the default formatted before form.Run (huh evaluates the title once at
+	// build time, so a single combined form would name the original default).
+	selectForm := huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Source repos are on different branches. Choose the base branch to fork from:").
 				Options(huh.NewOptions(options...)...).
 				Value(&selected),
+		),
+	)
+	if err := selectForm.Run(); err != nil {
+		if isUserCancelledError(err) {
+			return "", false, true
+		}
+		return "", false, false
+	}
+
+	var confirm bool
+	confirmForm := huh.NewForm(
+		huh.NewGroup(
 			huh.NewConfirm().
 				Title(fmt.Sprintf("Fork using base branch '%s'?", selected)).
 				Description(showDivergence(div)).
 				Value(&confirm),
 		),
 	)
-	if err := form.Run(); err != nil {
+	if err := confirmForm.Run(); err != nil {
 		if isUserCancelledError(err) {
 			return "", false, true
 		}

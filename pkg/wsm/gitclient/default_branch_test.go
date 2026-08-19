@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -56,8 +57,12 @@ func defaultBranchFixture(t *testing.T) (string, string) {
 	runGitOrFail(t, seedB, "push", "-u", "origin", "main")
 	runGitOrFail(t, "", "clone", "--branch", "main", remoteB, unsetClient)
 	// Remove origin/HEAD so the client has no advertised default (simulates a
-	// remote that never set HEAD and a clone that didn't synthesize it).
-	runGitOrFail(t, unsetClient, "symbolic-ref", "-d", "refs/remotes/origin/HEAD")
+	// remote that never set HEAD). `git clone --branch main` may or may not
+	// synthesize origin/HEAD depending on the remote's own HEAD; delete it only
+	// if present so the fixture is robust on CI where it may already be absent.
+	if out := runGitOrFail(t, unsetClient, "for-each-ref", "--format=%(refname)", "refs/remotes/origin/HEAD"); strings.TrimSpace(out) != "" {
+		runGitOrFail(t, unsetClient, "symbolic-ref", "-d", "refs/remotes/origin/HEAD")
+	}
 
 	return developClient, unsetClient
 }

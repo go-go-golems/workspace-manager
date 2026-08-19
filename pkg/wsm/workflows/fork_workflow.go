@@ -127,8 +127,14 @@ func (fw *ForkWorkflow) Plan(ctx context.Context, req ForkRequest) (*ForkPlan, e
 		if len(distinct) == 0 {
 			return nil, errors.New("failed to detect base branch from source workspace")
 		}
-		if len(distinct) == 1 {
+		// Reject an empty sole branch: when every source repo is on a detached
+		// HEAD, CurrentBranch is "" and DistinctBranches returns [""]. Accepting
+		// it would produce a plan with an empty base and silently fork from
+		// unrelated revisions. Treat an empty sole value as no detected branch.
+		if len(distinct) == 1 && distinct[0] != "" {
 			baseBranch = distinct[0]
+		} else if len(distinct) == 1 && distinct[0] == "" {
+			return nil, errors.New("failed to detect base branch from source workspace: all repositories are on a detached HEAD")
 		} else {
 			expected, _ := BuildWorkspaceBranch(sourceWorkspaceName, "", "task")
 			return nil, &ErrBranchDivergence{

@@ -633,6 +633,7 @@ func LoadWorkspaces() ([]Workspace, error) {
 			}
 
 			overlayWorkspaceBaseOverrides(&workspace)
+			fillMissingDefaultBaseBranches(context.Background(), &workspace)
 
 			workspaces = append(workspaces, workspace)
 		}
@@ -665,6 +666,7 @@ func (wm *WorkspaceManager) LoadWorkspace(name string) (*Workspace, error) {
 	}
 
 	overlayWorkspaceBaseOverrides(&workspace)
+	fillMissingDefaultBaseBranches(context.Background(), &workspace)
 
 	return &workspace, nil
 }
@@ -707,6 +709,40 @@ func overlayWorkspaceBaseOverrides(workspace *Workspace) {
 		}
 		workspace.Repositories[i].BaseBranchWorkspace = rm.BaseBranch
 		workspace.Repositories[i].BaseRemoteWorkspace = rm.BaseRemote
+	}
+}
+
+// fillMissingDefaultBaseBranches detects each repository's remote default base
+// branch directly from its on-disk path when the loaded Repository copy lacks
+// it. This self-heals existing workspaces created before default-branch
+// discovery (WSM-MO-013 P1): the discovered default was only persisted to the
+// registry on rediscovery, while workspace JSON kept a stale empty value, so
+// status fell through to "main". Detecting on load keeps existing workspaces
+// correct without requiring a re-discovery. Repos whose path is missing or
+// whose default cannot be determined are left untouched (status then falls
+// through to workspace base / env / main as before).
+func fillMissingDefaultBaseBranches(ctx context.Context, workspace *Workspace) {
+	if workspace == nil {
+		return
+	}
+	gc, _ := BuildGitBackends(ctx)
+	if gc == nil {
+		return
+	}
+	for i := range workspace.Repositories {
+		repo := &workspace.Repositories[i]
+		if repo.DefaultBaseBranch != "" {
+			continue // already known (discovered or loaded)
+		}
+		if repo.Path == "" {
+			continue
+		}
+		if _, err := gc.Open(ctx, repo.Path); err != nil {
+			continue // path missing or not a repo; leave untouched
+		}
+		if def, err := branchsvc.DefaultBaseBranchForRepo(ctx, gc, repo.Path, branchsvc.DefaultRemoteName); err == nil && def != "" {
+			repo.DefaultBaseBranch = def
+		}
 	}
 }
 

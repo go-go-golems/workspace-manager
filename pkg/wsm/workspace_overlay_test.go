@@ -1,6 +1,7 @@
 package wsm
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -70,4 +71,72 @@ func TestOverlayWorkspaceBaseOverrides_MissingFileIsNonFatal(t *testing.T) {
 func TestOverlayWorkspaceBaseOverrides_NilSafe(t *testing.T) {
 	assert.NotPanics(t, func() { overlayWorkspaceBaseOverrides(nil) })
 	assert.NotPanics(t, func() { overlayWorkspaceBaseOverrides(&Workspace{}) })
+}
+
+// TestFillMissingDefaultBaseBranches_DetectsFromRepoPath verifies the P1
+// self-heal: a workspace whose Repository.DefaultBaseBranch is empty (created
+// before discovery) gets it filled from the repo's actual remote default on
+// load, so status does not fall through to "main" for a develop-default repo.
+func TestFillMissingDefaultBaseBranches_DetectsFromRepoPath(t *testing.T) {
+	tmp := t.TempDir()
+	// Build a repo whose remote advertises "develop" as its default.
+	remote := filepath.Join(tmp, "origin.git")
+	seed := filepath.Join(tmp, "seed")
+	repo := filepath.Join(tmp, "repo")
+	runGitInDirOrFail2(t, "", "init", "--bare", remote)
+	runGitInDirOrFail2(t, remote, "symbolic-ref", "HEAD", "refs/heads/develop")
+	runGitInDirOrFail2(t, "", "clone", remote, seed)
+	runGitInDirOrFail2(t, seed, "config", "user.name", "WSM Test")
+	runGitInDirOrFail2(t, seed, "config", "user.email", "wsm-test@example.com")
+	runGitInDirOrFail2(t, seed, "checkout", "-b", "develop")
+	if err := os.WriteFile(filepath.Join(seed, "README.md"), []byte("seed\n"), 0o644); err != nil {
+		t.Fatalf("write README: %v", err)
+	}
+	runGitInDirOrFail2(t, seed, "add", "README.md")
+	runGitInDirOrFail2(t, seed, "commit", "-m", "seed commit")
+	runGitInDirOrFail2(t, seed, "push", "-u", "origin", "develop")
+	runGitInDirOrFail2(t, "", "clone", remote, repo)
+
+	ws := &Workspace{
+		Name: "ws",
+		Path: tmp,
+		Repositories: []Repository{
+			{Name: "repo", Path: repo, DefaultBaseBranch: ""}, // stale/empty, as pre-discovery
+		},
+	}
+	fillMissingDefaultBaseBranches(context.Background(), ws)
+	assert.Equal(t, "develop", ws.Repositories[0].DefaultBaseBranch,
+		"empty DefaultBaseBranch should be detected from the repo's remote default on load")
+}
+
+// TestFillMissingDefaultBaseBranches_PreservesExisting ensures a repo that
+// already has a DefaultBaseBranch is not re-detected (avoids surprise git
+// calls and preserves an explicit value).
+func TestFillMissingDefaultBaseBranches_PreservesExisting(t *testing.T) {
+	tmp := t.TempDir()
+	repo := filepath.Join(tmp, "repo")
+	runGitInDirOrFail2(t, "", "init", repo)
+	ws := &Workspace{
+		Name: "ws",
+		Path: tmp,
+		Repositories: []Repository{
+			{Name: "repo", Path: repo, DefaultBaseBranch: "main"},
+		},
+	}
+	fillMissingDefaultBaseBranches(context.Background(), ws)
+	assert.Equal(t, "main", ws.Repositories[0].DefaultBaseBranch, "existing value preserved")
+}
+
+// TestFillMissingDefaultBaseBranches_MissingRepoPathIsSkipped ensures a repo
+// whose path does not exist is left untouched (no panic, no fill).
+func TestFillMissingDefaultBaseBranches_MissingRepoPathIsSkipped(t *testing.T) {
+	ws := &Workspace{
+		Name: "ws",
+		Path: t.TempDir(),
+		Repositories: []Repository{
+			{Name: "gone", Path: filepath.Join(t.TempDir(), "does-not-exist"), DefaultBaseBranch: ""},
+		},
+	}
+	fillMissingDefaultBaseBranches(context.Background(), ws)
+	assert.Empty(t, ws.Repositories[0].DefaultBaseBranch, "missing repo path -> left empty, no error")
 }

@@ -61,6 +61,9 @@ func forkedStatusFixture(t *testing.T) string {
 
 	// Clone only main; the task base branch is NOT fetched.
 	runGitInDirOrFail2(t, "", "clone", "--branch", "main", remote, client)
+	// CI has no global git identity; configure the client so commits below succeed.
+	runGitInDirOrFail2(t, client, "config", "user.name", "WSM Test")
+	runGitInDirOrFail2(t, client, "config", "user.email", "wsm-test@example.com")
 	// Recreate the local-only base branch in the client from the client's own main.
 	runGitInDirOrFail2(t, client, "branch", "task/deploy-dev-indexer", "main")
 	// Add a commit to the base so HEAD..base can be non-empty.
