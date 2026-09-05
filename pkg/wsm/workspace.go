@@ -313,7 +313,7 @@ func (wm *WorkspaceManager) resolveBranchPlan(ctx context.Context, repoPath stri
 	return plan, nil
 }
 
-// getGoVersion dynamically detects the Go version from the system
+// getGoVersion dynamically detects the Go version from the system.
 func (wm *WorkspaceManager) getGoVersion(ctx context.Context) (string, error) {
 	cmd := exec.CommandContext(ctx, "go", "version")
 	output, err := cmd.Output()
@@ -321,27 +321,29 @@ func (wm *WorkspaceManager) getGoVersion(ctx context.Context) (string, error) {
 		return "", errors.Wrap(err, "failed to execute 'go version'")
 	}
 
-	// Parse output like "go version go1.23.4 darwin/amd64"
+	// Parse output like "go version go1.26.3 darwin/amd64".
 	versionStr := strings.TrimSpace(string(output))
 	parts := strings.Fields(versionStr)
 	if len(parts) < 3 {
 		return "", errors.New("unexpected format from 'go version' command")
 	}
 
-	// Extract version from "go1.23.4" -> "1.23"
-	fullVersion := parts[2] // "go1.23.4"
+	fullVersion := parts[2]
 	if !strings.HasPrefix(fullVersion, "go") {
 		return "", errors.Errorf("unexpected version format: %s", fullVersion)
 	}
 
-	version := strings.TrimPrefix(fullVersion, "go") // "1.23.4"
+	version := strings.TrimPrefix(fullVersion, "go")
+	version = strings.TrimSuffix(version, " devel")
 	versionParts := strings.Split(version, ".")
 	if len(versionParts) < 2 {
 		return "", errors.Errorf("unexpected version format: %s", version)
 	}
 
-	// Return major.minor version
-	return fmt.Sprintf("%s.%s", versionParts[0], versionParts[1]), nil
+	// Preserve the full patch version when present. Go modules may require a
+	// patch-level directive such as go 1.26.1; writing only go 1.26 makes the
+	// generated go.work unusable for those modules.
+	return version, nil
 }
 
 // createGoWorkspace creates a go.work file
@@ -354,7 +356,46 @@ func (wm *WorkspaceManager) CreateGoWorkspace(workspace *Workspace) error {
 		"path", goWorkPath,
 	)
 
-	// Dynamically detect Go version
+	modulePaths := make([]string, 0, len(workspace.Repositories))
+	for _, repo := range workspace.Repositories {
+		// Check if repo has go.mod
+		goModPath := filepath.Join(workspace.Path, repo.Name, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			modulePaths = append(modulePaths, fmt.Sprintf("./%s", repo.Name))
+		}
+	}
+
+	if len(modulePaths) == 0 {
+		return wm.writeGoWorkspaceFallback(workspace, goWorkPath, modulePaths)
+	}
+
+	// Let the Go tool create/update the workspace file. `go work init/use`
+	// writes a go directive that is compatible with the toolchain and included
+	// modules, including patch-level requirements such as go 1.26.1.
+	if err := os.Remove(goWorkPath); err != nil && !os.IsNotExist(err) {
+		return errors.Wrapf(err, "failed to remove existing go.work file")
+	}
+
+	ctx := context.Background()
+	args := append([]string{"work", "init"}, modulePaths...)
+	cmd := exec.CommandContext(ctx, "go", args...)
+	cmd.Dir = workspace.Path
+	cmdOutput, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+
+	output.LogWarn(
+		fmt.Sprintf("Failed to run 'go work init', falling back to manual go.work generation: %v", err),
+		"Failed to run go work init, using fallback",
+		"error", err,
+		"output", string(cmdOutput),
+	)
+
+	return wm.writeGoWorkspaceFallback(workspace, goWorkPath, modulePaths)
+}
+
+func (wm *WorkspaceManager) writeGoWorkspaceFallback(workspace *Workspace, goWorkPath string, modulePaths []string) error {
 	ctx := context.Background()
 	goVersion, err := wm.getGoVersion(ctx)
 	if err != nil {
@@ -367,15 +408,9 @@ func (wm *WorkspaceManager) CreateGoWorkspace(workspace *Workspace) error {
 	}
 
 	content := fmt.Sprintf("go %s\n\nuse (\n", goVersion)
-
-	for _, repo := range workspace.Repositories {
-		// Check if repo has go.mod
-		goModPath := filepath.Join(workspace.Path, repo.Name, "go.mod")
-		if _, err := os.Stat(goModPath); err == nil {
-			content += fmt.Sprintf("\t./%s\n", repo.Name)
-		}
+	for _, modulePath := range modulePaths {
+		content += fmt.Sprintf("\t%s\n", modulePath)
 	}
-
 	content += ")\n"
 
 	if err := os.WriteFile(goWorkPath, []byte(content), 0644); err != nil {
